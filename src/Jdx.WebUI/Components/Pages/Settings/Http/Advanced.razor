@@ -1,0 +1,179 @@
+@page "/settings/http/advanced"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>HTTP Advanced Settings - JumboDogX</PageTitle>
+
+<h1>HTTP/HTTPS - Advanced Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <!-- Keep-Alive Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🔄 Keep-Alive Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useKeepAlive"
+                                   @bind="settings.HttpServer.UseKeepAlive">
+                            <label class="form-check-label" for="useKeepAlive">
+                                <strong>Enable Keep-Alive</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">HTTP/1.1 persistent connections</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="keepAliveTimeout" class="form-label">Timeout (seconds)</label>
+                        <input type="number" class="form-control" id="keepAliveTimeout"
+                               @bind="settings.HttpServer.KeepAliveTimeout" min="1" max="300">
+                        <div class="form-text">Keep-alive timeout</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="maxKeepAliveRequests" class="form-label">Max Requests</label>
+                        <input type="number" class="form-control" id="maxKeepAliveRequests"
+                               @bind="settings.HttpServer.MaxKeepAliveRequests" min="1" max="1000">
+                        <div class="form-text">Max requests per connection</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Range Requests Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📦 Range Requests & Apache Killer Protection</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useRangeRequests"
+                                   @bind="settings.HttpServer.UseRangeRequests">
+                            <label class="form-check-label" for="useRangeRequests">
+                                <strong>Enable Range Requests</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">Support partial content (206 responses)</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="maxRangeCount" class="form-label">Max Range Count</label>
+                        <input type="number" class="form-control" id="maxRangeCount"
+                               @bind="settings.HttpServer.MaxRangeCount" min="1" max="100">
+                        <div class="form-text">Apache Killer attack protection</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auto ACL Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🛡️ Attack Detection & Auto ACL</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useAutoAcl"
+                                   @bind="settings.HttpServer.UseAutoAcl">
+                            <label class="form-check-label" for="useAutoAcl">
+                                <strong>Enable Auto ACL</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">Automatically detect and block attacks</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="autoAclApacheKiller"
+                                   @bind="settings.HttpServer.AutoAclApacheKiller">
+                            <label class="form-check-label" for="autoAclApacheKiller">
+                                <strong>Apache Killer Detection</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">Detect Apache Killer (Range attack) patterns</div>
+                    </div>
+                </div>
+                <div class="alert alert-info">
+                    <strong>ℹ️ Info:</strong> AttackDb monitors failed access attempts in a 120-second time window.
+                    After detecting suspicious activity, the IP will be logged.
+                    Automatic ACL addition requires configuration file write permissions.
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Buttons -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <button class="btn btn-primary btn-lg me-2" @onclick="SaveSettings">
+                    <span class="bi bi-check-circle me-1"></span> Save All Settings
+                </button>
+                <button class="btn btn-secondary btn-lg" @onclick="ResetToDefault">
+                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Advanced settings saved successfully! Restart the server to apply changes.";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        // Clear message after 5 seconds
+        _ = Task.Delay(5000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+
+        // Reset advanced settings to defaults
+        settings.HttpServer.UseKeepAlive = defaults.HttpServer.UseKeepAlive;
+        settings.HttpServer.KeepAliveTimeout = defaults.HttpServer.KeepAliveTimeout;
+        settings.HttpServer.MaxKeepAliveRequests = defaults.HttpServer.MaxKeepAliveRequests;
+        settings.HttpServer.UseRangeRequests = defaults.HttpServer.UseRangeRequests;
+        settings.HttpServer.MaxRangeCount = defaults.HttpServer.MaxRangeCount;
+        settings.HttpServer.UseAutoAcl = defaults.HttpServer.UseAutoAcl;
+        settings.HttpServer.AutoAclApacheKiller = defaults.HttpServer.AutoAclApacheKiller;
+
+        saveMessage = "Settings reset to default values. Click 'Save All Settings' to apply.";
+        saveSuccess = true;
+    }
+}
