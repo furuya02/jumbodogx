@@ -109,6 +109,47 @@ This software is designed for **local development and testing environments only*
 - No security audit has been performed
 - Intended for development, testing, and learning purposes only
 
+## Security Configuration
+
+Before using JumboDogX, review and update the following security settings in `src/Jdx.WebUI/appsettings.json`:
+
+### Critical Security Settings
+
+1. **User Passwords** (High Priority)
+   - Default password hash: `REPLACE_WITH_SECURE_SHA256_HASH`
+   - ⚠️ **MUST** be changed before use
+   - Generate a strong password and create its SHA-256 hash:
+     ```bash
+     echo -n 'YourStrongPassword' | shasum -a 256
+     ```
+   - Replace the placeholder with the generated hash
+
+2. **Network Binding**
+   - Default: `"BindAddress": "127.0.0.1"` (localhost only)
+   - For network access, change to `"0.0.0.0"` (all interfaces)
+   - ⚠️ Only change if necessary and behind a firewall
+
+3. **CGI Execution** (Medium Priority)
+   - Default: `"UseCgi": false` (disabled)
+   - Enable only if CGI scripts are required
+   - ⚠️ Potential command injection risk when enabled
+   - Ensure proper input validation when using CGI
+
+4. **WebDAV Write Access** (Medium Priority)
+   - Default: `"AllowWrite": false` (read-only)
+   - Enable write access only when necessary
+   - ⚠️ Use with authentication to prevent unauthorized file uploads
+
+### Recommended Security Practices
+
+- Use strong, unique passwords for all user accounts
+- Keep BindAddress as `127.0.0.1` unless network access is required
+- Enable CGI and WebDAV write access only when absolutely necessary
+- Regularly review and update security settings
+- Monitor server logs for suspicious activity
+
+For security vulnerability reports, see [SECURITY.md](SECURITY.md).
+
 ## License
 
 MIT License
