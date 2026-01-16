@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -14,6 +15,7 @@ public class HttpFileHandler
 {
     private readonly ILogger _logger;
     private readonly HttpContentType _contentType;
+    private HttpSsiProcessor? _ssiProcessor;
 
     // 大きなファイルの閾値（10MB）
     private const long LargeFileThreshold = 10 * 1024 * 1024;
@@ -22,6 +24,11 @@ public class HttpFileHandler
     {
         _logger = logger;
         _contentType = contentType;
+    }
+
+    public void SetSsiProcessor(HttpSsiProcessor ssiProcessor)
+    {
+        _ssiProcessor = ssiProcessor;
     }
 
     /// <summary>
@@ -116,6 +123,28 @@ public class HttpFileHandler
             }
         }
 
+        // SSI処理チェック
+        if (_ssiProcessor != null && _ssiProcessor.IsSsiFile(filePath))
+        {
+            _logger.LogDebug("Processing SSI file: {Path}", filePath);
+            var content = await File.ReadAllTextAsync(filePath, cancellationToken);
+            var processedContent = await _ssiProcessor.ProcessSsiAsync(content, filePath);
+
+            return new HttpResponse
+            {
+                StatusCode = 200,
+                StatusText = "OK",
+                Body = processedContent,
+                Headers = new Dictionary<string, string>
+                {
+                    ["Content-Type"] = mimeType,
+                    ["Server"] = settings.ServerHeader,
+                    ["Date"] = DateTime.UtcNow.ToString("R"),
+                    ["Last-Modified"] = fileInfo.LastWriteTimeUtc.ToString("R")
+                }
+            };
+        }
+
         // ファイルサイズに応じて処理を分岐
         if (fileInfo.Length > LargeFileThreshold)
         {
@@ -181,14 +210,72 @@ public class HttpFileHandler
     /// <summary>
     /// テンプレートからディレクトリリスティングを生成
     /// </summary>
-    private async Task<string> GenerateDirectoryListingFromTemplateAsync(
+    private Task<string> GenerateDirectoryListingFromTemplateAsync(
         string directoryPath,
         HttpServerSettings settings,
         CancellationToken cancellationToken)
     {
-        // TODO: テンプレート処理の実装
-        // 現在はデフォルトのリスティングを返す
-        return GenerateDefaultDirectoryListing(directoryPath, settings.DocumentRoot);
+        var directoryInfo = new DirectoryInfo(directoryPath);
+        var relativePath = directoryPath.Substring(settings.DocumentRoot.Length).Replace('\\', '/');
+        if (string.IsNullOrEmpty(relativePath))
+        {
+            relativePath = "/";
+        }
+
+        // ディレクトリリストHTML生成
+        var listHtml = GenerateListHtml(directoryInfo, relativePath);
+
+        // テンプレート変数を置換
+        var html = settings.IndexDocument
+            .Replace("$URI", relativePath)
+            .Replace("$LIST", listHtml)
+            .Replace("$SERVER", settings.ServerHeader.Replace("$v", GetVersion()))
+            .Replace("$VER", GetVersion());
+
+        return Task.FromResult(html);
+    }
+
+    /// <summary>
+    /// ディレクトリ一覧のHTMLリストを生成
+    /// </summary>
+    private string GenerateListHtml(DirectoryInfo directoryInfo, string relativePath)
+    {
+        var listHtml = "";
+
+        // 親ディレクトリへのリンク
+        if (relativePath != "/")
+        {
+            listHtml += "<li><a href=\"../\">📁 Parent Directory</a></li>\n";
+        }
+
+        // ディレクトリ一覧
+        foreach (var dir in directoryInfo.GetDirectories().OrderBy(d => d.Name))
+        {
+            var name = dir.Name;
+            var lastModified = dir.LastWriteTime.ToString("yyyy-MM-dd HH:mm");
+            listHtml += $"<li><a href=\"{name}/\">📁 {name}</a> - {lastModified}</li>\n";
+        }
+
+        // ファイル一覧
+        foreach (var file in directoryInfo.GetFiles().OrderBy(f => f.Name))
+        {
+            var name = file.Name;
+            var size = FormatFileSize(file.Length);
+            var lastModified = file.LastWriteTime.ToString("yyyy-MM-dd HH:mm");
+            listHtml += $"<li><a href=\"{name}\">📄 {name}</a> - {size} - {lastModified}</li>\n";
+        }
+
+        return listHtml;
+    }
+
+    /// <summary>
+    /// アプリケーションバージョンを取得
+    /// </summary>
+    private string GetVersion()
+    {
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        var version = assembly.GetName().Version;
+        return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "9.0.0";
     }
 
     /// <summary>
