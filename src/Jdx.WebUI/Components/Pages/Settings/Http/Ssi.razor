@@ -1,0 +1,109 @@
+@page "/settings/http/ssi"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>HTTP SSI Settings - JumboDogX</PageTitle>
+
+<h1>HTTP/HTTPS - SSI Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📝 Server Side Includes (SSI) Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useSsi"
+                                   @bind="settings.HttpServer.UseSsi">
+                            <label class="form-check-label" for="useSsi">
+                                <strong>Enable SSI</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">Enable Server Side Includes processing</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useExec"
+                                   @bind="settings.HttpServer.UseExec">
+                            <label class="form-check-label" for="useExec">
+                                Allow SSI exec
+                            </label>
+                        </div>
+                        <div class="form-text">Allow <!--#exec--> directive</div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="ssiExt" class="form-label">SSI Extensions</label>
+                        <input type="text" class="form-control" id="ssiExt"
+                               @bind="settings.HttpServer.SsiExt" placeholder="html,htm,shtml">
+                        <div class="form-text">Comma-separated list of file extensions to process</div>
+                    </div>
+                </div>
+
+                <div class="border-top pt-3 mt-4">
+                    <button class="btn btn-primary me-2" @onclick="SaveSettings">
+                        Save Settings
+                    </button>
+                    <button class="btn btn-secondary" @onclick="ResetToDefault">
+                        Reset to Default
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Settings saved successfully!";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+        settings.HttpServer = defaults.HttpServer;
+        saveMessage = "Settings reset to default values. Click Save to apply.";
+        saveSuccess = true;
+    }
+}

@@ -1,0 +1,142 @@
+@page "/settings/http/general"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>HTTP General Settings - JumboDogX</PageTitle>
+
+<h1>HTTP/HTTPS - General Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🖥️ HTTP Server - Basic Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="httpEnabled"
+                                   @bind="settings.HttpServer.Enabled">
+                            <label class="form-check-label" for="httpEnabled">
+                                <strong>Enabled</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">Enable HTTP/HTTPS server</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="httpProtocol" class="form-label">Protocol</label>
+                        <select class="form-select" id="httpProtocol" @bind="settings.HttpServer.Protocol">
+                            <option value="HTTP">HTTP</option>
+                            <option value="HTTPS">HTTPS</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="httpPort" class="form-label">Port</label>
+                        <input type="number" class="form-control" id="httpPort"
+                               @bind="settings.HttpServer.Port" min="1" max="65535">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="httpMaxConn" class="form-label">Max Connections</label>
+                        <input type="number" class="form-control" id="httpMaxConn"
+                               @bind="settings.HttpServer.MaxConnections" min="1" max="10000">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="httpBindAddr" class="form-label">Bind Address</label>
+                        <input type="text" class="form-control" id="httpBindAddr"
+                               @bind="settings.HttpServer.BindAddress" placeholder="0.0.0.0">
+                        <div class="form-text">IP address to bind (0.0.0.0 for all interfaces)</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="httpTimeout" class="form-label">Timeout (seconds)</label>
+                        <input type="number" class="form-control" id="httpTimeout"
+                               @bind="settings.HttpServer.TimeOut" min="1" max="300">
+                        <div class="form-text">Request timeout in seconds</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="httpDocRoot" class="form-label">Document Root</label>
+                        <input type="text" class="form-control" id="httpDocRoot"
+                               @bind="settings.HttpServer.DocumentRoot" placeholder="/var/www/html">
+                        <div class="form-text">Root directory for serving files</div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="httpUseResolve"
+                                   @bind="settings.HttpServer.UseResolve">
+                            <label class="form-check-label" for="httpUseResolve">
+                                Use Reverse DNS
+                            </label>
+                        </div>
+                        <div class="form-text">Resolve client hostnames</div>
+                    </div>
+                </div>
+
+                <div class="border-top pt-3 mt-4">
+                    <button class="btn btn-primary me-2" @onclick="SaveSettings">
+                        <span class="bi bi-check-circle me-1"></span> Save Settings
+                    </button>
+                    <button class="btn btn-secondary" @onclick="ResetToDefault">
+                        <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Settings saved successfully!";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        // Clear message after 3 seconds
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+        settings.HttpServer = defaults.HttpServer;
+        saveMessage = "Settings reset to default values. Click Save to apply.";
+        saveSuccess = true;
+    }
+}

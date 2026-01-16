@@ -1,0 +1,59 @@
+@page "/settings/dns/records"
+@rendermode InteractiveServer
+@using Jdx.WebUI.Services
+@using Jdx.Servers.Dns
+@inject ServerManager ServerManager
+
+<PageTitle>DNS Records - JumboDogX</PageTitle>
+
+<h1>DNS - Records Management</h1>
+
+@if (dnsServer == null)
+{
+    <div class="alert alert-warning">
+        DNS Server is not available. Please start the DNS server from the Dashboard first.
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-10">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">📝 DNS Records</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <strong>Info:</strong> DNS record management UI is under development.
+                        <ul class="mb-0 mt-2">
+                            <li>Records can currently be added programmatically via the DnsServer API</li>
+                            <li>Advanced DNS record management (Add, Edit, Delete) will be added in future updates</li>
+                            <li>Supported record types: A, AAAA, CNAME, MX, TXT, etc.</li>
+                        </ul>
+                    </div>
+
+                    <h6 class="mt-4">Current Status</h6>
+                    <p class="text-muted">
+                        DNS Server is <span class="badge bg-success">Running</span> on port @dnsServer.Port
+                    </p>
+
+                    <div class="alert alert-secondary">
+                        <h6>Quick Reference</h6>
+                        <p>To test DNS queries:</p>
+                        <pre class="mb-0"><code>dig @@localhost -p @dnsServer.Port example.com +short
+nslookup example.com localhost</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private DnsServer? dnsServer;
+
+    protected override void OnInitialized()
+    {
+        dnsServer = ServerManager.GetDnsServer();
+    }
+}

@@ -20,6 +20,9 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var logService = app.Services.GetRequiredService<LogService>();
 loggerFactory.AddProvider(new LogServiceLoggerProvider(logService));
 
+// Initialize ServerManager to start servers
+var serverManager = app.Services.GetRequiredService<ServerManager>();
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
