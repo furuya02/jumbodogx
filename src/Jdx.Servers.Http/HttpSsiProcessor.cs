@@ -21,6 +21,19 @@ public class HttpSsiProcessor
         @"<!--#(\w+)\s+([^-]+)-->",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // SSI exec許可コマンドのホワイトリスト（セキュリティ対策）
+    private static readonly HashSet<string> AllowedExecCommands = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "date",
+        "uptime",
+        "whoami",
+        "hostname",
+        "pwd",
+        "ls -la",
+        "df -h",
+        "free -h"
+    };
+
     public HttpSsiProcessor(HttpServerSettings _settings, ILogger logger)
     {
         this._settings = _settings;
@@ -195,12 +208,19 @@ public class HttpSsiProcessor
 
         if (type == "cmd")
         {
-            // コマンド実行（セキュリティリスクが高い）
-            _logger.LogWarning("SSI exec cmd: {Command}", command);
+            // ホワイトリストチェック（セキュリティ対策）
+            if (!AllowedExecCommands.Contains(command))
+            {
+                _logger.LogWarning("SSI exec command not in whitelist: {Command}", command);
+                return "[Command not allowed]";
+            }
+
+            // コマンド実行（ホワイトリストに登録されたコマンドのみ）
+            _logger.LogInformation("SSI exec cmd: {Command}", command);
 
             try
             {
-                var process = new System.Diagnostics.Process
+                using var process = new System.Diagnostics.Process
                 {
                     StartInfo = new System.Diagnostics.ProcessStartInfo
                     {

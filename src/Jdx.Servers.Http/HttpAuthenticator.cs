@@ -144,14 +144,56 @@ public class HttpAuthenticator
         }
 
         // パスワードのSHA-256ハッシュを計算
-        var passwordHash = ComputeSha256Hash(password);
+        var passwordHashBytes = ComputeSha256HashBytes(password);
 
-        // ハッシュを比較
-        return user.Password.Equals(passwordHash, StringComparison.OrdinalIgnoreCase);
+        // 定数時間比較（タイミング攻撃対策）
+        var storedHashBytes = ConvertHexToBytes(user.Password);
+        if (storedHashBytes == null || storedHashBytes.Length != passwordHashBytes.Length)
+        {
+            return false;
+        }
+
+        return CryptographicOperations.FixedTimeEquals(passwordHashBytes, storedHashBytes);
     }
 
     /// <summary>
-    /// SHA-256ハッシュを計算する
+    /// SHA-256ハッシュを計算する（バイト配列）
+    /// </summary>
+    private byte[] ComputeSha256HashBytes(string input)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(input);
+        return sha256.ComputeHash(bytes);
+    }
+
+    /// <summary>
+    /// 16進文字列をバイト配列に変換
+    /// </summary>
+    private byte[]? ConvertHexToBytes(string hex)
+    {
+        try
+        {
+            hex = hex.Replace("-", "");
+            if (hex.Length % 2 != 0)
+            {
+                return null;
+            }
+
+            var bytes = new byte[hex.Length / 2];
+            for (int i = 0; i < hex.Length; i += 2)
+            {
+                bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
+            }
+            return bytes;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// SHA-256ハッシュを計算する（16進文字列）
     /// </summary>
     private string ComputeSha256Hash(string input)
     {
