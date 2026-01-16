@@ -1,8 +1,11 @@
 name: Claude Code Review
 
+# To re-enable, remove the comment from the "on:" section below
 on:
-  pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
+  # Temporarily disabled - uncomment to re-enable
+  workflow_dispatch: # Can be manually triggered
+  # pull_request:
+  #   types: [opened, synchronize, ready_for_review, reopened]
     # Optional: Only run on specific file changes
     # paths:
     #   - "src/**/*.ts"
