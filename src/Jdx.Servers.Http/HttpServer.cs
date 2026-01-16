@@ -23,6 +23,12 @@ public class HttpServer : ServerBase
     private HttpAclFilter? _aclFilter;
     private HttpCgiHandler? _cgiHandler;
     private HttpWebDavHandler? _webDavHandler;
+    private HttpAttackDb? _attackDb;
+    private HttpVirtualHostManager? _virtualHostManager;
+    private HttpSslManager? _sslManager;
+
+    // デフォルトタイムアウト（タイムアウト設定が0の場合に使用）
+    private const int DefaultTimeoutSeconds = 30;
 
     public HttpServer(ILogger<HttpServer> logger, ISettingsService settingsService) : base(logger)
     {
@@ -53,9 +59,54 @@ public class HttpServer : ServerBase
         _cgiHandler = new HttpCgiHandler(settings, Logger);
         _webDavHandler = new HttpWebDavHandler(settings, Logger);
 
+        // Virtual Host初期化
+        _virtualHostManager = new HttpVirtualHostManager(settings, Logger);
+        if (settings.VirtualHosts != null && settings.VirtualHosts.Count > 0)
+        {
+            Logger.LogInformation("Virtual Host enabled: {Count} hosts configured", settings.VirtualHosts.Count);
+        }
+
+        // SSL/TLS初期化
+        _sslManager = new HttpSslManager(settings.CertificateFile, settings.CertificatePassword, Logger);
+        if (_sslManager.IsEnabled)
+        {
+            Logger.LogInformation("HTTPS/SSL enabled");
+            // TODO: ServerTcpListenerをSSL対応に変更する必要があります
+            // 現在の実装では、HTTPのみサポートしています
+            Logger.LogWarning("SSL/TLS is initialized but not yet fully integrated. HTTP-only mode.");
+        }
+
+        // AttackDb初期化（UseAutoAclが有効な場合）
+        if (settings.UseAutoAcl)
+        {
+            _attackDb = new HttpAttackDb(Logger, timeWindowSeconds: 120, maxAttempts: 1);
+            Logger.LogInformation("AttackDb enabled: timeWindow=120s, maxAttempts=1");
+        }
+        else
+        {
+            _attackDb = null;
+        }
+
         // SSIプロセッサを初期化してFileHandlerに設定
         var ssiProcessor = new HttpSsiProcessor(settings, Logger);
         _fileHandler.SetSsiProcessor(ssiProcessor);
+
+        // AttackDb攻撃検出コールバックを設定
+        if (_attackDb != null)
+        {
+            _fileHandler.SetAttackDetectedCallback((remoteIp) =>
+            {
+                // Apache Killer攻撃検出時の処理
+                if (_attackDb.IsInjustice(false, remoteIp))
+                {
+                    Logger.LogWarning("Attack detected from {RemoteIp}", remoteIp);
+                    // TODO: ACL自動追加機能
+                    // ISettingsService.GetSettings()でACL設定を取得し、
+                    // AclListに新しいAclEntryを追加してSaveSettingsAsync()で保存する。
+                    // EnableAcl設定がDenyMode(1)であることを確認する必要がある。
+                }
+            });
+        }
     }
 
     private void OnSettingsChanged(object? sender, ApplicationSettings settings)
@@ -136,9 +187,10 @@ public class HttpServer : ServerBase
                             var errorBytes = errorResponse.ToBytes();
                             await clientSocket.SendAsync(errorBytes, SocketFlags.None, CancellationToken.None);
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // エラーレスポンス送信に失敗しても無視
+                            // エラーレスポンス送信に失敗してもログのみ出力
+                            Logger.LogDebug(ex, "Failed to send error response to client");
                         }
                         finally
                         {
@@ -190,7 +242,7 @@ public class HttpServer : ServerBase
     protected override async Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
     {
         var remoteEndPoint = clientSocket.RemoteEndPoint?.ToString() ?? "unknown";
-        Logger.LogInformation("HTTP request from {RemoteEndPoint}", remoteEndPoint);
+        Logger.LogInformation("HTTP connection from {RemoteEndPoint}", remoteEndPoint);
 
         var settings = _settingsService.GetSettings().HttpServer;
 
@@ -207,9 +259,10 @@ public class HttpServer : ServerBase
                 var forbiddenBytes = forbiddenResponse.ToBytes();
                 await clientSocket.SendAsync(forbiddenBytes, SocketFlags.None, CancellationToken.None);
             }
-            catch
+            catch (Exception ex)
             {
-                // エラーレスポンス送信に失敗しても無視
+                // エラーレスポンス送信に失敗してもログのみ出力
+                Logger.LogDebug(ex, "Failed to send 403 Forbidden response");
             }
             finally
             {
@@ -221,82 +274,138 @@ public class HttpServer : ServerBase
             return;
         }
 
-        // タイムアウト設定
-        using var timeoutCts = new CancellationTokenSource();
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
-
-        if (settings.TimeOut > 0)
-        {
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(settings.TimeOut));
-        }
+        // Keep-Alive用の変数
+        var keepAlive = settings.UseKeepAlive;
+        var requestCount = 0;
 
         try
         {
-            // リクエストを読み取る
-            var buffer = new byte[8192];
-            var bytesRead = await clientSocket.ReceiveAsync(buffer, SocketFlags.None, linkedCts.Token);
-
-            if (bytesRead == 0)
+            // Keep-Aliveループ：接続を維持しながら複数のリクエストを処理
+            while (keepAlive && !cancellationToken.IsCancellationRequested)
             {
-                return;
+                requestCount++;
+
+                // 最大リクエスト数チェック
+                if (settings.MaxKeepAliveRequests > 0 && requestCount > settings.MaxKeepAliveRequests)
+                {
+                    Logger.LogDebug("Max keep-alive requests ({Max}) reached for {RemoteEndPoint}",
+                        settings.MaxKeepAliveRequests, remoteEndPoint);
+                    break;
+                }
+
+                // Keep-Aliveタイムアウト設定
+                using var keepAliveCts = new CancellationTokenSource();
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, keepAliveCts.Token);
+
+                var timeout = requestCount == 1 ? settings.TimeOut : settings.KeepAliveTimeout;
+                // タイムアウトが0の場合はデフォルト値を使用（無限待機を防ぐ）
+                if (timeout <= 0)
+                {
+                    timeout = DefaultTimeoutSeconds;
+                }
+                keepAliveCts.CancelAfter(TimeSpan.FromSeconds(timeout));
+
+                try
+                {
+                    // リクエストを読み取る
+                    var buffer = new byte[8192];
+                    var bytesRead = await clientSocket.ReceiveAsync(buffer, SocketFlags.None, linkedCts.Token);
+
+                    if (bytesRead == 0)
+                    {
+                        // クライアントが接続を閉じた
+                        Logger.LogDebug("Client closed connection: {RemoteEndPoint}", remoteEndPoint);
+                        break;
+                    }
+
+                    var requestText = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    var lines = requestText.Split("\r\n");
+
+                    if (lines.Length == 0)
+                    {
+                        break;
+                    }
+
+                    // リクエスト全体をパース（ヘッダー含む）
+                    var request = HttpRequest.ParseFull(lines);
+                    Statistics.TotalRequests++;
+
+                    Logger.LogInformation("HTTP {Method} {Path} from {RemoteEndPoint} (request #{Count})",
+                        request.Method, request.Path, remoteEndPoint, requestCount);
+
+                    // Keep-Aliveの判定
+                    keepAlive = ShouldKeepAlive(request, settings);
+
+                    // レスポンスを生成
+                    var response = await GenerateResponseAsync(request, linkedCts.Token, remoteIp);
+
+                    // Connection ヘッダーを設定
+                    if (keepAlive && requestCount < settings.MaxKeepAliveRequests)
+                    {
+                        response.Headers["Connection"] = "keep-alive";
+                        response.Headers["Keep-Alive"] = $"timeout={settings.KeepAliveTimeout}, max={settings.MaxKeepAliveRequests - requestCount}";
+                    }
+                    else
+                    {
+                        response.Headers["Connection"] = "close";
+                        keepAlive = false;
+                    }
+
+                    // レスポンスを送信（ストリーム対応）
+                    if (response.BodyStream != null)
+                    {
+                        await response.SendAsync(clientSocket, linkedCts.Token);
+                        Statistics.TotalBytesSent += response.ContentLength ?? 0;
+                    }
+                    else
+                    {
+                        var responseBytes = response.ToBytes();
+                        await clientSocket.SendAsync(responseBytes, SocketFlags.None, linkedCts.Token);
+                        Statistics.TotalBytesSent += responseBytes.Length;
+                    }
+
+                    Logger.LogInformation("HTTP {StatusCode} {Method} {Path} - Keep-Alive: {KeepAlive}",
+                        response.StatusCode, request.Method, request.Path, keepAlive);
+                }
+                catch (OperationCanceledException) when (keepAliveCts.Token.IsCancellationRequested)
+                {
+                    // Keep-Aliveタイムアウト
+                    if (requestCount == 1)
+                    {
+                        Logger.LogWarning("HTTP request from {RemoteEndPoint} timed out after {TimeOut} seconds",
+                            remoteEndPoint, timeout);
+                        Statistics.TotalErrors++;
+
+                        // タイムアウトエラーレスポンスを送信（ベストエフォート）
+                        try
+                        {
+                            var timeoutResponse = HttpResponseBuilder.BuildErrorResponse(408, "Request Timeout", settings);
+                            var timeoutBytes = timeoutResponse.ToBytes();
+                            await clientSocket.SendAsync(timeoutBytes, SocketFlags.None, CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        {
+                            // エラーレスポンス送信に失敗してもログのみ出力
+                            Logger.LogDebug(ex, "Failed to send error response to client");
+                        }
+                    }
+                    else
+                    {
+                        Logger.LogDebug("Keep-alive timeout for {RemoteEndPoint} after {Count} requests",
+                            remoteEndPoint, requestCount - 1);
+                    }
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Error handling HTTP request from {RemoteEndPoint}", remoteEndPoint);
+                    Statistics.TotalErrors++;
+                    break;
+                }
             }
 
-            var requestText = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-            var lines = requestText.Split("\r\n");
-
-            if (lines.Length == 0)
-            {
-                return;
-            }
-
-            // リクエスト全体をパース（ヘッダー含む）
-            var request = HttpRequest.ParseFull(lines);
-            Statistics.TotalRequests++;
-
-            Logger.LogInformation("HTTP {Method} {Path} from {RemoteEndPoint}",
-                request.Method, request.Path, remoteEndPoint);
-
-            // レスポンスを生成
-            var response = await GenerateResponseAsync(request, linkedCts.Token);
-
-            // レスポンスを送信（ストリーム対応）
-            if (response.BodyStream != null)
-            {
-                await response.SendAsync(clientSocket, linkedCts.Token);
-                Statistics.TotalBytesSent += response.ContentLength ?? 0;
-            }
-            else
-            {
-                var responseBytes = response.ToBytes();
-                await clientSocket.SendAsync(responseBytes, SocketFlags.None, linkedCts.Token);
-                Statistics.TotalBytesSent += responseBytes.Length;
-            }
-
-            Logger.LogInformation("HTTP {StatusCode} {Method} {Path}",
-                response.StatusCode, request.Method, request.Path);
-        }
-        catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
-        {
-            Logger.LogWarning("HTTP request from {RemoteEndPoint} timed out after {TimeOut} seconds",
-                remoteEndPoint, settings.TimeOut);
-            Statistics.TotalErrors++;
-
-            // タイムアウトエラーレスポンスを送信（ベストエフォート）
-            try
-            {
-                var timeoutResponse = HttpResponseBuilder.BuildErrorResponse(408, "Request Timeout", settings);
-                var timeoutBytes = timeoutResponse.ToBytes();
-                await clientSocket.SendAsync(timeoutBytes, SocketFlags.None, CancellationToken.None);
-            }
-            catch
-            {
-                // タイムアウトレスポンス送信に失敗しても無視
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error handling HTTP request from {RemoteEndPoint}", remoteEndPoint);
-            Statistics.TotalErrors++;
+            Logger.LogDebug("HTTP connection closed: {RemoteEndPoint} ({Count} requests processed)",
+                remoteEndPoint, requestCount - 1);
         }
         finally
         {
@@ -305,9 +414,53 @@ public class HttpServer : ServerBase
         }
     }
 
-    private async Task<HttpResponse> GenerateResponseAsync(HttpRequest request, CancellationToken cancellationToken)
+    /// <summary>
+    /// Keep-Aliveを維持するかどうかを判定
+    /// </summary>
+    private bool ShouldKeepAlive(HttpRequest request, HttpServerSettings settings)
+    {
+        if (!settings.UseKeepAlive)
+        {
+            return false;
+        }
+
+        // HTTP/1.0 の場合、Connection: Keep-Alive ヘッダーが必要
+        if (request.Version == "HTTP/1.0")
+        {
+            if (request.Headers.TryGetValue("Connection", out var connection))
+            {
+                return connection.Equals("Keep-Alive", StringComparison.OrdinalIgnoreCase);
+            }
+            return false;
+        }
+
+        // HTTP/1.1 の場合、デフォルトでKeep-Alive（Connection: close で明示的に無効化）
+        if (request.Headers.TryGetValue("Connection", out var connectionHeader))
+        {
+            return !connectionHeader.Equals("close", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return true;
+    }
+
+    private async Task<HttpResponse> GenerateResponseAsync(HttpRequest request, CancellationToken cancellationToken, string? remoteIp = null)
     {
         var settings = _settingsService.GetSettings().HttpServer;
+
+        // Virtual Host解決
+        string? documentRoot = null;
+        if (_virtualHostManager != null && request.Headers.TryGetValue("Host", out var hostHeader))
+        {
+            // ローカルアドレス・ポートの取得（TODO: 実際の値を取得）
+            var localAddress = settings.BindAddress;
+            var localPort = _port;
+
+            documentRoot = _virtualHostManager.ResolveDocumentRoot(hostHeader, localAddress, localPort);
+            if (documentRoot != settings.DocumentRoot)
+            {
+                Logger.LogDebug("Virtual host resolved: {Host} -> {DocumentRoot}", hostHeader, documentRoot);
+            }
+        }
 
         // 組み込みルート（/stats）
         if (request.Path == "/stats")
@@ -349,14 +502,13 @@ public class HttpServer : ServerBase
         }
 
         // CGIチェック
-        var remoteIp = "127.0.0.1"; // TODO: 実際のリモートIPアドレス
         if (_cgiHandler!.IsCgiRequest(request.Path, out var scriptPath, out var interpreter))
         {
-            return await _cgiHandler.ExecuteCgiAsync(scriptPath, interpreter, request, remoteIp, cancellationToken);
+            return await _cgiHandler.ExecuteCgiAsync(scriptPath, interpreter, request, remoteIp ?? "127.0.0.1", cancellationToken);
         }
 
-        // ターゲット解決
-        var targetInfo = _target!.ResolveTarget(request.Path);
+        // ターゲット解決（Virtual Host対応）
+        var targetInfo = _target!.ResolveTarget(request.Path, documentRoot);
 
         if (!targetInfo.IsValid)
         {
@@ -372,7 +524,7 @@ public class HttpServer : ServerBase
         // ファイルハンドラで処理
         if (targetInfo.Type == TargetType.StaticFile || targetInfo.Type == TargetType.Directory)
         {
-            return await _fileHandler!.HandleFileAsync(targetInfo, request, settings, cancellationToken);
+            return await _fileHandler!.HandleFileAsync(targetInfo, request, settings, cancellationToken, remoteIp);
         }
 
         // その他（本来ここには来ないはず）

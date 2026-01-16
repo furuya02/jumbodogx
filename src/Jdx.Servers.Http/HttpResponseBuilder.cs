@@ -39,6 +39,12 @@ public static class HttpResponseBuilder
             }
         };
 
+        // Range Requestsサポート
+        if (settings.UseRangeRequests)
+        {
+            response.Headers["Accept-Ranges"] = "bytes";
+        }
+
         // ETagサポート
         if (settings.UseEtag)
         {
@@ -75,6 +81,12 @@ public static class HttpResponseBuilder
                 ["Last-Modified"] = fileInfo.LastWriteTimeUtc.ToString("R")
             }
         };
+
+        // Range Requestsサポート
+        if (settings.UseRangeRequests)
+        {
+            response.Headers["Accept-Ranges"] = "bytes";
+        }
 
         // ETagサポート
         if (settings.UseEtag)

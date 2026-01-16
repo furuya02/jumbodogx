@@ -1,0 +1,222 @@
+@page "/settings/http/acl"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>HTTP Access Control List - JumboDogX</PageTitle>
+
+<h1>HTTP/HTTPS - Access Control List (ACL)</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <!-- ACL Mode Selection -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🛡️ ACL Mode</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Access Control Mode</label>
+                        <select class="form-select" @bind="settings.HttpServer.EnableAcl">
+                            <option value="0">Allow Mode (Allowlist)</option>
+                            <option value="1">Deny Mode (Denylist)</option>
+                        </select>
+                        <div class="form-text">
+                            <strong>Allow Mode:</strong> Only listed IP addresses are allowed (default deny)<br>
+                            <strong>Deny Mode:</strong> Only listed IP addresses are denied (default allow)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACL List -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📋 ACL Entries</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Configure IP address-based access control rules.
+                    @if (settings.HttpServer.EnableAcl == 0)
+                    {
+                        <text><strong>Current mode: Allow Mode</strong> - Only listed addresses are permitted.</text>
+                    }
+                    else
+                    {
+                        <text><strong>Current mode: Deny Mode</strong> - Only listed addresses are blocked.</text>
+                    }
+                </p>
+
+                @if (settings.HttpServer.AclList == null || settings.HttpServer.AclList.Count == 0)
+                {
+                    <div class="alert alert-info">
+                        No ACL entries configured. Click "Add ACL Entry" to create one.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30%">Name</th>
+                                    <th style="width: 50%">IP Address / Range</th>
+                                    <th style="width: 20%">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var (acl, index) in settings.HttpServer.AclList.Select((a, i) => (a, i)))
+                                {
+                                    <tr>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm"
+                                                   @bind="acl.Name"
+                                                   placeholder="Entry name">
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm"
+                                                   @bind="acl.Address"
+                                                   placeholder="192.168.1.0/24 or 192.168.1.100">
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => RemoveAclEntry(index)">
+                                                <span class="bi bi-trash"></span> Remove
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                <button class="btn btn-success" @onclick="AddAclEntry">
+                    <span class="bi bi-plus-circle me-1"></span> Add ACL Entry
+                </button>
+            </div>
+        </div>
+
+        <!-- Information -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">ℹ️ ACL Configuration Guide</h5>
+            </div>
+            <div class="card-body">
+                <h6>Supported Address Formats:</h6>
+                <ul>
+                    <li><strong>Single IP:</strong> 192.168.1.100</li>
+                    <li><strong>IP Range (CIDR):</strong> 192.168.1.0/24</li>
+                    <li><strong>IP Range (Start-End):</strong> 192.168.1.1-192.168.1.254</li>
+                    <li><strong>Wildcard:</strong> 192.168.1.* (matches 192.168.1.0-192.168.1.255)</li>
+                </ul>
+
+                <h6 class="mt-3">Examples:</h6>
+                <ul>
+                    <li><strong>Allow Mode:</strong> Add trusted IP addresses to allow access (all others denied)</li>
+                    <li><strong>Deny Mode:</strong> Add malicious IP addresses to block access (all others allowed)</li>
+                </ul>
+
+                <div class="alert alert-warning mt-3">
+                    <strong>⚠️ Important:</strong> ACL changes require server restart to take effect.
+                    Be careful when using Allow Mode - ensure you add your own IP address first!
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Buttons -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <button class="btn btn-primary btn-lg me-2" @onclick="SaveSettings">
+                    <span class="bi bi-check-circle me-1"></span> Save Settings
+                </button>
+                <button class="btn btn-secondary btn-lg" @onclick="ResetToDefault">
+                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+
+        // Initialize AclList if null
+        if (settings.HttpServer.AclList == null)
+        {
+            settings.HttpServer.AclList = new List<AclEntry>();
+        }
+    }
+
+    private void AddAclEntry()
+    {
+        if (settings.HttpServer.AclList == null)
+        {
+            settings.HttpServer.AclList = new List<AclEntry>();
+        }
+
+        settings.HttpServer.AclList.Add(new AclEntry
+        {
+            Name = "",
+            Address = ""
+        });
+    }
+
+    private void RemoveAclEntry(int index)
+    {
+        if (settings.HttpServer.AclList != null && index >= 0 && index < settings.HttpServer.AclList.Count)
+        {
+            settings.HttpServer.AclList.RemoveAt(index);
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "ACL settings saved successfully! Restart the server to apply changes.";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        // Clear message after 5 seconds
+        _ = Task.Delay(5000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+
+        // Reset ACL settings to defaults
+        settings.HttpServer.EnableAcl = defaults.HttpServer.EnableAcl;
+        settings.HttpServer.AclList = new List<AclEntry>();
+
+        saveMessage = "ACL settings reset to default values. Click 'Save Settings' to apply.";
+        saveSuccess = true;
+    }
+}

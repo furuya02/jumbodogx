@@ -39,6 +39,15 @@
                 </div>
 
                 <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="serverAdmin" class="form-label">Server Administrator</label>
+                        <input type="email" class="form-control" id="serverAdmin"
+                               @bind="settings.HttpServer.ServerAdmin" placeholder="admin@example.com">
+                        <div class="form-text">Administrator email displayed in error pages</div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
                     <div class="col-md-4">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="useHidden"
