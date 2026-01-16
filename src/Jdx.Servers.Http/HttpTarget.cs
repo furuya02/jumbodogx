@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using Jdx.Core.Settings;
 
@@ -40,11 +41,26 @@ public class HttpTarget
             // パスを正規化（%エンコード対応）
             path = Uri.UnescapeDataString(path);
 
-            // パス結合
-            var physicalPath = Path.Combine(_settings.DocumentRoot, path.TrimStart('/'));
+            // Alias解決（Aliasが優先）
+            var aliasResult = ResolveAlias(path);
+            string physicalPath;
+            string rootPath;
 
-            // セキュリティ検証
-            if (!ValidatePath(physicalPath))
+            if (aliasResult.matched)
+            {
+                physicalPath = aliasResult.physicalPath;
+                rootPath = aliasResult.rootDirectory;
+                _logger.LogDebug("Alias matched: {RequestPath} -> {PhysicalPath}", path, physicalPath);
+            }
+            else
+            {
+                // パス結合（通常のDocumentRoot）
+                physicalPath = Path.Combine(_settings.DocumentRoot, path.TrimStart('/'));
+                rootPath = _settings.DocumentRoot;
+            }
+
+            // セキュリティ検証（適切なrootPathを指定）
+            if (!ValidatePath(physicalPath, rootPath))
             {
                 return TargetInfo.Invalid("Access denied");
             }
@@ -108,16 +124,16 @@ public class HttpTarget
     /// <summary>
     /// パスのセキュリティ検証
     /// </summary>
-    private bool ValidatePath(string physicalPath)
+    private bool ValidatePath(string physicalPath, string? rootPath = null)
     {
         try
         {
             // フルパスに正規化
             var fullPath = Path.GetFullPath(physicalPath);
-            var documentRoot = Path.GetFullPath(_settings.DocumentRoot);
+            var allowedRoot = Path.GetFullPath(rootPath ?? _settings.DocumentRoot);
 
-            // DocumentRoot外へのアクセス防止（パストラバーサル対策）
-            if (!fullPath.StartsWith(documentRoot, StringComparison.OrdinalIgnoreCase))
+            // rootPath外へのアクセス防止（パストラバーサル対策）
+            if (!fullPath.StartsWith(allowedRoot, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning("Path traversal attempt blocked: {Path}", physicalPath);
                 return false;
@@ -145,7 +161,7 @@ public class HttpTarget
                 }
 
                 // パス内の各ディレクトリもチェック
-                var pathParts = fullPath.Substring(documentRoot.Length).Split(Path.DirectorySeparatorChar);
+                var pathParts = fullPath.Substring(allowedRoot.Length).Split(Path.DirectorySeparatorChar);
                 foreach (var part in pathParts)
                 {
                     if (!string.IsNullOrEmpty(part) && part.StartsWith("."))
@@ -191,6 +207,31 @@ public class HttpTarget
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Alias解決を行う
+    /// </summary>
+    private (bool matched, string physicalPath, string rootDirectory) ResolveAlias(string requestPath)
+    {
+        if (_settings.Aliases == null || _settings.Aliases.Count == 0)
+        {
+            return (false, string.Empty, string.Empty);
+        }
+
+        // 最も長いマッチを優先（/docs/test より /docs を優先的に扱わない）
+        foreach (var alias in _settings.Aliases.OrderByDescending(a => a.Name.Length))
+        {
+            if (requestPath.StartsWith(alias.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                // Alias部分を置換
+                var relativePath = requestPath.Substring(alias.Name.Length).TrimStart('/');
+                var physicalPath = Path.Combine(alias.Directory, relativePath);
+                return (true, physicalPath, alias.Directory);
+            }
+        }
+
+        return (false, string.Empty, string.Empty);
     }
 }
 
