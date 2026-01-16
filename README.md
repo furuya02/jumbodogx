@@ -1,89 +1,123 @@
 # BJD9 - BlackJumboDog 9
 
-BJD9は、BlackJumboDog (BJD5)を.NET 9へ移植したクロスプラットフォーム統合サーバーソフトウェアです。
+English | [日本語](README.ja.md)
 
-## 概要
+BJD9 is a cross-platform integrated server software, porting BlackJumboDog (BJD5) to .NET 9.
 
-- **元プロジェクト**: BlackJumboDog Ver6.1.9
-- **ライセンス**: Apache License 2.0
-- **対応プラットフォーム**: Windows、macOS、Linux
-- **フレームワーク**: .NET 9
-- **言語**: C# 13
+**⚠️ Important**: This software is designed for **local testing purposes only**. It is NOT intended for production use or public-facing deployments. Use it exclusively in development and testing environments.
 
-## 主要機能（予定）
+## Overview
 
-- HTTP/HTTPS サーバー
-- DNS サーバー
-- SMTP/POP3 メールサーバー
-- FTP サーバー
-- DHCP サーバー
-- 各種Proxyサーバー
-- Web UI管理画面（Blazor Server）
+- **Original Project**: BlackJumboDog Ver6.1.9
+- **License**: MIT License
+- **Purpose**: Local testing environment only (NOT recommended for production or public servers)
+- **Platforms**: Windows, macOS, Linux
+- **Framework**: .NET 9
+- **Language**: C# 13
 
-## プロジェクト構成
+## Key Features (Planned)
+
+- HTTP/HTTPS Server
+- DNS Server
+- SMTP/POP3 Mail Server
+- FTP Server
+- DHCP Server
+- Various Proxy Servers
+- Web UI Management Console (Blazor Server)
+
+## Project Structure
 
 ```
 bjd9/
 ├── src/
-│   ├── Bjd9.Core/              # コアライブラリ
-│   ├── Bjd9.Servers.Http/      # HTTPサーバー実装
-│   ├── Bjd9.Host/              # ホストアプリケーション
-│   └── Bjd9.WebUI/             # Web UI（Blazor Server）
+│   ├── Bjd9.Core/              # Core library
+│   ├── Bjd9.Servers.Http/      # HTTP server implementation
+│   ├── Bjd9.Servers.Dns/       # DNS server implementation
+│   ├── Bjd9.Host/              # Host application
+│   └── Bjd9.WebUI/             # Web UI (Blazor Server)
 ├── tests/
-│   ├── Bjd9.Tests.Core/        # Coreのユニットテスト
-│   └── Bjd9.Tests.Servers.Http/ # HTTPサーバーのテスト
-└── docs/                        # 設計ドキュメント
-
+│   ├── Bjd9.Tests.Core/        # Core unit tests
+│   └── Bjd9.Tests.Servers.Http/ # HTTP server tests
+└── docs/                        # Design documents
 ```
 
-## 開発状況
+## Development Status
 
-現在、プロジェクト骨格の作成が完了しました。
+- [x] .NET 9 SDK installation
+- [x] Project structure creation
+- [x] Solution configuration
+- [x] Core implementation (ServerBase, IServer abstraction)
+- [x] HTTP server implementation (basic features)
+- [x] DNS server implementation (basic features)
+- [x] Web UI implementation (Dashboard, Logs, DNS Records management)
+- [ ] SMTP/POP3 server implementation
+- [ ] FTP server implementation
+- [ ] DHCP server implementation
+- [ ] Proxy server implementation
 
-- [x] .NET 9 SDKインストール
-- [x] プロジェクト構造作成
-- [x] ソリューション設定
-- [ ] コア機能実装（進行中）
-- [ ] HTTPサーバー実装
-- [ ] Web UI実装
+## Requirements
 
-## 必要環境
-
-- .NET 9 SDK以上
+- .NET 9 SDK or later
 - Visual Studio 2022 / JetBrains Rider / VS Code
 
-## ビルド方法
+## Build
 
 ```bash
-# リストア
+# Restore dependencies
 dotnet restore
 
-# ビルド
+# Build
 dotnet build
 
-# テスト実行
+# Run tests
 dotnet test
 ```
 
-## 実行方法
+## Running
+
+### CLI Version (Host Application)
 
 ```bash
 cd src/Bjd9.Host
 dotnet run
 ```
 
-## 設計ドキュメント
+### Web UI Version
 
-詳細な設計ドキュメントは `../docs/` ディレクトリに格納されています：
+```bash
+cd src/Bjd9.WebUI
+dotnet run
+```
 
-- 移植計画: `docs/00_migration/`
-- 技術設計: `docs/01_technical/`
+Then, open http://localhost:5000 in your browser.
 
-## ライセンス
+For detailed instructions, see [startup.md](startup.md).
 
-Apache License 2.0
+## Design Documents
 
-## 関連リンク
+Detailed design documents are stored in the `docs/` directory:
 
-- 元プロジェクト: BlackJumboDog Ver6.1.9
+- Migration Plan: `docs/00_migration/`
+- Technical Design: `docs/01_technical/`
+
+## Security Notice
+
+This software is designed for **local development and testing environments only**. Please be aware of the following:
+
+- Do NOT expose directly to the internet
+- NOT recommended for production use
+- No security audit has been performed
+- Intended for development, testing, and learning purposes only
+
+## License
+
+MIT License
+
+Copyright (c) 2026 Hirauchi Shinichi (SIN)
+
+See the [LICENSE](LICENSE) file for details.
+
+## Related Links
+
+- Original Project: BlackJumboDog Ver6.1.9
 - .NET 9: https://dotnet.microsoft.com/
