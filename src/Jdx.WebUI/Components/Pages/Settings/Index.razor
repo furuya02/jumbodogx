@@ -1,0 +1,10 @@
+@page "/settings"
+@inject NavigationManager Navigation
+
+@code {
+    protected override void OnInitialized()
+    {
+        // Redirect to HTTP General settings by default
+        Navigation.NavigateTo("/settings/http/general");
+    }
+}
