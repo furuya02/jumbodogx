@@ -258,7 +258,7 @@ public class HttpSsiProcessor
         var type = parts[0].ToLowerInvariant();
         var path = parts[1].Trim('"', '\'');
 
-        string targetPath = GetTargetPath(type, path, baseFilePath);
+        string? targetPath = GetTargetPath(type, path, baseFilePath);
         if (targetPath == null)
         {
             return "[File not found]";

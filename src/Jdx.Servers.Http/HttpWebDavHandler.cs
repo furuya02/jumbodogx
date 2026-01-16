@@ -288,6 +288,9 @@ public class HttpWebDavHandler
 
         try
         {
+            // Check if file exists BEFORE writing
+            var fileExisted = File.Exists(physicalPath);
+
             // ディレクトリが存在しない場合は作成
             var directory = Path.GetDirectoryName(physicalPath);
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
@@ -298,7 +301,8 @@ public class HttpWebDavHandler
             // ファイルに書き込み
             await File.WriteAllTextAsync(physicalPath, request.Body ?? string.Empty, cancellationToken);
 
-            var statusCode = File.Exists(physicalPath) ? 204 : 201;
+            // 201 if newly created, 204 if updated existing file
+            var statusCode = fileExisted ? 204 : 201;
             var statusText = statusCode == 201 ? "Created" : "No Content";
 
             return new HttpResponse
