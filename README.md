@@ -89,7 +89,7 @@ cd src/Jdx.WebUI
 dotnet run
 ```
 
-Then, open http://localhost:5000 in your browser.
+Then, open http://localhost:5001 in your browser.
 
 For detailed instructions, see [startup.md](startup.md).
 

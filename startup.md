@@ -119,13 +119,13 @@ info: Jdx.Servers.Dns.DnsServer[0]
 ブラウザからサーバーを管理する方法です。
 
 ```bash
-dotnet run --project src/Jdx.WebUI --urls "http://localhost:5000"
+dotnet run --project src/Jdx.WebUI --urls "http://localhost:5001"
 ```
 
 **期待される出力:**
 ```
 info: Microsoft.Hosting.Lifetime[14]
-      Now listening on: http://localhost:5000
+      Now listening on: http://localhost:5001
 info: Microsoft.Hosting.Lifetime[0]
       Application started. Press Ctrl+C to shut down.
 info: Jdx.Servers.Dns.DnsServer[0]
@@ -140,7 +140,7 @@ info: Jdx.WebUI.Services.ServerManager[0]
 
 **起動後、ブラウザで以下にアクセス:**
 ```
-http://localhost:5000
+http://localhost:5001
 ```
 
 **特徴:**
@@ -157,7 +157,7 @@ http://localhost:5000
 /opt/homebrew/Cellar/dotnet@9/9.0.112/bin/dotnet run --project src/Jdx.Host
 
 # Web UI版
-/opt/homebrew/Cellar/dotnet@9/9.0.112/bin/dotnet run --project src/Jdx.WebUI --urls "http://localhost:5000"
+/opt/homebrew/Cellar/dotnet@9/9.0.112/bin/dotnet run --project src/Jdx.WebUI --urls "http://localhost:5001"
 ```
 
 ---
@@ -322,14 +322,14 @@ Web UI版（`Jdx.WebUI`）を起動している場合、ブラウザから直感
 
 ブラウザで以下の URL を開く:
 ```
-http://localhost:5000
+http://localhost:5001
 ```
 
 ### 利用可能なページ
 
 #### 1. Dashboard（トップページ）
 
-**URL:** http://localhost:5000/
+**URL:** http://localhost:5001/
 
 **機能:**
 - サーバー一覧表示（HTTP, DNS）
@@ -352,7 +352,7 @@ http://localhost:5000
   - 🔄 Refresh（手動更新）
 
 **使用例:**
-1. ブラウザで http://localhost:5000 にアクセス
+1. ブラウザで http://localhost:5001 にアクセス
 2. HTTP サーバーの「▶️ Start」ボタンをクリック
 3. サーバーが起動し、統計情報がリアルタイムで更新される
 4. http://localhost:8080 で HTTP サーバーにアクセス可能になる
@@ -362,7 +362,7 @@ http://localhost:5000
 
 #### 2. Logs（ログ表示）
 
-**URL:** http://localhost:5000/logs
+**URL:** http://localhost:5001/logs
 
 **機能:**
 - リアルタイムログストリーム
@@ -379,7 +379,7 @@ http://localhost:5000
   - 🔍 Debug/Trace（グレー）
 
 **使用例:**
-1. http://localhost:5000/logs にアクセス
+1. http://localhost:5001/logs にアクセス
 2. 「Error」フィルタを選択してエラーログのみ表示
 3. サーバーの動作をリアルタイムで監視
 
@@ -389,7 +389,7 @@ http://localhost:5000
 
 #### 3. DNS Records（DNS レコード管理）
 
-**URL:** http://localhost:5000/dns
+**URL:** http://localhost:5001/dns
 
 **機能:**
 - DNS レコード一覧表示
@@ -401,7 +401,7 @@ http://localhost:5000
 - テストコマンド表示
 
 **使用例:**
-1. http://localhost:5000/dns にアクセス
+1. http://localhost:5001/dns にアクセス
 2. 「Domain Name」に `mytest.local` を入力
 3. 「IP Address」に `192.168.1.200` を入力
 4. 「Add Record」ボタンをクリック
@@ -422,11 +422,11 @@ http://localhost:5000
 
 1. **Web UI を起動**
    ```bash
-   dotnet run --project src/Jdx.WebUI --urls "http://localhost:5000"
+   dotnet run --project src/Jdx.WebUI --urls "http://localhost:5001"
    ```
 
 2. **Dashboard でサーバーを起動**
-   - ブラウザで http://localhost:5000 にアクセス
+   - ブラウザで http://localhost:5001 にアクセス
    - HTTP サーバーの「▶️ Start」をクリック
    - DNS サーバーの「▶️ Start」をクリック
 
@@ -441,11 +441,11 @@ http://localhost:5000
    - Total Requests が増えていることを確認
 
 5. **Logs でログを確認**
-   - http://localhost:5000/logs にアクセス
+   - http://localhost:5001/logs にアクセス
    - HTTP リクエストのログが表示されることを確認
 
 6. **DNS レコードを追加**
-   - http://localhost:5000/dns にアクセス
+   - http://localhost:5001/dns にアクセス
    - 新しいレコードを追加
    - ターミナルで dig コマンドでテスト
 
@@ -502,24 +502,24 @@ netstat -ano | findstr :5300
 taskkill /PID <PID> /F
 ```
 
-#### Web UI（ポート 5000）が使用中の場合
+#### Web UI（ポート 5001）が使用中の場合
 ```bash
 # macOS/Linux
-lsof -i :5000
+lsof -i :5001
 kill -9 <PID>
 
 # Windows
-netstat -ano | findstr :5000
+netstat -ano | findstr :5001
 taskkill /PID <PID> /F
 
 # または別のポートで起動
-dotnet run --project src/Jdx.WebUI --urls "http://localhost:5001"
+dotnet run --project src/Jdx.WebUI --urls "http://localhost:5002"
 ```
 
 ### Web UI にアクセスできない
 
 **症状:**
-- ブラウザで http://localhost:5000 にアクセスできない
+- ブラウザで http://localhost:5001 にアクセスできない
 - 「接続できません」エラーが表示される
 
 **対処法:**
@@ -528,18 +528,18 @@ dotnet run --project src/Jdx.WebUI --urls "http://localhost:5001"
    ```bash
    # ターミナルで以下のメッセージを確認
    info: Microsoft.Hosting.Lifetime[14]
-         Now listening on: http://localhost:5000
+         Now listening on: http://localhost:5001
    ```
 
 2. **別のターミナルで確認**
    ```bash
-   curl http://localhost:5000/
+   curl http://localhost:5001/
    ```
    - 成功すれば HTML が返ってくる
    - 失敗すれば Web UI が起動していない
 
 3. **ポートが正しいか確認**
-   - 起動時に `--urls "http://localhost:5000"` を指定しているか確認
+   - 起動時に `--urls "http://localhost:5001"` を指定しているか確認
    - 指定していない場合、デフォルトポート（5000または5001）で起動している可能性
 
 4. **ファイアウォールを確認**
@@ -762,9 +762,9 @@ dotnet run --project src/Jdx.Host
 
 ### Web UI版（ブラウザ管理・推奨）
 ```bash
-dotnet run --project src/Jdx.WebUI --urls "http://localhost:5000"
+dotnet run --project src/Jdx.WebUI --urls "http://localhost:5001"
 ```
-- Web UI: http://localhost:5000
+- Web UI: http://localhost:5001
 - サーバーは Web UI から起動/停止
 
 ---
