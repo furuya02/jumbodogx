@@ -1,0 +1,178 @@
+@page "/settings/http/virtualhost"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>HTTP Virtual Hosts - JumboDogX</PageTitle>
+
+<h1>HTTP/HTTPS - Virtual Hosts</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <!-- Virtual Hosts Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🌐 Virtual Hosts</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Configure multiple domain names on a single server instance. Each virtual host can have its own DocumentRoot and SSL certificate.</p>
+
+                @if (settings.HttpServer.VirtualHosts == null || settings.HttpServer.VirtualHosts.Count == 0)
+                {
+                    <div class="alert alert-info">
+                        No virtual hosts configured. Click "Add Virtual Host" to create one.
+                    </div>
+                }
+                else
+                {
+                    @foreach (var (vhost, index) in settings.HttpServer.VirtualHosts.Select((v, i) => (v, i)))
+                    {
+                        <div class="card mb-3 border-secondary">
+                            <div class="card-header bg-light">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <strong>Virtual Host #@(index + 1)</strong>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => RemoveVirtualHost(index)">
+                                        <span class="bi bi-trash"></span> Remove
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Host (hostname:port)</label>
+                                        <input type="text" class="form-control"
+                                               @bind="vhost.Host"
+                                               placeholder="example.com:8080">
+                                        <div class="form-text">Example: example.com:8080 or 192.168.1.100:8080</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Document Root</label>
+                                        <input type="text" class="form-control"
+                                               @bind="vhost.DocumentRoot"
+                                               placeholder="/var/www/example.com">
+                                        <div class="form-text">Root directory for this virtual host</div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Certificate File (optional)</label>
+                                        <input type="text" class="form-control"
+                                               @bind="vhost.CertificateFile"
+                                               placeholder="/path/to/cert.pfx">
+                                        <div class="form-text">SSL certificate for this virtual host</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Certificate Password (optional)</label>
+                                        <input type="password" class="form-control"
+                                               @bind="vhost.CertificatePassword"
+                                               placeholder="Enter password">
+                                        <div class="form-text">Password for the certificate</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+
+                <button class="btn btn-success" @onclick="AddVirtualHost">
+                    <span class="bi bi-plus-circle me-1"></span> Add Virtual Host
+                </button>
+            </div>
+        </div>
+
+        <!-- Save Buttons -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <button class="btn btn-primary btn-lg me-2" @onclick="SaveSettings">
+                    <span class="bi bi-check-circle me-1"></span> Save Settings
+                </button>
+                <button class="btn btn-secondary btn-lg" @onclick="ResetToDefault">
+                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+
+        // Initialize VirtualHosts list if null
+        if (settings.HttpServer.VirtualHosts == null)
+        {
+            settings.HttpServer.VirtualHosts = new List<VirtualHostEntry>();
+        }
+    }
+
+    private void AddVirtualHost()
+    {
+        if (settings.HttpServer.VirtualHosts == null)
+        {
+            settings.HttpServer.VirtualHosts = new List<VirtualHostEntry>();
+        }
+
+        settings.HttpServer.VirtualHosts.Add(new VirtualHostEntry
+        {
+            Host = "",
+            DocumentRoot = "",
+            CertificateFile = "",
+            CertificatePassword = ""
+        });
+    }
+
+    private void RemoveVirtualHost(int index)
+    {
+        if (settings.HttpServer.VirtualHosts != null && index >= 0 && index < settings.HttpServer.VirtualHosts.Count)
+        {
+            settings.HttpServer.VirtualHosts.RemoveAt(index);
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Virtual Hosts settings saved successfully! Restart the server to apply changes.";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        // Clear message after 5 seconds
+        _ = Task.Delay(5000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+
+        // Reset Virtual Hosts to defaults
+        settings.HttpServer.VirtualHosts = new List<VirtualHostEntry>();
+
+        saveMessage = "Virtual Hosts reset to default values. Click 'Save Settings' to apply.";
+        saveSuccess = true;
+    }
+}
