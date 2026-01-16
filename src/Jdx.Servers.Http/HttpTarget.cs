@@ -23,7 +23,9 @@ public class HttpTarget
     /// <summary>
     /// リクエストパスからターゲット情報を解決する
     /// </summary>
-    public TargetInfo ResolveTarget(string requestPath)
+    /// <param name="requestPath">リクエストパス</param>
+    /// <param name="documentRoot">DocumentRoot（nullの場合は設定値を使用）</param>
+    public TargetInfo ResolveTarget(string requestPath, string? documentRoot = null)
     {
         try
         {
@@ -31,8 +33,11 @@ public class HttpTarget
             var uriParts = requestPath.Split('?', 2);
             var path = uriParts[0];
 
+            // DocumentRootを決定（引数優先）
+            var effectiveDocumentRoot = documentRoot ?? _settings.DocumentRoot;
+
             // DocumentRootが設定されていない場合
-            if (string.IsNullOrWhiteSpace(_settings.DocumentRoot))
+            if (string.IsNullOrWhiteSpace(effectiveDocumentRoot))
             {
                 _logger.LogWarning("DocumentRoot is not configured");
                 return TargetInfo.Invalid("DocumentRoot is not configured");
@@ -55,8 +60,8 @@ public class HttpTarget
             else
             {
                 // パス結合（通常のDocumentRoot）
-                physicalPath = Path.Combine(_settings.DocumentRoot, path.TrimStart('/'));
-                rootPath = _settings.DocumentRoot;
+                physicalPath = Path.Combine(effectiveDocumentRoot, path.TrimStart('/'));
+                rootPath = effectiveDocumentRoot;
             }
 
             // セキュリティ検証（適切なrootPathを指定）
