@@ -87,6 +87,9 @@ public class HttpServerSettings
 
     // SSL/TLS設定
     public string CertificateFile { get; set; } = "";
+    // WARNING: Storing passwords in plaintext is insecure.
+    // Consider using environment variables or ASP.NET Core User Secrets in production.
+    // Example: Environment.GetEnvironmentVariable("CERT_PASSWORD")
     public string CertificatePassword { get; set; } = "";
 
     // Virtual Host設定

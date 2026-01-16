@@ -25,8 +25,14 @@
             </div>
             <div class="card-body">
                 <div class="alert alert-warning">
-                    <strong>⚠️ Note:</strong> SSL/TLS infrastructure is implemented but not yet fully integrated.
-                    Certificate loading works, but actual SSL communication requires additional implementation.
+                    <strong>⚠️ SSL/TLS Status:</strong> Infrastructure is implemented but not yet fully integrated.
+                    Certificate loading works, but actual SSL/TLS communication requires ServerTcpListener modifications.
+                    Currently, only HTTP communication is supported.
+                </div>
+                <div class="alert alert-danger">
+                    <strong>🔒 Security Warning:</strong> Certificate passwords are stored in plaintext in the configuration file.
+                    For production use, consider using environment variables or ASP.NET Core User Secrets.
+                    Example: <code>Environment.GetEnvironmentVariable("CERT_PASSWORD")</code>
                 </div>
                 <div class="row mb-3">
                     <div class="col-md-6">

@@ -7,7 +7,12 @@ namespace Jdx.Servers.Http;
 
 /// <summary>
 /// 攻撃検出データベース
-/// 短期間に複数回の不正アクセスを検出し、自動的にACLに追加する
+/// 短期間に複数回の不正アクセスを検出する
+///
+/// TODO: ACL自動追加機能の実装
+/// 現在は攻撃検出のみ実装されており、ACL自動追加機能は未実装です。
+/// ACL自動追加を実装するには、ISettingsServiceを使用してACL設定を更新し、
+/// 攻撃元IPアドレスをAclListに追加する必要があります。
 /// </summary>
 public class HttpAttackDb
 {

@@ -27,6 +27,9 @@ public class HttpServer : ServerBase
     private HttpVirtualHostManager? _virtualHostManager;
     private HttpSslManager? _sslManager;
 
+    // デフォルトタイムアウト（タイムアウト設定が0の場合に使用）
+    private const int DefaultTimeoutSeconds = 30;
+
     public HttpServer(ILogger<HttpServer> logger, ISettingsService settingsService) : base(logger)
     {
         _settingsService = settingsService;
@@ -96,8 +99,11 @@ public class HttpServer : ServerBase
                 // Apache Killer攻撃検出時の処理
                 if (_attackDb.IsInjustice(false, remoteIp))
                 {
-                    Logger.LogWarning("Attack detected from {RemoteIp}, adding to ACL deny list", remoteIp);
-                    // TODO: ACL自動追加機能（ISettingsServiceでACL設定を更新）
+                    Logger.LogWarning("Attack detected from {RemoteIp}", remoteIp);
+                    // TODO: ACL自動追加機能
+                    // ISettingsService.GetSettings()でACL設定を取得し、
+                    // AclListに新しいAclEntryを追加してSaveSettingsAsync()で保存する。
+                    // EnableAcl設定がDenyMode(1)であることを確認する必要がある。
                 }
             });
         }
@@ -181,9 +187,10 @@ public class HttpServer : ServerBase
                             var errorBytes = errorResponse.ToBytes();
                             await clientSocket.SendAsync(errorBytes, SocketFlags.None, CancellationToken.None);
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // エラーレスポンス送信に失敗しても無視
+                            // エラーレスポンス送信に失敗してもログのみ出力
+                            Logger.LogDebug(ex, "Failed to send error response to client");
                         }
                         finally
                         {
@@ -252,9 +259,10 @@ public class HttpServer : ServerBase
                 var forbiddenBytes = forbiddenResponse.ToBytes();
                 await clientSocket.SendAsync(forbiddenBytes, SocketFlags.None, CancellationToken.None);
             }
-            catch
+            catch (Exception ex)
             {
-                // エラーレスポンス送信に失敗しても無視
+                // エラーレスポンス送信に失敗してもログのみ出力
+                Logger.LogDebug(ex, "Failed to send 403 Forbidden response");
             }
             finally
             {
@@ -290,10 +298,12 @@ public class HttpServer : ServerBase
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, keepAliveCts.Token);
 
                 var timeout = requestCount == 1 ? settings.TimeOut : settings.KeepAliveTimeout;
-                if (timeout > 0)
+                // タイムアウトが0の場合はデフォルト値を使用（無限待機を防ぐ）
+                if (timeout <= 0)
                 {
-                    keepAliveCts.CancelAfter(TimeSpan.FromSeconds(timeout));
+                    timeout = DefaultTimeoutSeconds;
                 }
+                keepAliveCts.CancelAfter(TimeSpan.FromSeconds(timeout));
 
                 try
                 {
@@ -373,9 +383,10 @@ public class HttpServer : ServerBase
                             var timeoutBytes = timeoutResponse.ToBytes();
                             await clientSocket.SendAsync(timeoutBytes, SocketFlags.None, CancellationToken.None);
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // エラーレスポンス送信に失敗しても無視
+                            // エラーレスポンス送信に失敗してもログのみ出力
+                            Logger.LogDebug(ex, "Failed to send error response to client");
                         }
                     }
                     else

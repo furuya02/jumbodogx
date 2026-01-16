@@ -21,6 +21,9 @@ public class HttpFileHandler
     // 大きなファイルの閾値（10MB）
     private const long LargeFileThreshold = 10 * 1024 * 1024;
 
+    // Range requestの最大バッファサイズ（100MB）
+    private const long MaxRangeBufferSize = 100 * 1024 * 1024;
+
     public HttpFileHandler(ILogger logger, HttpContentType contentType)
     {
         _logger = logger;
@@ -417,11 +420,8 @@ public class HttpFileHandler
         if (!rangeHeader.StartsWith("bytes="))
         {
             _logger.LogWarning("Invalid Range header format: {RangeHeader}", rangeHeader);
-            return await HandleStaticFileAsync(
-                new TargetInfo { PhysicalPath = filePath, FileInfo = fileInfo, Type = TargetType.StaticFile, IsValid = true },
-                new HttpRequest { Method = "GET", Path = "", Headers = new Dictionary<string, string>() },
-                settings,
-                cancellationToken);
+            // RFC 7233: 不正なRange headerの場合は416を返す
+            return CreateErrorResponse(416, "Range Not Satisfiable", "Invalid Range header format", settings);
         }
 
         var rangeSpec = rangeHeader.Substring(6); // "bytes=" を削除
@@ -459,66 +459,76 @@ public class HttpFileHandler
         if (parts.Length != 2)
         {
             _logger.LogWarning("Invalid range format: {Range}", range);
-            return await HandleStaticFileAsync(
-                new TargetInfo { PhysicalPath = filePath, FileInfo = fileInfo, Type = TargetType.StaticFile, IsValid = true },
-                new HttpRequest { Method = "GET", Path = "", Headers = new Dictionary<string, string>() },
-                settings,
-                cancellationToken);
+            return CreateErrorResponse(416, "Range Not Satisfiable", "Invalid range format", settings);
         }
 
         long rangeFrom = 0;
         long rangeTo = fileInfo.Length - 1;
         var fileSize = fileInfo.Length;
 
-        try
+        // long.TryParseでパースしてオーバーフロー対策
+        if (!string.IsNullOrEmpty(parts[0]) && !string.IsNullOrEmpty(parts[1]))
         {
-            if (!string.IsNullOrEmpty(parts[0]) && !string.IsNullOrEmpty(parts[1]))
+            // bytes=0-10: 0～10の11バイト
+            if (!long.TryParse(parts[0], out rangeFrom) || !long.TryParse(parts[1], out rangeTo))
             {
-                // bytes=0-10: 0～10の11バイト
-                rangeFrom = long.Parse(parts[0]);
-                rangeTo = long.Parse(parts[1]);
-                if (rangeTo >= fileSize)
-                {
-                    rangeTo = fileSize - 1;
-                }
+                _logger.LogWarning("Failed to parse range: {Range}", range);
+                return CreateErrorResponse(416, "Range Not Satisfiable", "Failed to parse range", settings);
             }
-            else if (!string.IsNullOrEmpty(parts[0]) && string.IsNullOrEmpty(parts[1]))
+            if (rangeTo >= fileSize)
             {
-                // bytes=3-: 3～最後まで
-                rangeFrom = long.Parse(parts[0]);
                 rangeTo = fileSize - 1;
-            }
-            else if (string.IsNullOrEmpty(parts[0]) && !string.IsNullOrEmpty(parts[1]))
-            {
-                // bytes=-3: 最後から3バイト
-                var len = long.Parse(parts[1]);
-                rangeTo = fileSize - 1;
-                rangeFrom = rangeTo - len + 1;
-                if (rangeFrom < 0)
-                {
-                    rangeFrom = 0;
-                }
-            }
-
-            // 範囲の妥当性チェック
-            if (rangeFrom < 0 || rangeFrom >= fileSize || rangeFrom > rangeTo)
-            {
-                _logger.LogWarning("Invalid range: {From}-{To}, file size: {Size}", rangeFrom, rangeTo, fileSize);
-                return CreateErrorResponse(416, "Range Not Satisfiable", "Invalid range", settings);
             }
         }
-        catch (Exception ex)
+        else if (!string.IsNullOrEmpty(parts[0]) && string.IsNullOrEmpty(parts[1]))
         {
-            _logger.LogWarning(ex, "Error parsing range: {Range}", range);
-            return await HandleStaticFileAsync(
-                new TargetInfo { PhysicalPath = filePath, FileInfo = fileInfo, Type = TargetType.StaticFile, IsValid = true },
-                new HttpRequest { Method = "GET", Path = "", Headers = new Dictionary<string, string>() },
-                settings,
-                cancellationToken);
+            // bytes=3-: 3～最後まで
+            if (!long.TryParse(parts[0], out rangeFrom))
+            {
+                _logger.LogWarning("Failed to parse range start: {Range}", range);
+                return CreateErrorResponse(416, "Range Not Satisfiable", "Failed to parse range start", settings);
+            }
+            rangeTo = fileSize - 1;
+        }
+        else if (string.IsNullOrEmpty(parts[0]) && !string.IsNullOrEmpty(parts[1]))
+        {
+            // bytes=-3: 最後から3バイト
+            if (!long.TryParse(parts[1], out var len))
+            {
+                _logger.LogWarning("Failed to parse suffix length: {Range}", range);
+                return CreateErrorResponse(416, "Range Not Satisfiable", "Failed to parse suffix length", settings);
+            }
+            rangeTo = fileSize - 1;
+            rangeFrom = rangeTo - len + 1;
+            if (rangeFrom < 0)
+            {
+                rangeFrom = 0;
+            }
+        }
+        else
+        {
+            // 両方空の場合は不正
+            _logger.LogWarning("Empty range specification: {Range}", range);
+            return CreateErrorResponse(416, "Range Not Satisfiable", "Empty range specification", settings);
+        }
+
+        // 範囲の妥当性チェック
+        if (rangeFrom < 0 || rangeFrom >= fileSize || rangeFrom > rangeTo)
+        {
+            _logger.LogWarning("Invalid range: {From}-{To}, file size: {Size}", rangeFrom, rangeTo, fileSize);
+            return CreateErrorResponse(416, "Range Not Satisfiable", "Invalid range", settings);
         }
 
         // Range指定された部分を読み込み
         var contentLength = rangeTo - rangeFrom + 1;
+
+        // メモリ保護: 巨大なRange requestを拒否
+        if (contentLength > MaxRangeBufferSize)
+        {
+            _logger.LogWarning("Range request too large: {Length} bytes (max: {Max})", contentLength, MaxRangeBufferSize);
+            return CreateErrorResponse(413, "Payload Too Large", $"Range request exceeds maximum size ({MaxRangeBufferSize} bytes)", settings);
+        }
+
         byte[] buffer = new byte[contentLength];
 
         await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
