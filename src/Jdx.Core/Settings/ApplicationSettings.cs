@@ -30,6 +30,7 @@ public class HttpServerSettings
     public bool UseHidden { get; set; } = false;
     public bool UseDot { get; set; } = false;
     public bool UseDirectoryEnum { get; set; } = false;
+    public bool UseExpansion { get; set; } = false;  // Proxy拡張機能（RemoteHostヘッダー追加）
     public string ServerHeader { get; set; } = "BlackJumboDog Version $v";
     public bool UseEtag { get; set; } = false;
     public string ServerAdmin { get; set; } = "";
@@ -74,6 +75,22 @@ public class HttpServerSettings
     // ACL設定
     public int EnableAcl { get; set; } = 0;  // 0=Allow, 1=Deny
     public List<AclEntry> AclList { get; set; } = new();
+
+    // Keep-Alive設定
+    public bool UseKeepAlive { get; set; } = true;
+    public int KeepAliveTimeout { get; set; } = 5;  // 秒
+    public int MaxKeepAliveRequests { get; set; } = 100;
+
+    // Range Requests設定
+    public bool UseRangeRequests { get; set; } = true;
+    public int MaxRangeCount { get; set; } = 20;  // Apache Killer対策
+
+    // SSL/TLS設定
+    public string CertificateFile { get; set; } = "";
+    public string CertificatePassword { get; set; } = "";
+
+    // Virtual Host設定
+    public List<VirtualHostEntry> VirtualHosts { get; set; } = new();
 }
 
 // テーブル形式データ用のモデルクラス
@@ -131,6 +148,14 @@ public class AclEntry
 {
     public string Name { get; set; } = "";
     public string Address { get; set; } = "";
+}
+
+public class VirtualHostEntry
+{
+    public string Host { get; set; } = "";  // ホスト名（例: example.com:8080）
+    public string DocumentRoot { get; set; } = "";
+    public string CertificateFile { get; set; } = "";  // HTTPS用（オプション）
+    public string CertificatePassword { get; set; } = "";  // HTTPS用（オプション）
 }
 
 /// <summary>
