@@ -19,6 +19,10 @@ public class HttpServer : ServerBase
     private HttpTarget? _target;
     private HttpContentType? _contentType;
     private HttpFileHandler? _fileHandler;
+    private HttpAuthenticator? _authenticator;
+    private HttpAclFilter? _aclFilter;
+    private HttpCgiHandler? _cgiHandler;
+    private HttpWebDavHandler? _webDavHandler;
 
     public HttpServer(ILogger<HttpServer> logger, ISettingsService settingsService) : base(logger)
     {
@@ -44,6 +48,14 @@ public class HttpServer : ServerBase
         _target = new HttpTarget(settings, Logger);
         _contentType = new HttpContentType(settings);
         _fileHandler = new HttpFileHandler(Logger, _contentType);
+        _authenticator = new HttpAuthenticator(settings, Logger);
+        _aclFilter = new HttpAclFilter(settings, Logger);
+        _cgiHandler = new HttpCgiHandler(settings, Logger);
+        _webDavHandler = new HttpWebDavHandler(settings, Logger);
+
+        // SSIプロセッサを初期化してFileHandlerに設定
+        var ssiProcessor = new HttpSsiProcessor(settings, Logger);
+        _fileHandler.SetSsiProcessor(ssiProcessor);
     }
 
     private void OnSettingsChanged(object? sender, ApplicationSettings settings)
@@ -78,10 +90,27 @@ public class HttpServer : ServerBase
             }
         }
 
-        _listener = new ServerTcpListener(_port, null, Logger);
+        var settings = _settingsService.GetSettings().HttpServer;
+
+        // BindAddressをIPAddressに変換
+        IPAddress? bindAddress = null;
+        if (!string.IsNullOrWhiteSpace(settings.BindAddress))
+        {
+            if (IPAddress.TryParse(settings.BindAddress, out var parsedAddress))
+            {
+                bindAddress = parsedAddress;
+            }
+            else
+            {
+                Logger.LogWarning("Invalid BindAddress: {BindAddress}, using default (Any)", settings.BindAddress);
+            }
+        }
+
+        _listener = new ServerTcpListener(_port, bindAddress, Logger);
         await _listener.StartAsync(cancellationToken);
 
-        Logger.LogInformation("HTTP Server listening on http://localhost:{Port}", _port);
+        var displayAddress = bindAddress?.ToString() ?? "0.0.0.0";
+        Logger.LogInformation("HTTP Server listening on http://{Address}:{Port}", displayAddress, _port);
 
         // クライアント接続を受け入れるループ
         _ = Task.Run(async () =>
@@ -92,6 +121,35 @@ public class HttpServer : ServerBase
                 {
                     var clientSocket = await _listener.AcceptAsync(StopCts.Token);
                     Statistics.TotalConnections++;
+
+                    // 最大接続数チェック
+                    var currentSettings = _settingsService.GetSettings().HttpServer;
+                    if (currentSettings.MaxConnections > 0 && Statistics.ActiveConnections >= currentSettings.MaxConnections)
+                    {
+                        Logger.LogWarning("Max connections ({MaxConnections}) reached, rejecting connection from {RemoteEndPoint}",
+                            currentSettings.MaxConnections, clientSocket.RemoteEndPoint);
+
+                        // 503 Service Unavailable を送信してクローズ
+                        try
+                        {
+                            var errorResponse = HttpResponseBuilder.BuildErrorResponse(503, "Service Unavailable", currentSettings);
+                            var errorBytes = errorResponse.ToBytes();
+                            await clientSocket.SendAsync(errorBytes, SocketFlags.None, CancellationToken.None);
+                        }
+                        catch
+                        {
+                            // エラーレスポンス送信に失敗しても無視
+                        }
+                        finally
+                        {
+                            clientSocket.Close();
+                            clientSocket.Dispose();
+                        }
+
+                        Statistics.TotalErrors++;
+                        continue;
+                    }
+
                     Statistics.ActiveConnections++;
 
                     // クライアント処理を非同期で実行
@@ -134,11 +192,49 @@ public class HttpServer : ServerBase
         var remoteEndPoint = clientSocket.RemoteEndPoint?.ToString() ?? "unknown";
         Logger.LogInformation("HTTP request from {RemoteEndPoint}", remoteEndPoint);
 
+        var settings = _settingsService.GetSettings().HttpServer;
+
+        // ACLチェック（接続元IPアドレス）
+        var remoteIp = clientSocket.RemoteEndPoint?.ToString()?.Split(':')[0] ?? "";
+        if (!string.IsNullOrEmpty(remoteIp) && !_aclFilter!.IsAllowed(remoteIp))
+        {
+            Logger.LogWarning("Connection from {RemoteIP} rejected by ACL", remoteIp);
+
+            // 403 Forbidden を送信してクローズ
+            try
+            {
+                var forbiddenResponse = HttpResponseBuilder.BuildErrorResponse(403, "Forbidden", settings);
+                var forbiddenBytes = forbiddenResponse.ToBytes();
+                await clientSocket.SendAsync(forbiddenBytes, SocketFlags.None, CancellationToken.None);
+            }
+            catch
+            {
+                // エラーレスポンス送信に失敗しても無視
+            }
+            finally
+            {
+                clientSocket.Close();
+                clientSocket.Dispose();
+            }
+
+            Statistics.TotalErrors++;
+            return;
+        }
+
+        // タイムアウト設定
+        using var timeoutCts = new CancellationTokenSource();
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        if (settings.TimeOut > 0)
+        {
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(settings.TimeOut));
+        }
+
         try
         {
             // リクエストを読み取る
             var buffer = new byte[8192];
-            var bytesRead = await clientSocket.ReceiveAsync(buffer, SocketFlags.None, cancellationToken);
+            var bytesRead = await clientSocket.ReceiveAsync(buffer, SocketFlags.None, linkedCts.Token);
 
             if (bytesRead == 0)
             {
@@ -161,23 +257,41 @@ public class HttpServer : ServerBase
                 request.Method, request.Path, remoteEndPoint);
 
             // レスポンスを生成
-            var response = await GenerateResponseAsync(request, cancellationToken);
+            var response = await GenerateResponseAsync(request, linkedCts.Token);
 
             // レスポンスを送信（ストリーム対応）
             if (response.BodyStream != null)
             {
-                await response.SendAsync(clientSocket, cancellationToken);
+                await response.SendAsync(clientSocket, linkedCts.Token);
                 Statistics.TotalBytesSent += response.ContentLength ?? 0;
             }
             else
             {
                 var responseBytes = response.ToBytes();
-                await clientSocket.SendAsync(responseBytes, SocketFlags.None, cancellationToken);
+                await clientSocket.SendAsync(responseBytes, SocketFlags.None, linkedCts.Token);
                 Statistics.TotalBytesSent += responseBytes.Length;
             }
 
             Logger.LogInformation("HTTP {StatusCode} {Method} {Path}",
                 response.StatusCode, request.Method, request.Path);
+        }
+        catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
+        {
+            Logger.LogWarning("HTTP request from {RemoteEndPoint} timed out after {TimeOut} seconds",
+                remoteEndPoint, settings.TimeOut);
+            Statistics.TotalErrors++;
+
+            // タイムアウトエラーレスポンスを送信（ベストエフォート）
+            try
+            {
+                var timeoutResponse = HttpResponseBuilder.BuildErrorResponse(408, "Request Timeout", settings);
+                var timeoutBytes = timeoutResponse.ToBytes();
+                await clientSocket.SendAsync(timeoutBytes, SocketFlags.None, CancellationToken.None);
+            }
+            catch
+            {
+                // タイムアウトレスポンス送信に失敗しても無視
+            }
         }
         catch (Exception ex)
         {
@@ -199,6 +313,46 @@ public class HttpServer : ServerBase
         if (request.Path == "/stats")
         {
             return GenerateStatsResponse();
+        }
+
+        // 認証チェック
+        var authResult = _authenticator!.Authenticate(request.Path, request);
+
+        if (authResult.IsUnauthorized)
+        {
+            // 401 Unauthorized
+            return new HttpResponse
+            {
+                StatusCode = 401,
+                StatusText = "Unauthorized",
+                Body = "<html><body><h1>401 Unauthorized</h1><p>Authentication required</p></body></html>",
+                Headers = new Dictionary<string, string>
+                {
+                    ["Content-Type"] = "text/html; charset=utf-8",
+                    ["WWW-Authenticate"] = $"Basic realm=\"{authResult.Realm}\"",
+                    ["Server"] = settings.ServerHeader.Replace("$v", GetVersion()),
+                    ["Date"] = DateTime.UtcNow.ToString("R")
+                }
+            };
+        }
+
+        if (authResult.IsForbidden)
+        {
+            // 403 Forbidden
+            return HttpResponseBuilder.BuildErrorResponse(403, "Forbidden", settings);
+        }
+
+        // WebDAVチェック
+        if (_webDavHandler!.IsWebDavRequest(request.Path, request.Method, out var webDavPhysicalPath, out var allowWrite))
+        {
+            return await _webDavHandler.HandleWebDavAsync(request.Method, request.Path, webDavPhysicalPath, allowWrite, request, cancellationToken);
+        }
+
+        // CGIチェック
+        var remoteIp = "127.0.0.1"; // TODO: 実際のリモートIPアドレス
+        if (_cgiHandler!.IsCgiRequest(request.Path, out var scriptPath, out var interpreter))
+        {
+            return await _cgiHandler.ExecuteCgiAsync(scriptPath, interpreter, request, remoteIp, cancellationToken);
         }
 
         // ターゲット解決
@@ -257,5 +411,12 @@ public class HttpServer : ServerBase
 </body>
 </html>";
         return HttpResponse.Ok(html);
+    }
+
+    private string GetVersion()
+    {
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        var version = assembly.GetName().Version;
+        return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "9.0.0";
     }
 }
