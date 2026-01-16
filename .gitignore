@@ -1,0 +1,79 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.deps.json
+*.runtimeconfig.json
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio
+.vs/
+.vscode/
+*.rsuser
+
+# Test results
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+*.coveragexml
+coverage/
+*.coverage
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+# Rider
+.idea/
+*.sln.iml
+
+# User-specific files
+*.userprefs
+*.swp
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Secrets and credentials
+*.env
+*.env.*
+!*.env.example
+secrets.json
+
+# Certificates and keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+
+# AWS
+.aws/
+
+# Azure
+*.publishsettings

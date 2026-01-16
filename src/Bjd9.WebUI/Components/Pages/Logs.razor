@@ -1,0 +1,265 @@
+@page "/logs"
+@rendermode InteractiveServer
+@using Bjd9.WebUI.Services
+@inject LogService LogService
+@implements IDisposable
+
+<PageTitle>Logs - BlackJumboDog</PageTitle>
+
+<h1>Server Logs</h1>
+
+<div class="mb-3">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="btn-group" role="group">
+                <input type="radio" class="btn-check" name="logLevel" id="levelAll" checked @onchange="() => FilterByLevel(null)">
+                <label class="btn btn-outline-primary" for="levelAll">All</label>
+
+                <input type="radio" class="btn-check" name="logLevel" id="levelInfo" @onchange="() => FilterByLevel(LogLevel.Information)">
+                <label class="btn btn-outline-info" for="levelInfo">Info</label>
+
+                <input type="radio" class="btn-check" name="logLevel" id="levelWarning" @onchange="() => FilterByLevel(LogLevel.Warning)">
+                <label class="btn btn-outline-warning" for="levelWarning">Warning</label>
+
+                <input type="radio" class="btn-check" name="logLevel" id="levelError" @onchange="() => FilterByLevel(LogLevel.Error)">
+                <label class="btn btn-outline-danger" for="levelError">Error</label>
+            </div>
+        </div>
+        <div class="col-md-6 text-end">
+            <button class="btn btn-secondary" @onclick="ClearLogs">
+                🗑️ Clear Logs
+            </button>
+            <button class="btn btn-primary" @onclick="RefreshLogs">
+                🔄 Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Log Entries (@filteredLogs.Count())</h5>
+    </div>
+    <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+        @if (!filteredLogs.Any())
+        {
+            <div class="text-center text-muted p-4">
+                <p>No log entries to display.</p>
+            </div>
+        }
+        else
+        {
+            <table class="table table-sm table-striped mb-0 resizable-table" id="logsTable">
+                <colgroup>
+                    <col style="width: @(timeWidth)px" />
+                    <col style="width: @(levelWidth)px" />
+                    <col style="width: @(categoryWidth)px" />
+                    <col />
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th class="resizable-header">
+                            Time
+                            <div class="resize-handle"></div>
+                        </th>
+                        <th class="resizable-header">
+                            Level
+                            <div class="resize-handle"></div>
+                        </th>
+                        <th class="resizable-header">
+                            Category
+                            <div class="resize-handle"></div>
+                        </th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in filteredLogs.OrderByDescending(l => l.Timestamp).Take(100))
+                    {
+                        <tr>
+                            <td class="text-nowrap">
+                                <small>@log.Timestamp.ToString("HH:mm:ss.fff")</small>
+                            </td>
+                            <td>
+                                <span class="@log.LevelClass">
+                                    @log.LevelIcon @log.Level
+                                </span>
+                            </td>
+                            <td>
+                                <small class="text-muted">@log.Category</small>
+                            </td>
+                            <td>
+                                <small>@log.Message</small>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+<style>
+    .resizable-table {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .resizable-header {
+        position: relative;
+        user-select: none;
+    }
+
+    .resize-handle {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 5px;
+        height: 100%;
+        cursor: col-resize;
+        background-color: transparent;
+        z-index: 1;
+    }
+
+    .resize-handle:hover {
+        background-color: rgba(0, 123, 255, 0.3);
+    }
+
+    .resize-handle:active {
+        background-color: rgba(0, 123, 255, 0.5);
+    }
+</style>
+
+<script>
+    window.initializeColumnResize = function() {
+        const table = document.getElementById('logsTable');
+        if (!table) return;
+
+        const headers = table.querySelectorAll('.resizable-header');
+        const cols = table.querySelectorAll('colgroup col');
+
+        headers.forEach((header, index) => {
+            const handle = header.querySelector('.resize-handle');
+            if (!handle) return;
+
+            let startX, startWidth;
+
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                startX = e.pageX;
+                startWidth = parseInt(window.getComputedStyle(cols[index]).width);
+
+                const mouseMoveHandler = (e) => {
+                    const diff = e.pageX - startX;
+                    const newWidth = Math.max(50, startWidth + diff);
+                    cols[index].style.width = newWidth + 'px';
+                };
+
+                const mouseUpHandler = () => {
+                    document.removeEventListener('mousemove', mouseMoveHandler);
+                    document.removeEventListener('mouseup', mouseUpHandler);
+                };
+
+                document.addEventListener('mousemove', mouseMoveHandler);
+                document.addEventListener('mouseup', mouseUpHandler);
+            });
+        });
+    };
+
+    // Initialize on page load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(window.initializeColumnResize, 100);
+        });
+    } else {
+        setTimeout(window.initializeColumnResize, 100);
+    }
+
+    // Re-initialize after Blazor updates
+    const observer = new MutationObserver(() => {
+        window.initializeColumnResize();
+    });
+
+    const config = { childList: true, subtree: true };
+    if (document.body) {
+        observer.observe(document.body, config);
+    }
+</script>
+
+@code {
+    private List<LogEntry> logs = new();
+    private IEnumerable<LogEntry> filteredLogs = new List<LogEntry>();
+    private LogLevel? selectedLevel = null;
+    private System.Threading.Timer? refreshTimer;
+
+    // Column widths
+    private int timeWidth = 150;
+    private int levelWidth = 120;
+    private int categoryWidth = 250;
+
+    protected override void OnInitialized()
+    {
+        LoadLogs();
+        LogService.LogAdded += OnLogAdded;
+
+        // 500msごとに自動更新
+        refreshTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                LoadLogs();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
+    }
+
+    private void LoadLogs()
+    {
+        logs = LogService.GetRecentLogs(100).ToList();
+        ApplyFilter();
+    }
+
+    private void FilterByLevel(LogLevel? level)
+    {
+        selectedLevel = level;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        if (selectedLevel.HasValue)
+        {
+            filteredLogs = logs.Where(l => l.Level == selectedLevel.Value);
+        }
+        else
+        {
+            filteredLogs = logs;
+        }
+    }
+
+    private void ClearLogs()
+    {
+        LogService.ClearLogs();
+        LoadLogs();
+    }
+
+    private void RefreshLogs()
+    {
+        LoadLogs();
+    }
+
+    private void OnLogAdded(object? sender, LogEntry e)
+    {
+        InvokeAsync(() =>
+        {
+            LoadLogs();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        LogService.LogAdded -= OnLogAdded;
+        refreshTimer?.Dispose();
+    }
+}
