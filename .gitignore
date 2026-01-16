@@ -77,3 +77,56 @@ secrets.json
 
 # Azure
 *.publishsettings
+
+# Publishing profiles (may contain sensitive data)
+*.pubxml
+*.pubxml.user
+*.azurePubxml
+*.azurePubxml.user
+PublishScripts/
+
+# Build artifacts
+artifacts/
+
+# Project lock files
+project.lock.json
+project.fragment.lock.json
+
+# ReSharper
+_ReSharper*/
+*.DotSettings.user
+*.ReSharper.user
+
+# NCrunch
+_NCrunch_*
+*.ncrunchproject
+*.ncrunchsolution
+nCrunchTemp_*
+
+# StyleCop
+StyleCop.Cache
+
+# dotCover
+*.dotCover
+
+# Visual Studio profiler
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+# Database files
+*.mdf
+*.ldf
+*.ndf
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+
+# SQL Server files
+*.dacpac
+*.bak
+
+# JetBrains Rider cache
+.idea/**/contentModel.xml
+.idea/**/workspace.xml
