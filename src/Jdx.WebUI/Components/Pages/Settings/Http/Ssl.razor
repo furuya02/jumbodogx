@@ -1,0 +1,105 @@
+@page "/settings/http/ssl"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>HTTP SSL/TLS Settings - JumboDogX</PageTitle>
+
+<h1>HTTP/HTTPS - SSL/TLS</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <!-- SSL/TLS Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🔒 SSL/TLS Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <strong>⚠️ Note:</strong> SSL/TLS infrastructure is implemented but not yet fully integrated.
+                    Certificate loading works, but actual SSL communication requires additional implementation.
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="certificateFile" class="form-label">Certificate File</label>
+                        <input type="text" class="form-control" id="certificateFile"
+                               @bind="settings.HttpServer.CertificateFile" placeholder="/path/to/certificate.pfx">
+                        <div class="form-text">Path to SSL certificate file (PFX format)</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="certificatePassword" class="form-label">Certificate Password</label>
+                        <input type="password" class="form-control" id="certificatePassword"
+                               @bind="settings.HttpServer.CertificatePassword" placeholder="Enter password">
+                        <div class="form-text">Password for the certificate file</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Buttons -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <button class="btn btn-primary btn-lg me-2" @onclick="SaveSettings">
+                    <span class="bi bi-check-circle me-1"></span> Save Settings
+                </button>
+                <button class="btn btn-secondary btn-lg" @onclick="ResetToDefault">
+                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "SSL/TLS settings saved successfully! Restart the server to apply changes.";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        // Clear message after 5 seconds
+        _ = Task.Delay(5000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+
+        // Reset SSL/TLS settings to defaults
+        settings.HttpServer.CertificateFile = defaults.HttpServer.CertificateFile;
+        settings.HttpServer.CertificatePassword = defaults.HttpServer.CertificatePassword;
+
+        saveMessage = "SSL/TLS settings reset to default values. Click 'Save Settings' to apply.";
+        saveSuccess = true;
+    }
+}
