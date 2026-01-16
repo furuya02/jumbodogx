@@ -1,4 +1,4 @@
-# BJD9 起動・動作確認手順書
+# JumboDogX 起動・動作確認手順書
 
 ## 前提条件
 
@@ -31,13 +31,13 @@ https://dotnet.microsoft.com/download/dotnet/9.0 からダウンロードして�
 ### 1. プロジェクトディレクトリに移動
 
 ```bash
-cd bjd9
+cd jumbodogx
 ```
 
 ### 2. ソリューション全体をビルド
 
 ```bash
-dotnet build Bjd9.sln
+dotnet build Jdx.sln
 ```
 
 **期待される出力:**
@@ -55,56 +55,56 @@ dotnet build Bjd9.sln
 which dotnet
 
 # Homebrew の dotnet@9 を使用する場合
-/opt/homebrew/Cellar/dotnet@9/9.0.112/bin/dotnet build Bjd9.sln
+/opt/homebrew/Cellar/dotnet@9/9.0.112/bin/dotnet build Jdx.sln
 ```
 
 #### NuGet パッケージの復元エラー
 ```bash
-dotnet restore Bjd9.sln
-dotnet build Bjd9.sln
+dotnet restore Jdx.sln
+dotnet build Jdx.sln
 ```
 
 ---
 
 ## サーバーの起動
 
-BJD9 は2つの起動方法があります：
+JumboDogX は2つの起動方法があります：
 
 ### 方法1: CLI版（コマンドラインのみ）
 
 コマンドラインでサーバーを管理する方法です。
 
 ```bash
-dotnet run --project src/Bjd9.Host
+dotnet run --project src/Jdx.Host
 ```
 
 **期待される出力:**
 ```
-BJD9 - Multi-Server Application
+JumboDogX - Multi-Server Application
 ================================
 
-info: Bjd9.Servers.Dns.DnsServer[0]
+info: Jdx.Servers.Dns.DnsServer[0]
       DNS record added: example.com -> 192.0.2.1
-info: Bjd9.Servers.Dns.DnsServer[0]
-      DNS record added: bjd9.local -> 127.0.0.1
-info: Bjd9.Servers.Dns.DnsServer[0]
+info: Jdx.Servers.Dns.DnsServer[0]
+      DNS record added: jdx.local -> 127.0.0.1
+info: Jdx.Servers.Dns.DnsServer[0]
       DNS record added: test.local -> 192.168.1.100
-info: Bjd9.Servers.Http.HttpServer[0]
+info: Jdx.Servers.Http.HttpServer[0]
       Starting server HttpServer on port 8080
-info: Bjd9.Servers.Http.HttpServer[0]
+info: Jdx.Servers.Http.HttpServer[0]
       HTTP Server listening on http://localhost:8080
-info: Bjd9.Servers.Http.HttpServer[0]
+info: Jdx.Servers.Http.HttpServer[0]
       Server HttpServer started successfully
-info: Bjd9.Servers.Dns.DnsServer[0]
+info: Jdx.Servers.Dns.DnsServer[0]
       Starting server DnsServer on port 5300
-info: Bjd9.Servers.Dns.DnsServer[0]
+info: Jdx.Servers.Dns.DnsServer[0]
       DNS Server listening on port 5300
 
 All servers started. Press Ctrl+C to stop.
   - HTTP Server: http://localhost:8080
   - DNS Server: port 5300 (use: dig @localhost -p 5300 example.com)
 
-info: Bjd9.Servers.Dns.DnsServer[0]
+info: Jdx.Servers.Dns.DnsServer[0]
       Server DnsServer started successfully
 ```
 
@@ -119,7 +119,7 @@ info: Bjd9.Servers.Dns.DnsServer[0]
 ブラウザからサーバーを管理する方法です。
 
 ```bash
-dotnet run --project src/Bjd9.WebUI --urls "http://localhost:5000"
+dotnet run --project src/Jdx.WebUI --urls "http://localhost:5000"
 ```
 
 **期待される出力:**
@@ -128,13 +128,13 @@ info: Microsoft.Hosting.Lifetime[14]
       Now listening on: http://localhost:5000
 info: Microsoft.Hosting.Lifetime[0]
       Application started. Press Ctrl+C to shut down.
-info: Bjd9.Servers.Dns.DnsServer[0]
+info: Jdx.Servers.Dns.DnsServer[0]
       DNS record added: example.com -> 192.0.2.1
-info: Bjd9.Servers.Dns.DnsServer[0]
-      DNS record added: bjd9.local -> 127.0.0.1
-info: Bjd9.Servers.Dns.DnsServer[0]
+info: Jdx.Servers.Dns.DnsServer[0]
+      DNS record added: jdx.local -> 127.0.0.1
+info: Jdx.Servers.Dns.DnsServer[0]
       DNS record added: test.local -> 192.168.1.100
-info: Bjd9.WebUI.Services.ServerManager[0]
+info: Jdx.WebUI.Services.ServerManager[0]
       ServerManager initialized with 2 servers
 ```
 
@@ -154,10 +154,10 @@ http://localhost:5000
 
 ```bash
 # CLI版
-/opt/homebrew/Cellar/dotnet@9/9.0.112/bin/dotnet run --project src/Bjd9.Host
+/opt/homebrew/Cellar/dotnet@9/9.0.112/bin/dotnet run --project src/Jdx.Host
 
 # Web UI版
-/opt/homebrew/Cellar/dotnet@9/9.0.112/bin/dotnet run --project src/Bjd9.WebUI --urls "http://localhost:5000"
+/opt/homebrew/Cellar/dotnet@9/9.0.112/bin/dotnet run --project src/Jdx.WebUI --urls "http://localhost:5000"
 ```
 
 ---
@@ -180,10 +180,10 @@ curl http://localhost:8080/
 <html>
 <head>
     <meta charset="utf-8">
-    <title>BJD9 HTTP Server</title>
+    <title>JumboDogX HTTP Server</title>
 </head>
 <body>
-    <h1>Welcome to BJD9 HTTP Server!</h1>
+    <h1>Welcome to JumboDogX HTTP Server!</h1>
     <p>This is a simple HTTP server built with .NET 9</p>
     <p>Server Status: Running</p>
     <hr>
@@ -204,7 +204,7 @@ curl http://localhost:8080/stats
 <html>
 <head>
     <meta charset="utf-8">
-    <title>BJD9 Server Statistics</title>
+    <title>JumboDogX Server Statistics</title>
 </head>
 <body>
     <h1>Server Statistics</h1>
@@ -263,8 +263,8 @@ sudo apt-get install dnsutils
 dig @127.0.0.1 -p 5300 example.com +short
 # 期待される出力: 192.0.2.1
 
-# bjd9.local のテスト
-dig @127.0.0.1 -p 5300 bjd9.local +short
+# jdx.local のテスト
+dig @127.0.0.1 -p 5300 jdx.local +short
 # 期待される出力: 127.0.0.1
 
 # test.local のテスト
@@ -299,16 +299,16 @@ example.com.            300     IN      A       192.0.2.1
 サーバーを起動しているターミナルで、リクエストのログが表示されていることを確認:
 
 ```
-info: Bjd9.Servers.Http.HttpServer[0]
+info: Jdx.Servers.Http.HttpServer[0]
       HTTP request from 127.0.0.1:xxxxx
-info: Bjd9.Servers.Http.HttpServer[0]
+info: Jdx.Servers.Http.HttpServer[0]
       HTTP GET / from 127.0.0.1:xxxxx
-info: Bjd9.Servers.Http.HttpServer[0]
+info: Jdx.Servers.Http.HttpServer[0]
       HTTP 200 GET /
 
-info: Bjd9.Servers.Dns.DnsServer[0]
+info: Jdx.Servers.Dns.DnsServer[0]
       DNS query for example.com (type=1) from 127.0.0.1:xxxxx
-info: Bjd9.Servers.Dns.DnsServer[0]
+info: Jdx.Servers.Dns.DnsServer[0]
       DNS response sent: example.com -> 192.0.2.1
 ```
 
@@ -316,7 +316,7 @@ info: Bjd9.Servers.Dns.DnsServer[0]
 
 ## Web UI の使用方法
 
-Web UI版（`Bjd9.WebUI`）を起動している場合、ブラウザから直感的にサーバーを管理できます。
+Web UI版（`Jdx.WebUI`）を起動している場合、ブラウザから直感的にサーバーを管理できます。
 
 ### アクセス方法
 
@@ -413,7 +413,7 @@ http://localhost:5000
 
 **初期レコード:**
 - example.com → 192.0.2.1
-- bjd9.local → 127.0.0.1
+- jdx.local → 127.0.0.1
 - test.local → 192.168.1.100
 
 ### Web UI での動作確認フロー
@@ -422,7 +422,7 @@ http://localhost:5000
 
 1. **Web UI を起動**
    ```bash
-   dotnet run --project src/Bjd9.WebUI --urls "http://localhost:5000"
+   dotnet run --project src/Jdx.WebUI --urls "http://localhost:5000"
    ```
 
 2. **Dashboard でサーバーを起動**
@@ -513,7 +513,7 @@ netstat -ano | findstr :5000
 taskkill /PID <PID> /F
 
 # または別のポートで起動
-dotnet run --project src/Bjd9.WebUI --urls "http://localhost:5001"
+dotnet run --project src/Jdx.WebUI --urls "http://localhost:5001"
 ```
 
 ### Web UI にアクセスできない
@@ -720,18 +720,18 @@ nslookup example.com 127.0.0.1
 
 ### プロジェクト構造
 ```
-bjd9/
+jdx/
 ├── src/
-│   ├── Bjd9.Core/              # コア機能（IServer, ServerBase等）
-│   ├── Bjd9.Servers.Http/      # HTTP サーバー実装
-│   ├── Bjd9.Servers.Dns/       # DNS サーバー実装
-│   ├── Bjd9.Host/              # CLI版ホストアプリケーション
-│   └── Bjd9.WebUI/             # Blazor Web UI（実装済み）
+│   ├── Jdx.Core/              # コア機能（IServer, ServerBase等）
+│   ├── Jdx.Servers.Http/      # HTTP サーバー実装
+│   ├── Jdx.Servers.Dns/       # DNS サーバー実装
+│   ├── Jdx.Host/              # CLI版ホストアプリケーション
+│   └── Jdx.WebUI/             # Blazor Web UI（実装済み）
 │       ├── Services/           # ServerManager, LogService
 │       └── Components/Pages/   # Dashboard, Logs, DnsRecords
 ├── tests/
-│   ├── Bjd9.Tests.Core/
-│   └── Bjd9.Tests.Servers.Http/
+│   ├── Jdx.Tests.Core/
+│   └── Jdx.Tests.Servers.Http/
 ├── docs/                        # 技術設計ドキュメント
 └── tmp/
     ├── todo.md                  # タスク管理
@@ -755,14 +755,14 @@ bjd9/
 
 ### CLI版（シンプル・自動起動）
 ```bash
-dotnet run --project src/Bjd9.Host
+dotnet run --project src/Jdx.Host
 ```
 - HTTP: http://localhost:8080
 - DNS: port 5300
 
 ### Web UI版（ブラウザ管理・推奨）
 ```bash
-dotnet run --project src/Bjd9.WebUI --urls "http://localhost:5000"
+dotnet run --project src/Jdx.WebUI --urls "http://localhost:5000"
 ```
 - Web UI: http://localhost:5000
 - サーバーは Web UI から起動/停止

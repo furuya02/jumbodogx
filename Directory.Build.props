@@ -8,11 +8,11 @@
     <Nullable>enable</Nullable>
 
     <!-- プロジェクト情報 -->
-    <Product>BlackJumboDog 9 (BJD9)</Product>
-    <Company>BJD Project</Company>
-    <Copyright>Copyright © BJD Project 2026</Copyright>
+    <Product>JumboDogX</Product>
+    <Company>JumboDogX Project</Company>
+    <Copyright>Copyright © JumboDogX Project 2026</Copyright>
     <Version>9.0.0</Version>
-    <Authors>BJD Project Contributors</Authors>
+    <Authors>JumboDogX Project Contributors</Authors>
 
     <!-- ビルド設定 -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>

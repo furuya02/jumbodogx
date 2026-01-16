@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jdx.Core\Jdx.Core.csproj" />
+    <ProjectReference Include="..\Jdx.Servers.Http\Jdx.Servers.Http.csproj" />
+    <ProjectReference Include="..\Jdx.Servers.Dns\Jdx.Servers.Dns.csproj" />
+  </ItemGroup>
+
+</Project>

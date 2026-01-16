@@ -1,0 +1,51 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <button class="btn btn-link text-white hamburger-btn" onclick="toggleSidebar()" title="Toggle menu">
+            <span class="hamburger-icon">☰</span>
+        </button>
+        <a class="navbar-brand mb-0 brand-text" href="">JumboDogX</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span>
+                <span class="nav-text">Dashboard</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="logs">
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span>
+                <span class="nav-text">Logs</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="dns">
+                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span>
+                <span class="nav-text">DNS Records</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="settings">
+                <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span>
+                <span class="nav-text">Settings</span>
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+<script>
+    function toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) {
+            sidebar.classList.toggle('collapsed');
+        }
+    }
+</script>

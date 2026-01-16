@@ -1,0 +1,617 @@
+@page "/settings"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>Settings - JumboDogX</PageTitle>
+
+<h1>Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Server Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🖥️ Server Settings</h5>
+            </div>
+            <div class="card-body">
+                <!-- HTTP Server -->
+                <h6 class="border-bottom pb-2 mb-3">HTTP Server</h6>
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="httpEnabled"
+                                   @bind="settings.HttpServer.Enabled">
+                            <label class="form-check-label" for="httpEnabled">
+                                Enabled
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="httpProtocol" class="form-label">Protocol</label>
+                        <select class="form-select" id="httpProtocol" @bind="settings.HttpServer.Protocol">
+                            <option value="HTTP">HTTP</option>
+                            <option value="HTTPS">HTTPS</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="httpPort" class="form-label">Port</label>
+                        <input type="number" class="form-control" id="httpPort"
+                               @bind="settings.HttpServer.Port" min="1" max="65535">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="httpMaxConn" class="form-label">Max Connections</label>
+                        <input type="number" class="form-control" id="httpMaxConn"
+                               @bind="settings.HttpServer.MaxConnections" min="1" max="10000">
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="httpBindAddr" class="form-label">Bind Address</label>
+                        <input type="text" class="form-control" id="httpBindAddr"
+                               @bind="settings.HttpServer.BindAddress" placeholder="0.0.0.0">
+                        <div class="form-text">IP address to bind (0.0.0.0 for all)</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="httpTimeout" class="form-label">Timeout (seconds)</label>
+                        <input type="number" class="form-control" id="httpTimeout"
+                               @bind="settings.HttpServer.TimeOut" min="1" max="300">
+                        <div class="form-text">Request timeout in seconds</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch mt-4">
+                            <input class="form-check-input" type="checkbox" id="httpUseResolve"
+                                   @bind="settings.HttpServer.UseResolve">
+                            <label class="form-check-label" for="httpUseResolve">
+                                Use Reverse DNS
+                            </label>
+                        </div>
+                        <div class="form-text">Resolve client hostnames</div>
+                    </div>
+                </div>
+
+                <!-- DNS Server -->
+                <h6 class="border-bottom pb-2 mb-3 mt-4">DNS Server</h6>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="dnsEnabled"
+                                   @bind="settings.DnsServer.Enabled">
+                            <label class="form-check-label" for="dnsEnabled">
+                                Enabled
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="dnsPort" class="form-label">Port</label>
+                        <input type="number" class="form-control" id="dnsPort"
+                               @bind="settings.DnsServer.Port" min="1" max="65535">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logging Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📋 Logging Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="logLevel" class="form-label">Log Level</label>
+                        <select class="form-select" id="logLevel" @bind="settings.Logging.LogLevel">
+                            <option value="Trace">Trace</option>
+                            <option value="Debug">Debug</option>
+                            <option value="Information">Information</option>
+                            <option value="Warning">Warning</option>
+                            <option value="Error">Error</option>
+                            <option value="Critical">Critical</option>
+                        </select>
+                        <div class="form-text">Minimum log level to display</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="maxEntries" class="form-label">Max Log Entries</label>
+                        <input type="number" class="form-control" id="maxEntries"
+                               @bind="settings.Logging.MaxEntries" min="100" max="10000">
+                        <div class="form-text">Maximum number of log entries to keep in memory</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Document Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📄 Document Settings (HTTP Server)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="docRoot" class="form-label">Document Root</label>
+                        <input type="text" class="form-control" id="docRoot"
+                               @bind="settings.HttpServer.DocumentRoot" placeholder="/path/to/public_html">
+                        <div class="form-text">Root directory for serving files</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="welcomeFile" class="form-label">Welcome File Names</label>
+                        <input type="text" class="form-control" id="welcomeFile"
+                               @bind="settings.HttpServer.WelcomeFileName" placeholder="index.html,index.htm">
+                        <div class="form-text">Comma-separated list of index files</div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="serverHeader" class="form-label">Server Header</label>
+                        <input type="text" class="form-control" id="serverHeader"
+                               @bind="settings.HttpServer.ServerHeader" placeholder="BlackJumboDog Version $v">
+                        <div class="form-text">$v will be replaced with version</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="serverAdmin" class="form-label">Server Admin Email</label>
+                        <input type="email" class="form-control" id="serverAdmin"
+                               @bind="settings.HttpServer.ServerAdmin" placeholder="admin@example.com">
+                        <div class="form-text">Administrator email address</div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useHidden"
+                                   @bind="settings.HttpServer.UseHidden">
+                            <label class="form-check-label" for="useHidden">
+                                Allow Hidden Files
+                            </label>
+                        </div>
+                        <div class="form-text small">Access hidden attribute files</div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useDot"
+                                   @bind="settings.HttpServer.UseDot">
+                            <label class="form-check-label" for="useDot">
+                                Allow ".." in URL
+                            </label>
+                        </div>
+                        <div class="form-text small">Allow parent directory access</div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useDirEnum"
+                                   @bind="settings.HttpServer.UseDirectoryEnum">
+                            <label class="form-check-label" for="useDirEnum">
+                                Directory Listing
+                            </label>
+                        </div>
+                        <div class="form-text small">Show directory contents</div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useEtag"
+                                   @bind="settings.HttpServer.UseEtag">
+                            <label class="form-check-label" for="useEtag">
+                                Use ETag
+                            </label>
+                        </div>
+                        <div class="form-text small">Enable ETag header</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CGI Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🔧 CGI Settings (HTTP Server)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useCgi"
+                                   @bind="settings.HttpServer.UseCgi">
+                            <label class="form-check-label" for="useCgi">
+                                Enable CGI
+                            </label>
+                        </div>
+                        <div class="form-text small">Common Gateway Interface support</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="cgiTimeout" class="form-label">CGI Timeout (seconds)</label>
+                        <input type="number" class="form-control" id="cgiTimeout"
+                               @bind="settings.HttpServer.CgiTimeout" min="1" max="300">
+                        <div class="form-text">CGI execution timeout</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">CGI Commands</label>
+                        <div class="form-control-plaintext small">
+                            @settings.HttpServer.CgiCommands.Count item(s) configured
+                        </div>
+                        <div class="form-text">Extension → Program mappings</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SSI Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📝 SSI Settings (HTTP Server)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useSsi"
+                                   @bind="settings.HttpServer.UseSsi">
+                            <label class="form-check-label" for="useSsi">
+                                Enable SSI
+                            </label>
+                        </div>
+                        <div class="form-text small">Server Side Includes support</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="ssiExt" class="form-label">SSI Extensions</label>
+                        <input type="text" class="form-control" id="ssiExt"
+                               @bind="settings.HttpServer.SsiExt" placeholder="html,htm">
+                        <div class="form-text">Comma-separated list</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch mt-4">
+                            <input class="form-check-input" type="checkbox" id="useExec"
+                                   @bind="settings.HttpServer.UseExec">
+                            <label class="form-check-label" for="useExec">
+                                Allow SSI exec
+                            </label>
+                        </div>
+                        <div class="form-text small">Enable exec cmd/cgi directive</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WebDAV Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📂 WebDAV Settings (HTTP Server)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useWebDav"
+                                   @bind="settings.HttpServer.UseWebDav">
+                            <label class="form-check-label" for="useWebDav">
+                                Enable WebDAV
+                            </label>
+                        </div>
+                        <div class="form-text small">Web-based file management</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">WebDAV Paths</label>
+                        <div class="form-control-plaintext small">
+                            @settings.HttpServer.WebDavPaths.Count path(s) configured
+                        </div>
+                        <div class="form-text">Path → Directory mappings with permissions</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alias & MIME Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🔗 Alias & MIME Settings (HTTP Server)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Aliases</label>
+                        <div class="form-control-plaintext small">
+                            @settings.HttpServer.Aliases.Count alias(es) configured
+                        </div>
+                        <div class="form-text">Virtual path → Directory mappings</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">MIME Types</label>
+                        <div class="form-control-plaintext small">
+                            @settings.HttpServer.MimeTypes.Count type(s) configured
+                        </div>
+                        <div class="form-text">Extension → MIME type mappings</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Authentication Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🔐 Authentication Settings (HTTP Server)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Auth Definitions</label>
+                        <div class="form-control-plaintext small">
+                            @settings.HttpServer.AuthList.Count definition(s) configured
+                        </div>
+                        <div class="form-text">Directory → Auth rules</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Users</label>
+                        <div class="form-control-plaintext small">
+                            @settings.HttpServer.UserList.Count user(s) configured
+                        </div>
+                        <div class="form-text">Username → Password (hashed)</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Groups</label>
+                        <div class="form-control-plaintext small">
+                            @settings.HttpServer.GroupList.Count group(s) configured
+                        </div>
+                        <div class="form-text">Group → Users</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Template Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📋 Template Settings (HTTP Server)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="encode" class="form-label">Character Encoding</label>
+                        <select class="form-select" id="encode" @bind="settings.HttpServer.Encode">
+                            <option value="UTF-8">UTF-8</option>
+                            <option value="SHIFT-JIS">SHIFT-JIS</option>
+                            <option value="EUC-JP">EUC-JP</option>
+                        </select>
+                        <div class="form-text">Default character encoding for templates</div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="indexDoc" class="form-label">Index Document Template</label>
+                        <textarea class="form-control font-monospace" id="indexDoc" rows="5"
+                                  @bind="settings.HttpServer.IndexDocument"
+                                  placeholder="HTML template for directory listing"></textarea>
+                        <div class="form-text small">Variables: $URI, $HREF, $NAME, $DATE, $SIZE, $SERVER, $VER</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="errorDoc" class="form-label">Error Document Template</label>
+                        <textarea class="form-control font-monospace" id="errorDoc" rows="5"
+                                  @bind="settings.HttpServer.ErrorDocument"
+                                  placeholder="HTML template for error pages"></textarea>
+                        <div class="form-text small">Variables: $CODE, $MSG, $URI, $SERVER, $VER</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACL Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🛡️ Access Control (ACL) Settings (HTTP Server)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useAutoAcl"
+                                   @bind="settings.HttpServer.UseAutoAcl">
+                            <label class="form-check-label" for="useAutoAcl">
+                                Auto ACL
+                            </label>
+                        </div>
+                        <div class="form-text small">Automatic access denial</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="apacheKiller"
+                                   @bind="settings.HttpServer.AutoAclApacheKiller">
+                            <label class="form-check-label" for="apacheKiller">
+                                Apache Killer Protection
+                            </label>
+                        </div>
+                        <div class="form-text small">Protect against Apache Killer attacks</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="enableAcl" class="form-label">ACL Mode</label>
+                        <select class="form-select" id="enableAcl" @bind="settings.HttpServer.EnableAcl">
+                            <option value="0">Allow (Whitelist)</option>
+                            <option value="1">Deny (Blacklist)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label">ACL Rules</label>
+                        <div class="form-control-plaintext small">
+                            @settings.HttpServer.AclList.Count rule(s) configured
+                        </div>
+                        <div class="form-text">ACL name → Address/Network patterns</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex gap-2 mb-4">
+            <button class="btn btn-primary" @onclick="SaveSettings" disabled="@isSaving">
+                @if (isSaving)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                💾 Save Settings
+            </button>
+            <button class="btn btn-secondary" @onclick="ResetToDefault">
+                🔄 Reset to Default
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="LoadSettings">
+                ↻ Reload
+            </button>
+        </div>
+
+        <!-- Info Message -->
+        <div class="alert alert-info">
+            <strong>ℹ️ Note:</strong> Server setting changes (port numbers, enabled/disabled) require a server restart to take effect.
+            Please stop and start the affected servers from the Dashboard after saving.
+        </div>
+    </div>
+
+    <!-- Current Settings Preview -->
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-header">
+                <h6 class="mb-0">Current Configuration</h6>
+            </div>
+            <div class="card-body">
+                <dl class="mb-0">
+                    <dt class="text-muted small">HTTP Server</dt>
+                    <dd>
+                        <span class="badge @(settings.HttpServer.Enabled ? "bg-success" : "bg-secondary")">
+                            @(settings.HttpServer.Enabled ? "Enabled" : "Disabled")
+                        </span>
+                        <div class="small">Protocol: @settings.HttpServer.Protocol</div>
+                        <div class="small">Port: @settings.HttpServer.Port</div>
+                        <div class="small">Bind: @settings.HttpServer.BindAddress</div>
+                        <div class="small">Timeout: @settings.HttpServer.TimeOut s</div>
+                        <div class="small">Max Conn: @settings.HttpServer.MaxConnections</div>
+                        <div class="small">Reverse DNS: @(settings.HttpServer.UseResolve ? "Yes" : "No")</div>
+                    </dd>
+
+                    <dt class="text-muted small mt-3">DNS Server</dt>
+                    <dd>
+                        <span class="badge @(settings.DnsServer.Enabled ? "bg-success" : "bg-secondary")">
+                            @(settings.DnsServer.Enabled ? "Enabled" : "Disabled")
+                        </span>
+                        <div class="small">Port: @settings.DnsServer.Port</div>
+                    </dd>
+
+                    <dt class="text-muted small mt-3">Logging</dt>
+                    <dd>
+                        <div class="small">Level: @settings.Logging.LogLevel</div>
+                        <div class="small">Max Entries: @settings.Logging.MaxEntries</div>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card bg-light mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">Quick Tips</h6>
+            </div>
+            <div class="card-body">
+                <ul class="small mb-0">
+                    <li>Default HTTP port: 8080</li>
+                    <li>Default DNS port: 5300</li>
+                    <li>Avoid using privileged ports (&lt;1024) without proper permissions</li>
+                    <li>Changes are saved to appsettings.json</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private bool isSaving = false;
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        LoadSettings();
+    }
+
+    private void LoadSettings()
+    {
+        var currentSettings = SettingsService.GetSettings();
+
+        // Create a deep copy using JSON serialization
+        var json = System.Text.Json.JsonSerializer.Serialize(currentSettings);
+        settings = System.Text.Json.JsonSerializer.Deserialize<ApplicationSettings>(json) ?? new ApplicationSettings();
+    }
+
+    private async Task SaveSettings()
+    {
+        isSaving = true;
+        saveMessage = null;
+
+        try
+        {
+            // Validation
+            if (settings.HttpServer.Port < 1 || settings.HttpServer.Port > 65535)
+            {
+                saveMessage = "Invalid HTTP port number. Must be between 1 and 65535.";
+                saveSuccess = false;
+                return;
+            }
+
+            if (settings.DnsServer.Port < 1 || settings.DnsServer.Port > 65535)
+            {
+                saveMessage = "Invalid DNS port number. Must be between 1 and 65535.";
+                saveSuccess = false;
+                return;
+            }
+
+            if (settings.HttpServer.MaxConnections < 1 || settings.HttpServer.MaxConnections > 10000)
+            {
+                saveMessage = "Invalid max connections. Must be between 1 and 10000.";
+                saveSuccess = false;
+                return;
+            }
+
+            if (settings.HttpServer.TimeOut < 1 || settings.HttpServer.TimeOut > 300)
+            {
+                saveMessage = "Invalid timeout. Must be between 1 and 300 seconds.";
+                saveSuccess = false;
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(settings.HttpServer.BindAddress))
+            {
+                saveMessage = "Bind address cannot be empty.";
+                saveSuccess = false;
+                return;
+            }
+
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Settings saved successfully! Please restart the servers to apply changes.";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Failed to save settings: {ex.Message}";
+            saveSuccess = false;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void ResetToDefault()
+    {
+        var defaultSettings = SettingsService.GetDefaultSettings();
+
+        // Create a deep copy using JSON serialization
+        var json = System.Text.Json.JsonSerializer.Serialize(defaultSettings);
+        settings = System.Text.Json.JsonSerializer.Deserialize<ApplicationSettings>(json) ?? new ApplicationSettings();
+
+        saveMessage = "Settings reset to default values. Click 'Save Settings' to apply.";
+        saveSuccess = true;
+    }
+}

@@ -1,8 +1,8 @@
-# BJD9 - BlackJumboDog 9
+# JumboDogX（ジェイディーエックス）
 
 [English](README.md) | 日本語
 
-BJD9は、BlackJumboDog (BJD5)を.NET 9へ移植したクロスプラットフォーム統合サーバーソフトウェアです。
+**JumboDogX** は、BlackJumboDog (BJD) を.NET 9で完全に書き直した次世代マルチプラットフォーム統合サーバーソフトウェアです。JumboDogXは、日本で愛されてきたBJDの進化版として、最新のクロスプラットフォーム機能を提供します。
 
 **⚠️ 重要**: このソフトウェアは**ローカル環境でのテスト用サーバー**です。グローバルネットワークへの公開を想定していません。開発・テスト環境でのみ使用してください。
 
@@ -28,16 +28,16 @@ BJD9は、BlackJumboDog (BJD5)を.NET 9へ移植したクロスプラットフ�
 ## プロジェクト構成
 
 ```
-bjd9/
+jdx/
 ├── src/
-│   ├── Bjd9.Core/              # コアライブラリ
-│   ├── Bjd9.Servers.Http/      # HTTPサーバー実装
-│   ├── Bjd9.Servers.Dns/       # DNSサーバー実装
-│   ├── Bjd9.Host/              # ホストアプリケーション
-│   └── Bjd9.WebUI/             # Web UI（Blazor Server）
+│   ├── Jdx.Core/              # コアライブラリ
+│   ├── Jdx.Servers.Http/      # HTTPサーバー実装
+│   ├── Jdx.Servers.Dns/       # DNSサーバー実装
+│   ├── Jdx.Host/              # ホストアプリケーション
+│   └── Jdx.WebUI/             # Web UI（Blazor Server）
 ├── tests/
-│   ├── Bjd9.Tests.Core/        # Coreのユニットテスト
-│   └── Bjd9.Tests.Servers.Http/ # HTTPサーバーのテスト
+│   ├── Jdx.Tests.Core/        # Coreのユニットテスト
+│   └── Jdx.Tests.Servers.Http/ # HTTPサーバーのテスト
 └── docs/                        # 設計ドキュメント
 ```
 
@@ -78,14 +78,14 @@ dotnet test
 ### CLI版（ホストアプリケーション）
 
 ```bash
-cd src/Bjd9.Host
+cd src/Jdx.Host
 dotnet run
 ```
 
 ### Web UI版
 
 ```bash
-cd src/Bjd9.WebUI
+cd src/Jdx.WebUI
 dotnet run
 ```
 
