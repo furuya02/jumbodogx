@@ -2,39 +2,82 @@ using System.Net;
 using System.Net.Sockets;
 using Jdx.Core.Abstractions;
 using Jdx.Core.Network;
+using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
 
 namespace Jdx.Servers.Dns;
 
 /// <summary>
-/// DNSサーバー（簡易実装：A レコードのみ）
+/// DNS Server with full resource record support
+/// Based on bjd5-master/DnsServer/Server.cs (simplified)
 /// </summary>
 public class DnsServer : ServerBase
 {
     private readonly int _port;
-    private readonly Dictionary<string, string> _records;
+    private readonly DnsServerSettings _settings;
+    private readonly Dictionary<string, RrDb> _cacheList; // Domain caches
+    private readonly RrDb? _rootCache; // Root nameserver cache
     private ServerUdpListener? _listener;
 
-    public DnsServer(ILogger<DnsServer> logger, int port = 5300) : base(logger)
+    public DnsServer(ILogger<DnsServer> logger, DnsServerSettings settings) : base(logger)
     {
-        _port = port;
-        _records = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        _settings = settings;
+        _port = settings.Port;
+        _cacheList = new Dictionary<string, RrDb>(StringComparer.OrdinalIgnoreCase);
+
+        // Initialize domain caches
+        foreach (var domain in settings.DomainList)
         {
-            // テスト用の固定レコード
-            ["example.com"] = "192.0.2.1",
-            ["test.local"] = "192.168.1.100",
-            ["jdx.local"] = "127.0.0.1",
-            ["localhost"] = "127.0.0.1"
-        };
+            var resources = settings.ResourceList
+                .Where(r => r.Name.EndsWith(domain.Name, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var cache = new RrDb(logger, resources, domain.Name, domain.IsAuthority, settings);
+            _cacheList[domain.Name] = cache;
+        }
+
+        // Initialize root cache if named.ca exists
+        if (File.Exists(settings.RootCache))
+        {
+            try
+            {
+                _rootCache = new RrDb(settings.RootCache, (uint)settings.SoaExpire);
+                Logger.LogInformation("Loaded root cache from {RootCache}", settings.RootCache);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to load root cache from {RootCache}", settings.RootCache);
+            }
+        }
+
+        Logger.LogInformation("DNS Server initialized with {DomainCount} domains, {ResourceCount} resources",
+            settings.DomainList.Count, settings.ResourceList.Count);
     }
 
     public override string Name => "DnsServer";
     public override ServerType Type => ServerType.Dns;
     public override int Port => _port;
 
+    public void AddRecord(string domainName, string ipAddress)
+    {
+        // Add record to appropriate cache
+        var domain = _cacheList.Keys.FirstOrDefault(d => domainName.EndsWith(d, StringComparison.OrdinalIgnoreCase));
+        if (domain != null)
+        {
+            var ip = IPAddress.Parse(ipAddress);
+            var rr = new RrA(domainName, (uint)_settings.SoaExpire, ip);
+            _cacheList[domain].Add(rr);
+            Logger.LogInformation("Added A record: {Name} -> {IP}", domainName, ipAddress);
+        }
+    }
+
+    public void RemoveRecord(string domainName)
+    {
+        Logger.LogInformation("RemoveRecord not fully implemented: {Name}", domainName);
+    }
+
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {
-        // 既存のリスナーがあれば停止
         if (_listener != null)
         {
             try
@@ -53,7 +96,6 @@ public class DnsServer : ServerBase
 
         Logger.LogInformation("DNS Server listening on port {Port}", _port);
 
-        // UDP リクエストを受信するループ
         _ = Task.Run(async () =>
         {
             while (!StopCts.Token.IsCancellationRequested)
@@ -64,7 +106,6 @@ public class DnsServer : ServerBase
                     Statistics.TotalConnections++;
                     Statistics.TotalBytesReceived += data.Length;
 
-                    // リクエスト処理を非同期で実行
                     _ = Task.Run(async () =>
                     {
                         await HandleDnsQueryAsync(data, remoteEndPoint, StopCts.Token);
@@ -95,8 +136,7 @@ public class DnsServer : ServerBase
 
     protected override Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
     {
-        // UDP サーバーなので使用しない
-        return Task.CompletedTask;
+        return Task.CompletedTask; // UDP server doesn't use this
     }
 
     private async Task HandleDnsQueryAsync(byte[] data, EndPoint remoteEndPoint, CancellationToken cancellationToken)
@@ -105,73 +145,113 @@ public class DnsServer : ServerBase
 
         try
         {
-            // DNS クエリをパース
             var query = DnsMessage.ParseQuery(data);
             Statistics.TotalRequests++;
 
-            Logger.LogInformation("DNS query for {QueryName} (type={QueryType}) from {RemoteAddress}",
-                query.QueryName, query.QueryType, remoteAddress);
-
-            // A レコードクエリのみ処理（type=1）
-            if (query.QueryType == 1)
+            var queryName = query.QueryName.ToLower();
+            if (!queryName.EndsWith("."))
             {
-                string? ipAddress = null;
+                queryName += ".";
+            }
 
-                // レコードを検索
-                if (_records.TryGetValue(query.QueryName, out var recordIp))
+            var queryType = DnsUtil.Short2DnsType((short)query.QueryType);
+
+            Logger.LogInformation("DNS query for {QueryName} (type={QueryType}/{TypeName}) from {RemoteAddress}",
+                query.QueryName, query.QueryType, queryType, remoteAddress);
+
+            // Find matching cache
+            RrDb? cache = null;
+            foreach (var domain in _cacheList.Keys.OrderByDescending(k => k.Length))
+            {
+                if (queryName.EndsWith(domain, StringComparison.OrdinalIgnoreCase))
                 {
-                    ipAddress = recordIp;
+                    cache = _cacheList[domain];
+                    break;
+                }
+            }
+
+            // Try to find the record
+            List<OneRr>? records = null;
+            if (cache != null)
+            {
+                records = cache.GetList(queryName, queryType);
+            }
+
+            // If not found and recursion enabled, try root cache
+            if ((records == null || records.Count == 0) && _settings.UseRecursion && _rootCache != null)
+            {
+                records = _rootCache.GetList(queryName, queryType);
+            }
+
+            // Generate response
+            if (records != null && records.Count > 0)
+            {
+                // Found - return the records
+                var firstRecord = records[0];
+                string responseData = "";
+
+                switch (queryType)
+                {
+                    case DnsType.A:
+                        if (firstRecord is RrA rrA)
+                        {
+                            responseData = rrA.Ip.ToString();
+                        }
+                        break;
+
+                    case DnsType.Aaaa:
+                        if (firstRecord is RrAaaa rrAaaa)
+                        {
+                            responseData = rrAaaa.Ip.ToString();
+                        }
+                        break;
+
+                    case DnsType.Ns:
+                    case DnsType.Cname:
+                    case DnsType.Ptr:
+                    case DnsType.Mx:
+                    case DnsType.Soa:
+                        // For other types, use simple response for now
+                        responseData = firstRecord.ToString() ?? "";
+                        Logger.LogInformation("Record found: {Record}", responseData);
+                        break;
+                }
+
+                if (!string.IsNullOrEmpty(responseData) && queryType == DnsType.A)
+                {
+                    var response = query.CreateResponse(responseData);
+                    if (_listener != null)
+                    {
+                        await _listener.SendAsync(response, remoteEndPoint, cancellationToken);
+                        Statistics.TotalBytesSent += response.Length;
+                        Logger.LogInformation("DNS response sent: {QueryName} -> {Data}",
+                            query.QueryName, responseData);
+                    }
                 }
                 else
                 {
-                    // 見つからない場合はデフォルトIP
-                    ipAddress = "0.0.0.0";
-                    Logger.LogWarning("DNS record not found for {QueryName}, returning {DefaultIp}",
-                        query.QueryName, ipAddress);
-                }
-
-                // DNS 応答を生成
-                var response = query.CreateResponse(ipAddress);
-
-                // 応答を送信
-                if (_listener != null)
-                {
-                    await _listener.SendAsync(response, remoteEndPoint, cancellationToken);
-                    Statistics.TotalBytesSent += response.Length;
-
-                    Logger.LogInformation("DNS response sent: {QueryName} -> {IpAddress}",
-                        query.QueryName, ipAddress);
+                    Logger.LogWarning("Query type {QueryType} response generation not fully implemented", queryType);
                 }
             }
             else
             {
-                Logger.LogWarning("Unsupported DNS query type: {QueryType}", query.QueryType);
+                // Not found - return NXDOMAIN (simplified)
+                Logger.LogWarning("DNS record not found for {QueryName} (type={QueryType})",
+                    query.QueryName, queryType);
+
+                // Return empty response for now
+                var response = query.CreateResponse("0.0.0.0");
+                if (_listener != null)
+                {
+                    await _listener.SendAsync(response, remoteEndPoint, cancellationToken);
+                    Statistics.TotalBytesSent += response.Length;
+                }
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error handling DNS query from {RemoteAddress}", remoteAddress);
             Statistics.TotalErrors++;
-        }
-    }
-
-    /// <summary>
-    /// DNS レコードを追加
-    /// </summary>
-    public void AddRecord(string domainName, string ipAddress)
-    {
-        _records[domainName] = ipAddress;
-        Logger.LogInformation("DNS record added: {DomainName} -> {IpAddress}", domainName, ipAddress);
-    }
-
-    /// <summary>
-    /// DNS レコードを削除
-    /// </summary>
-    public void RemoveRecord(string domainName)
-    {
-        if (_records.Remove(domainName))
-        {
-            Logger.LogInformation("DNS record removed: {DomainName}", domainName);
         }
     }
 }
