@@ -101,6 +101,14 @@ public class FtpServer : ServerBase
             ControlStream = client.GetStream(),
         };
 
+        // Validate control stream
+        if (session.ControlStream == null)
+        {
+            Logger.LogError("Failed to get network stream from client: {RemoteAddress}", remoteAddress);
+            socket.Close();
+            return;
+        }
+
         try
         {
             session.ControlReader = new StreamReader(session.ControlStream);
@@ -140,10 +148,7 @@ public class FtpServer : ServerBase
                     remoteAddress, line);
 
                 // Execute command
-                if (_commandHandler != null)
-                {
-                    continueSession = await _commandHandler.ExecuteCommandAsync(session, line);
-                }
+                continueSession = await _commandHandler.ExecuteCommandAsync(session, line);
             }
 
             // Log logout if user was authenticated

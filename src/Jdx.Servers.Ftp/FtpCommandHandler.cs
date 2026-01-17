@@ -359,6 +359,33 @@ public class FtpCommandHandler
 
     private async Task<bool> HandleListAsync(FtpSession session, string path, FtpCommand command)
     {
+        // Wait for PASV connection if pending
+        if (session.PasvConnectionReady != null)
+        {
+            try
+            {
+                // Wait up to 30 seconds for client to connect
+                await session.PasvConnectionReady.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            }
+            catch (TimeoutException)
+            {
+                await session.SendResponseAsync("425 Data connection timeout.");
+                session.CloseDataConnection();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to establish data connection");
+                await session.SendResponseAsync("425 Can't open data connection.");
+                session.CloseDataConnection();
+                return true;
+            }
+            finally
+            {
+                session.PasvConnectionReady = null;
+            }
+        }
+
         if (session.DataStream == null)
         {
             await session.SendResponseAsync("425 Use PORT or PASV first.");
@@ -422,9 +449,13 @@ public class FtpCommandHandler
             var ip = $"{parts[0]}.{parts[1]}.{parts[2]}.{parts[3]}";
             var port = int.Parse(parts[4]) * 256 + int.Parse(parts[5]);
 
+            // Close existing data connection
+            session.CloseDataConnection();
+
             // Connect to client
             var client = new TcpClient();
             await client.ConnectAsync(ip, port);
+            session.DataClient = client;
             session.DataSocket = client.Client;
             session.DataStream = client.GetStream();
 
@@ -454,25 +485,31 @@ public class FtpCommandHandler
             var endpoint = (IPEndPoint)listener.LocalEndpoint;
             var port = endpoint.Port;
 
-            // Get server IP (simplified - should use actual bind address)
-            var localIp = "127,0,0,1"; // TODO: Get actual IP
+            // Get server IP from bind address setting or control connection
+            var localIp = GetServerIpForPasv();
             var p1 = port / 256;
             var p2 = port % 256;
 
+            // Create TaskCompletionSource for connection synchronization
+            session.PasvConnectionReady = new TaskCompletionSource<bool>();
+
             await session.SendResponseAsync($"227 Entering Passive Mode ({localIp},{p1},{p2})");
 
-            // Accept connection in background
+            // Accept connection in background with synchronization
             _ = Task.Run(async () =>
             {
                 try
                 {
                     var client = await listener.AcceptTcpClientAsync();
+                    session.DataClient = client;
                     session.DataSocket = client.Client;
                     session.DataStream = client.GetStream();
+                    session.PasvConnectionReady.TrySetResult(true);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to accept PASV connection");
+                    session.PasvConnectionReady.TrySetException(ex);
                 }
             });
         }
@@ -480,6 +517,64 @@ public class FtpCommandHandler
         {
             _logger.LogError(ex, "Failed to handle PASV command");
             await session.SendResponseAsync("500 Failed to enter passive mode.");
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Get server IP for PASV response
+    /// </summary>
+    private string GetServerIpForPasv()
+    {
+        // Try to get from settings BindAddress
+        if (!string.IsNullOrEmpty(_settings.BindAddress) && _settings.BindAddress != "0.0.0.0")
+        {
+            return _settings.BindAddress.Replace('.', ',');
+        }
+
+        // Fallback to localhost (for development)
+        // In production, this should be the server's public IP
+        return "127,0,0,1";
+    }
+
+    /// <summary>
+    /// Wait for PASV data connection to be established
+    /// Returns true if connection is ready, false if failed/timeout
+    /// </summary>
+    private async Task<bool> WaitForDataConnectionAsync(FtpSession session)
+    {
+        // Wait for PASV connection if pending
+        if (session.PasvConnectionReady != null)
+        {
+            try
+            {
+                // Wait up to 30 seconds for client to connect
+                await session.PasvConnectionReady.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            }
+            catch (TimeoutException)
+            {
+                await session.SendResponseAsync("425 Data connection timeout.");
+                session.CloseDataConnection();
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to establish data connection");
+                await session.SendResponseAsync("425 Can't open data connection.");
+                session.CloseDataConnection();
+                return false;
+            }
+            finally
+            {
+                session.PasvConnectionReady = null;
+            }
+        }
+
+        if (session.DataStream == null)
+        {
+            await session.SendResponseAsync("425 Use PORT or PASV first.");
+            return false;
         }
 
         return true;
@@ -532,11 +627,9 @@ public class FtpCommandHandler
 
     private async Task<bool> HandleStorAsync(FtpSession session, string path)
     {
-        if (session.DataStream == null)
-        {
-            await session.SendResponseAsync("425 Use PORT or PASV first.");
+        // Wait for PASV data connection if needed
+        if (!await WaitForDataConnectionAsync(session))
             return true;
-        }
 
         var fullPath = session.CurrentDirectory?.CreatePath(path, false);
         if (string.IsNullOrEmpty(fullPath))
@@ -558,6 +651,21 @@ public class FtpCommandHandler
         {
             _logger.LogError(ex, "Failed to store file: {Path}", fullPath);
             session.CloseDataConnection();
+
+            // Delete partial file on error
+            try
+            {
+                if (File.Exists(fullPath))
+                {
+                    File.Delete(fullPath);
+                    _logger.LogDebug("Deleted partial file after failed transfer: {Path}", fullPath);
+                }
+            }
+            catch (Exception deleteEx)
+            {
+                _logger.LogWarning(deleteEx, "Failed to delete partial file: {Path}", fullPath);
+            }
+
             await session.SendResponseAsync("550 Failed to store file.");
         }
 
@@ -566,11 +674,9 @@ public class FtpCommandHandler
 
     private async Task<bool> HandleRetrAsync(FtpSession session, string path)
     {
-        if (session.DataStream == null)
-        {
-            await session.SendResponseAsync("425 Use PORT or PASV first.");
+        // Wait for PASV data connection if needed
+        if (!await WaitForDataConnectionAsync(session))
             return true;
-        }
 
         var fullPath = session.CurrentDirectory?.CreatePath(path, false);
         if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath))

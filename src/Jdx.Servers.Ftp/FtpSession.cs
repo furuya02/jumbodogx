@@ -18,6 +18,7 @@ public class FtpSession
     // Data connection
     public NetworkStream? DataStream { get; set; }
     public Socket? DataSocket { get; set; }
+    public TcpClient? DataClient { get; set; }
     public TcpListener? PasvListener { get; set; }
 
     // Authentication state
@@ -39,6 +40,9 @@ public class FtpSession
 
     // Remote address
     public string RemoteAddress { get; set; } = "";
+
+    // PASV data connection synchronization
+    public TaskCompletionSource<bool>? PasvConnectionReady { get; set; }
 
     public FtpSession()
     {
@@ -66,9 +70,11 @@ public class FtpSession
     public void CloseDataConnection()
     {
         DataStream?.Close();
+        DataClient?.Close();
         DataSocket?.Close();
         PasvListener?.Stop();
         DataStream = null;
+        DataClient = null;
         DataSocket = null;
         PasvListener = null;
     }
