@@ -1,0 +1,167 @@
+@page "/settings/dns/domains"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>DNS Domains - JumboDogX</PageTitle>
+
+<h1>DNS - Domain Management</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🌐 Managed Domains</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Configure which domains this DNS server has authority over.
+                    Authority domains will be resolved directly from configured resources, while non-authority domains will use recursive DNS lookups.
+                </p>
+
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 50%">Domain Name</th>
+                            <th style="width: 20%">Authority</th>
+                            <th style="width: 30%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var (domain, index) in settings.DnsServer.DomainList.Select((d, i) => (d, i)))
+                        {
+                            <tr>
+                                <td>
+                                    <input type="text" class="form-control" @bind="domain.Name" placeholder="example.com">
+                                </td>
+                                <td>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" @bind="domain.IsAuthority">
+                                        <label class="form-check-label">
+                                            @(domain.IsAuthority ? "Yes" : "No")
+                                        </label>
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => RemoveDomain(index)">
+                                        Remove
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <button class="btn btn-success btn-sm mt-2" @onclick="AddDomain">
+                    + Add Domain
+                </button>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Tip:</strong> Set "Authority" to "Yes" for domains you want to serve directly from this DNS server.
+                    For other domains, the server will perform recursive lookups to external DNS servers.
+                </div>
+
+                <div class="border-top pt-3 mt-4">
+                    <button class="btn btn-primary me-2" @onclick="SaveSettings">
+                        Save Settings
+                    </button>
+                    <button class="btn btn-secondary" @onclick="AddExampleDomains">
+                        Add Examples
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private void AddDomain()
+    {
+        settings.DnsServer.DomainList.Add(new DnsDomainEntry
+        {
+            Name = "",
+            IsAuthority = false
+        });
+    }
+
+    private void RemoveDomain(int index)
+    {
+        if (index >= 0 && index < settings.DnsServer.DomainList.Count)
+        {
+            settings.DnsServer.DomainList.RemoveAt(index);
+        }
+    }
+
+    private void AddExampleDomains()
+    {
+        // Add common local domains as examples
+        if (!settings.DnsServer.DomainList.Any(d => d.Name == "localhost"))
+        {
+            settings.DnsServer.DomainList.Add(new DnsDomainEntry
+            {
+                Name = "localhost",
+                IsAuthority = true
+            });
+        }
+
+        if (!settings.DnsServer.DomainList.Any(d => d.Name == "test.local"))
+        {
+            settings.DnsServer.DomainList.Add(new DnsDomainEntry
+            {
+                Name = "test.local",
+                IsAuthority = true
+            });
+        }
+
+        saveMessage = "Example domains added. Click Save to apply.";
+        saveSuccess = true;
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            // Validate domains
+            var emptyDomains = settings.DnsServer.DomainList.Where(d => string.IsNullOrWhiteSpace(d.Name)).ToList();
+            if (emptyDomains.Any())
+            {
+                saveMessage = "Error: Domain name cannot be empty. Please remove or fill in all domains.";
+                saveSuccess = false;
+                return;
+            }
+
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Settings saved successfully!";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+}
