@@ -1,0 +1,150 @@
+@page "/settings/ftp/virtualfolder"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>FTP Virtual Folder Settings - JumboDogX</PageTitle>
+
+<h1>FTP Server - Virtual Folder (Mount) Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <!-- Virtual Folder Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Virtual Folder Mounts</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Map virtual FTP paths to actual directories on the server.
+                    This allows you to expose specific directories without revealing the actual file system structure.
+                </p>
+
+                @if (settings.FtpServer.MountList.Count == 0)
+                {
+                    <div class="alert alert-info">
+                        No virtual folder mounts configured. Click "Add Mount" to create one.
+                    </div>
+                }
+                else
+                {
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Virtual Path (FTP)</th>
+                                <th>Physical Directory</th>
+                                <th style="width: 100px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var (mount, index) in settings.FtpServer.MountList.Select((m, i) => (m, i)))
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="text" class="form-control" @bind="mount.FromFolder"
+                                               placeholder="/virtual/path">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" @bind="mount.ToFolder"
+                                               placeholder="/actual/directory/path">
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-danger btn-sm" @onclick="() => RemoveMount(index)">
+                                            <span class="bi bi-trash"></span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                <button class="btn btn-success" @onclick="AddMount">
+                    <span class="bi bi-plus-circle me-1"></span> Add Mount
+                </button>
+            </div>
+        </div>
+
+        <!-- Save Buttons -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <button class="btn btn-primary btn-lg me-2" @onclick="SaveSettings">
+                    <span class="bi bi-check-circle me-1"></span> Save Settings
+                </button>
+                <button class="btn btn-secondary btn-lg" @onclick="ResetToDefault">
+                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private void AddMount()
+    {
+        settings.FtpServer.MountList.Add(new FtpMountEntry
+        {
+            FromFolder = "",
+            ToFolder = ""
+        });
+    }
+
+    private void RemoveMount(int index)
+    {
+        if (index >= 0 && index < settings.FtpServer.MountList.Count)
+        {
+            settings.FtpServer.MountList.RemoveAt(index);
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "FTP virtual folder settings saved successfully! Restart the server to apply changes.";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        // Clear message after 5 seconds
+        _ = Task.Delay(5000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+
+        // Reset FTP mount list to defaults
+        settings.FtpServer.MountList = new List<FtpMountEntry>(defaults.FtpServer.MountList);
+
+        saveMessage = "FTP virtual folder settings reset to default values. Click 'Save Settings' to apply.";
+        saveSuccess = true;
+    }
+}
