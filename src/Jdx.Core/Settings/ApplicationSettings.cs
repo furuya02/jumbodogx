@@ -230,11 +230,77 @@ public class FtpMountEntry
 
 /// <summary>
 /// DNSサーバー設定
+/// bjd5-master/DnsServer/Option.cs に対応
 /// </summary>
 public class DnsServerSettings
 {
-    public bool Enabled { get; set; }
-    public int Port { get; set; }
+    // 基本設定 (TAB1: Basic)
+    public bool Enabled { get; set; } = false;
+    public int Port { get; set; } = 53;  // 標準DNSポート（特権必要）
+    public int MaxConnections { get; set; } = 10;
+    public int TimeOut { get; set; } = 30;  // 秒
+
+    // キャッシュ設定
+    public string RootCache { get; set; } = "named.ca";
+
+    // 再帰設定
+    public bool UseRecursion { get; set; } = true;
+
+    // SOA (Start of Authority) レコード設定
+    public string SoaMail { get; set; } = "postmaster";
+    public int SoaSerial { get; set; } = 1;
+    public int SoaRefresh { get; set; } = 3600;  // 秒
+    public int SoaRetry { get; set; } = 300;  // 秒
+    public int SoaExpire { get; set; } = 360000;  // 秒
+    public int SoaMinimum { get; set; } = 3600;  // 秒（最小TTL）
+
+    // ドメイン管理
+    public List<DnsDomainEntry> DomainList { get; set; } = new();
+
+    // リソースレコード管理
+    public List<DnsResourceEntry> ResourceList { get; set; } = new();
+
+    // ACL設定 (TAB2: ACL)
+    public int EnableAcl { get; set; } = 0;  // 0=Allow, 1=Deny
+    public List<AclEntry> AclList { get; set; } = new();
+}
+
+/// <summary>
+/// DNSドメインエントリ
+/// bjd5-master/DnsServer/OptionDnsDomain.cs に対応
+/// </summary>
+public class DnsDomainEntry
+{
+    public string Name { get; set; } = "";  // ドメイン名（例: example.com）
+    public bool IsAuthority { get; set; } = false;  // 権威サーバフラグ
+}
+
+/// <summary>
+/// DNSリソースレコードエントリ
+/// bjd5-master/DnsServer/OptionDnsResource.cs に対応
+/// </summary>
+public class DnsResourceEntry
+{
+    public DnsType Type { get; set; } = DnsType.A;  // レコードタイプ
+    public string Name { get; set; } = "";  // ホスト名/ドメイン名
+    public string Alias { get; set; } = "";  // エイリアス（CNAME用）
+    public string Address { get; set; } = "";  // IPアドレス（A/AAAA用）
+    public int Priority { get; set; } = 0;  // 優先度（MX用）
+}
+
+/// <summary>
+/// DNSレコードタイプ
+/// bjd5-master/DnsServer/DnsType.cs に対応
+/// </summary>
+public enum DnsType
+{
+    A = 1,       // IPv4アドレス
+    Ns = 2,      // ネームサーバ
+    Cname = 5,   // 正規名（エイリアス）
+    Soa = 6,     // ゾーン転送情報
+    Ptr = 12,    // ポインタ（逆引き）
+    Mx = 15,     // メールサーバ
+    Aaaa = 28    // IPv6アドレス
 }
 
 /// <summary>
