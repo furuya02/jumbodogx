@@ -2,6 +2,7 @@ using Jdx.Core.Abstractions;
 using Jdx.Core.Settings;
 using Jdx.Servers.Http;
 using Jdx.Servers.Dns;
+using Jdx.Servers.Ftp;
 using Microsoft.Extensions.Logging;
 
 namespace Jdx.WebUI.Services;
@@ -47,6 +48,11 @@ public class ServerManager
             var httpServer = new HttpServer(httpLogger, _settingsService);
             _servers["http"] = httpServer;
 
+            // FTP サーバー（SettingsService注入）
+            var ftpLogger = _loggerFactory.CreateLogger<FtpServer>();
+            var ftpServer = new FtpServer(ftpLogger, _settingsService);
+            _servers["ftp"] = ftpServer;
+
             // DNS サーバー
             var dnsLogger = _loggerFactory.CreateLogger<DnsServer>();
             var dnsServer = new DnsServer(dnsLogger, settings.DnsServer.Port);
@@ -69,6 +75,10 @@ public class ServerManager
                     if (settings.HttpServer.Enabled)
                     {
                         await StartServerAsync("http");
+                    }
+                    if (settings.FtpServer.Enabled)
+                    {
+                        await StartServerAsync("ftp");
                     }
                     if (settings.DnsServer.Enabled)
                     {

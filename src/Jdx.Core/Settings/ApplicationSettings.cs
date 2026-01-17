@@ -6,6 +6,7 @@ namespace Jdx.Core.Settings;
 public class ApplicationSettings
 {
     public HttpServerSettings HttpServer { get; set; } = new();
+    public FtpServerSettings FtpServer { get; set; } = new();
     public DnsServerSettings DnsServer { get; set; } = new();
     public LoggingSettings Logging { get; set; } = new();
 }
@@ -159,6 +160,72 @@ public class VirtualHostEntry
     public string DocumentRoot { get; set; } = "";
     public string CertificateFile { get; set; } = "";  // HTTPS用（オプション）
     public string CertificatePassword { get; set; } = "";  // HTTPS用（オプション）
+}
+
+/// <summary>
+/// FTPサーバー設定
+/// </summary>
+public class FtpServerSettings
+{
+    // 基本設定 (Page1 - General)
+    public bool Enabled { get; set; } = false;
+    public string BindAddress { get; set; } = "0.0.0.0";
+    public int Port { get; set; } = 2121;  // 開発環境用デフォルトポート
+    public int TimeOut { get; set; } = 300;  // 秒
+    public int MaxConnections { get; set; } = 10;
+    public string BannerMessage { get; set; } = "BlackJumboDog FTP Server Ready";
+    public bool UseSyst { get; set; } = false;  // SYST コマンドへの応答
+    public int ReservationTime { get; set; } = 30;  // PASV予約時間（秒）
+
+    // FTPS設定 (Page1 - General)
+    public bool UseFtps { get; set; } = false;
+    public string CertificateFile { get; set; } = "";
+    // WARNING: Storing passwords in plaintext is insecure.
+    // Consider using environment variables or ASP.NET Core User Secrets in production.
+    // Example: Environment.GetEnvironmentVariable("FTP_CERT_PASSWORD")
+    public string CertificatePassword { get; set; } = "";
+
+    // ユーザー設定 (Page3 - User)
+    public List<FtpUserEntry> UserList { get; set; } = new();
+
+    // 仮想フォルダ設定 (Page2 - VirtualFolder)
+    public List<FtpMountEntry> MountList { get; set; } = new();
+
+    // ACL設定 (PageAcl - Acl)
+    public int EnableAcl { get; set; } = 0;  // 0=Allow, 1=Deny
+    public List<AclEntry> AclList { get; set; } = new();
+}
+
+/// <summary>
+/// FTPユーザーエントリ
+/// </summary>
+public class FtpUserEntry
+{
+    public string UserName { get; set; } = "";
+    public string Password { get; set; } = "";  // 暗号化して保存（bjd5-masterと同様）
+    public string HomeDirectory { get; set; } = "";
+    public FtpAccessControl AccessControl { get; set; } = FtpAccessControl.Full;
+}
+
+/// <summary>
+/// FTPアクセス制御
+/// bjd5-master FtpAcl.cs に対応
+/// </summary>
+public enum FtpAccessControl
+{
+    Full = 0,  // フル権限（アップロード・ダウンロード両方可）
+    Down = 1,  // ダウンロードのみ
+    Up = 2     // アップロードのみ
+}
+
+/// <summary>
+/// FTP仮想フォルダマウント
+/// bjd5-master OneMount.cs に対応
+/// </summary>
+public class FtpMountEntry
+{
+    public string FromFolder { get; set; } = "";  // 仮想パス（FTP上のパス）
+    public string ToFolder { get; set; } = "";    // 実際のディレクトリパス
 }
 
 /// <summary>

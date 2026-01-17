@@ -59,6 +59,23 @@
                         }
                     </div>
 
+                    <!-- FTP -->
+                    <div class="submenu-section">
+                        <div class="submenu-header" @onclick="ToggleFtp" @onclick:stopPropagation="true">
+                            <span class="submenu-title">FTP</span>
+                            <span class="submenu-arrow @(ftpExpanded ? "expanded" : "")">▼</span>
+                        </div>
+                        @if (ftpExpanded)
+                        {
+                            <div class="submenu-items">
+                                <NavLink class="nav-link submenu-item" href="settings/ftp/general">General</NavLink>
+                                <NavLink class="nav-link submenu-item" href="settings/ftp/virtualfolder">Virtual Folder</NavLink>
+                                <NavLink class="nav-link submenu-item" href="settings/ftp/user">User</NavLink>
+                                <NavLink class="nav-link submenu-item" href="settings/ftp/acl">ACL</NavLink>
+                            </div>
+                        }
+                    </div>
+
                     <!-- DNS -->
                     <div class="submenu-section">
                         <div class="submenu-header" @onclick="ToggleDns" @onclick:stopPropagation="true">
@@ -89,6 +106,7 @@
 @code {
     private bool settingsExpanded = false;
     private bool httpExpanded = false;
+    private bool ftpExpanded = false;
     private bool dnsExpanded = false;
 
     protected override void OnInitialized()
@@ -101,6 +119,10 @@
             if (currentPath.StartsWith("settings/http/"))
             {
                 httpExpanded = true;
+            }
+            else if (currentPath.StartsWith("settings/ftp/"))
+            {
+                ftpExpanded = true;
             }
             else if (currentPath.StartsWith("settings/dns/"))
             {
@@ -117,6 +139,11 @@
     private void ToggleHttp()
     {
         httpExpanded = !httpExpanded;
+    }
+
+    private void ToggleFtp()
+    {
+        ftpExpanded = !ftpExpanded;
     }
 
     private void ToggleDns()

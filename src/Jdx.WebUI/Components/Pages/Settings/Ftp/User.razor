@@ -1,0 +1,193 @@
+@page "/settings/ftp/user"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>FTP User Settings - JumboDogX</PageTitle>
+
+<h1>FTP Server - User Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <!-- User Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">FTP Users</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Anonymous FTP:</strong> To enable anonymous FTP, create a user with username "anonymous" (case-insensitive) and leave the password empty.
+                    Set appropriate access control (typically "Down" for download-only).
+                </div>
+                <div class="alert alert-warning">
+                    <strong>Security Warning:</strong> Passwords will be encrypted before storage, but ensure you use strong passwords for non-anonymous users.
+                </div>
+
+                @if (settings.FtpServer.UserList.Count == 0)
+                {
+                    <div class="alert alert-warning">
+                        No users configured. Add at least one user or enable anonymous access.
+                    </div>
+                }
+                else
+                {
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Password</th>
+                                <th>Home Directory</th>
+                                <th>Access Control</th>
+                                <th style="width: 100px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var (user, index) in settings.FtpServer.UserList.Select((u, i) => (u, i)))
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="text" class="form-control" @bind="user.UserName"
+                                               placeholder="username">
+                                    </td>
+                                    <td>
+                                        <input type="password" class="form-control" @bind="user.Password"
+                                               placeholder="password">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" @bind="user.HomeDirectory"
+                                               placeholder="/path/to/home">
+                                    </td>
+                                    <td>
+                                        <select class="form-select" @bind="user.AccessControl">
+                                            <option value="@FtpAccessControl.Full">Full (Upload & Download)</option>
+                                            <option value="@FtpAccessControl.Down">Download Only</option>
+                                            <option value="@FtpAccessControl.Up">Upload Only</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-danger btn-sm" @onclick="() => RemoveUser(index)">
+                                            <span class="bi bi-trash"></span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                <button class="btn btn-success" @onclick="AddUser">
+                    <span class="bi bi-plus-circle me-1"></span> Add User
+                </button>
+                <button class="btn btn-info ms-2" @onclick="AddAnonymousUser">
+                    <span class="bi bi-person me-1"></span> Add Anonymous User
+                </button>
+            </div>
+        </div>
+
+        <!-- Save Buttons -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <button class="btn btn-primary btn-lg me-2" @onclick="SaveSettings">
+                    <span class="bi bi-check-circle me-1"></span> Save Settings
+                </button>
+                <button class="btn btn-secondary btn-lg" @onclick="ResetToDefault">
+                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private void AddUser()
+    {
+        settings.FtpServer.UserList.Add(new FtpUserEntry
+        {
+            UserName = "",
+            Password = "",
+            HomeDirectory = "",
+            AccessControl = FtpAccessControl.Full
+        });
+    }
+
+    private void AddAnonymousUser()
+    {
+        // Check if anonymous user already exists (case-insensitive)
+        var hasAnonymous = settings.FtpServer.UserList
+            .Any(u => u.UserName.Equals("anonymous", StringComparison.OrdinalIgnoreCase));
+
+        if (hasAnonymous)
+        {
+            saveMessage = "Anonymous user already exists!";
+            saveSuccess = false;
+            return;
+        }
+
+        settings.FtpServer.UserList.Add(new FtpUserEntry
+        {
+            UserName = "anonymous",
+            Password = "",
+            HomeDirectory = "/tmp/jumbodogx-ftp",
+            AccessControl = FtpAccessControl.Down  // Download only by default
+        });
+    }
+
+    private void RemoveUser(int index)
+    {
+        if (index >= 0 && index < settings.FtpServer.UserList.Count)
+        {
+            settings.FtpServer.UserList.RemoveAt(index);
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "FTP user settings saved successfully! Restart the server to apply changes.";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        // Clear message after 5 seconds
+        _ = Task.Delay(5000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+
+        // Reset FTP user list to defaults
+        settings.FtpServer.UserList = new List<FtpUserEntry>(defaults.FtpServer.UserList);
+
+        saveMessage = "FTP user settings reset to default values. Click 'Save Settings' to apply.";
+        saveSuccess = true;
+    }
+}
