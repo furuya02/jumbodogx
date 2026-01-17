@@ -10,6 +10,7 @@
     <ProjectReference Include="..\Jdx.Core\Jdx.Core.csproj" />
     <ProjectReference Include="..\Jdx.Servers.Http\Jdx.Servers.Http.csproj" />
     <ProjectReference Include="..\Jdx.Servers.Dns\Jdx.Servers.Dns.csproj" />
+    <ProjectReference Include="..\Jdx.Servers.Ftp\Jdx.Servers.Ftp.csproj" />
   </ItemGroup>
 
 </Project>
