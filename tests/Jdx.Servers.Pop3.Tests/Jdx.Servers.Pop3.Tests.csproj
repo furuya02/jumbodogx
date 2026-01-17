@@ -20,8 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Jdx.Servers.Ftp\Jdx.Servers.Ftp.csproj" />
-    <ProjectReference Include="..\..\src\Jdx.Core\Jdx.Core.csproj" />
+    <ProjectReference Include="..\..\src\Jdx.Servers.Pop3\Jdx.Servers.Pop3.csproj" />
   </ItemGroup>
 
 </Project>

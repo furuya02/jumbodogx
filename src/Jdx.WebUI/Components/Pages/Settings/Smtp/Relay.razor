@@ -1,0 +1,229 @@
+@page "/settings/smtp/relay"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>SMTP Relay Settings - JumboDogX</PageTitle>
+
+<h1>SMTP - Relay Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📨 Mail Relay Control</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-3">
+                    <strong>Mail Relay:</strong>
+                    Controls which domains are allowed or denied for mail relay.
+                    This prevents unauthorized use of your server for sending spam.
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Relay Policy</strong></label>
+                    <select class="form-select" @bind="settings.SmtpServer.Order">
+                        <option value="0">Allow List First (Default Allow, Block Listed)</option>
+                        <option value="1">Deny List First (Default Block, Allow Listed)</option>
+                    </select>
+                    <div class="form-text">
+                        @if (settings.SmtpServer.Order == 0)
+                        {
+                            <span>Deny listed domains are blocked first, then allow listed domains are permitted. All others are allowed.</span>
+                        }
+                        else
+                        {
+                            <span>Allow listed domains are permitted first, then deny listed domains are blocked. All others are blocked.</span>
+                        }
+                    </div>
+                </div>
+
+                <hr />
+
+                <h6 class="mt-3 mb-3">📥 Allow List (Permitted Domains)</h6>
+
+                <div class="alert alert-success mb-3">
+                    <strong>Allow List:</strong> Domains in this list are explicitly permitted to relay mail through this server.
+                </div>
+
+                @if (!settings.SmtpServer.AllowList.Any())
+                {
+                    <div class="alert alert-secondary">
+                        No domains in allow list. Click "Add Domain" to add one.
+                    </div>
+                }
+                else
+                {
+                    <div class="list-group mb-2">
+                        @foreach (var (domain, index) in settings.SmtpServer.AllowList.Select((d, i) => (d, i)))
+                        {
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="flex-grow-1 me-2">
+                                    <input type="text" class="form-control" @bind="settings.SmtpServer.AllowList[index]"
+                                           placeholder="example.com">
+                                </div>
+                                <button class="btn btn-sm btn-danger" @onclick="() => RemoveAllow(index)">
+                                    Remove
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <button class="btn btn-success btn-sm mt-2" @onclick="AddAllow">
+                    + Add Domain to Allow List
+                </button>
+
+                <hr />
+
+                <h6 class="mt-3 mb-3">📤 Deny List (Blocked Domains)</h6>
+
+                <div class="alert alert-danger mb-3">
+                    <strong>Deny List:</strong> Domains in this list are explicitly blocked from relaying mail through this server.
+                </div>
+
+                @if (!settings.SmtpServer.DenyList.Any())
+                {
+                    <div class="alert alert-secondary">
+                        No domains in deny list. Click "Add Domain" to add one.
+                    </div>
+                }
+                else
+                {
+                    <div class="list-group mb-2">
+                        @foreach (var (domain, index) in settings.SmtpServer.DenyList.Select((d, i) => (d, i)))
+                        {
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="flex-grow-1 me-2">
+                                    <input type="text" class="form-control" @bind="settings.SmtpServer.DenyList[index]"
+                                           placeholder="spam.example.com">
+                                </div>
+                                <button class="btn btn-sm btn-danger" @onclick="() => RemoveDeny(index)">
+                                    Remove
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <button class="btn btn-success btn-sm mt-2" @onclick="AddDeny">
+                    + Add Domain to Deny List
+                </button>
+
+                <hr />
+
+                <div class="alert alert-warning mt-3">
+                    <strong>Important:</strong>
+                    <ul class="mb-0">
+                        <li>Domain matching is case-insensitive</li>
+                        <li>Wildcards are not supported - use exact domain names</li>
+                        <li>Order policy determines default behavior for unlisted domains</li>
+                        <li>Combine with ESMTP authentication for better security</li>
+                    </ul>
+                </div>
+
+                <div class="border-top pt-3 mt-4">
+                    <button class="btn btn-primary me-2" @onclick="SaveSettings">
+                        Save Settings
+                    </button>
+                    <button class="btn btn-secondary" @onclick="AddExamples">
+                        Add Example Domains
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private void AddAllow()
+    {
+        settings.SmtpServer.AllowList.Add("");
+    }
+
+    private void RemoveAllow(int index)
+    {
+        if (index >= 0 && index < settings.SmtpServer.AllowList.Count)
+        {
+            settings.SmtpServer.AllowList.RemoveAt(index);
+        }
+    }
+
+    private void AddDeny()
+    {
+        settings.SmtpServer.DenyList.Add("");
+    }
+
+    private void RemoveDeny(int index)
+    {
+        if (index >= 0 && index < settings.SmtpServer.DenyList.Count)
+        {
+            settings.SmtpServer.DenyList.RemoveAt(index);
+        }
+    }
+
+    private void AddExamples()
+    {
+        if (!settings.SmtpServer.AllowList.Contains("example.com"))
+        {
+            settings.SmtpServer.AllowList.Add("example.com");
+        }
+        if (!settings.SmtpServer.AllowList.Contains("test.local"))
+        {
+            settings.SmtpServer.AllowList.Add("test.local");
+        }
+
+        saveMessage = "Example domains added to allow list. Click Save to apply.";
+        saveSuccess = true;
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            // Validate that domain lists don't have empty entries
+            var emptyAllows = settings.SmtpServer.AllowList.Where(string.IsNullOrWhiteSpace).ToList();
+            var emptyDenies = settings.SmtpServer.DenyList.Where(string.IsNullOrWhiteSpace).ToList();
+
+            if (emptyAllows.Any() || emptyDenies.Any())
+            {
+                saveMessage = "Error: Domain names cannot be empty. Please remove or fill in all entries.";
+                saveSuccess = false;
+                return;
+            }
+
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Settings saved successfully!";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+}

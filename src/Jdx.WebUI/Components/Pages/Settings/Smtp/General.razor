@@ -1,0 +1,261 @@
+@page "/settings/smtp/general"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>SMTP General Settings - JumboDogX</PageTitle>
+
+<h1>SMTP - General Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <!-- 基本設定 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📨 SMTP Server - Basic Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="smtpEnabled"
+                                   @bind="settings.SmtpServer.Enabled">
+                            <label class="form-check-label" for="smtpEnabled">
+                                <strong>Enabled</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">Enable SMTP server</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="smtpBindAddress" class="form-label">Bind Address</label>
+                        <input type="text" class="form-control" id="smtpBindAddress"
+                               @bind="settings.SmtpServer.BindAddress">
+                        <div class="form-text">IP address to bind (0.0.0.0 = all)</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="smtpPort" class="form-label">Port</label>
+                        <input type="number" class="form-control" id="smtpPort"
+                               @bind="settings.SmtpServer.Port" min="1" max="65535">
+                        <div class="form-text">SMTP server port (default: 25)</div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="smtpTimeout" class="form-label">Timeout (seconds)</label>
+                        <input type="number" class="form-control" id="smtpTimeout"
+                               @bind="settings.SmtpServer.TimeOut" min="1" max="600">
+                        <div class="form-text">Connection timeout in seconds</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="smtpMaxConnections" class="form-label">Max Connections</label>
+                        <input type="number" class="form-control" id="smtpMaxConnections"
+                               @bind="settings.SmtpServer.MaxConnections" min="1" max="1000">
+                        <div class="form-text">Maximum concurrent connections</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ドメイン/メッセージ設定 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🌐 Domain and Message Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="smtpDomainName" class="form-label">Domain Name</label>
+                        <input type="text" class="form-control" id="smtpDomainName"
+                               @bind="settings.SmtpServer.DomainName"
+                               placeholder="mail.example.com">
+                        <div class="form-text">Server's fully qualified domain name (FQDN)</div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="smtpBannerMessage" class="form-label">Banner Message</label>
+                        <input type="text" class="form-control" id="smtpBannerMessage"
+                               @bind="settings.SmtpServer.BannerMessage">
+                        <div class="form-text">Server greeting message ($d = domain, $v = version)</div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="smtpReceivedHeader" class="form-label">Received Header Format</label>
+                        <input type="text" class="form-control" id="smtpReceivedHeader"
+                               @bind="settings.SmtpServer.ReceivedHeader">
+                        <div class="form-text">
+                            Format for Received header ($h = client host, $d = domain, $i = message ID, $t = timestamp)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="smtpSizeLimit" class="form-label">Size Limit (KB)</label>
+                        <input type="number" class="form-control" id="smtpSizeLimit"
+                               @bind="settings.SmtpServer.SizeLimit" min="0" max="102400">
+                        <div class="form-text">Maximum message size in kilobytes (0 = unlimited)</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="smtpErrorFrom" class="form-label">Error Notification From</label>
+                        <input type="text" class="form-control" id="smtpErrorFrom"
+                               @bind="settings.SmtpServer.ErrorFrom"
+                               placeholder="postmaster@example.com">
+                        <div class="form-text">Email address for error notifications</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 送信設定 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📧 Sending Options</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="smtpUseNullFrom"
+                                   @bind="settings.SmtpServer.UseNullFrom">
+                            <label class="form-check-label" for="smtpUseNullFrom">
+                                <strong>Allow Null FROM Address</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">Allow empty FROM address (used for bounce messages)</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="smtpUseNullDomain"
+                                   @bind="settings.SmtpServer.UseNullDomain">
+                            <label class="form-check-label" for="smtpUseNullDomain">
+                                <strong>Allow Null Domain</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">Allow messages without domain specification</div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="smtpUseCheckFrom"
+                                   @bind="settings.SmtpServer.UseCheckFrom">
+                            <label class="form-check-label" for="smtpUseCheckFrom">
+                                <strong>Check FROM Address</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">Verify that FROM address matches authenticated user</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- POP before SMTP設定 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🔐 POP before SMTP Authentication</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="smtpUsePopBeforeSmtp"
+                                   @bind="settings.SmtpServer.UsePopBeforeSmtp">
+                            <label class="form-check-label" for="smtpUsePopBeforeSmtp">
+                                <strong>Enable POP before SMTP</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">
+                            Allow SMTP sending after successful POP3 authentication
+                        </div>
+                    </div>
+                </div>
+
+                @if (settings.SmtpServer.UsePopBeforeSmtp)
+                {
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="smtpTimePopBeforeSmtp" class="form-label">POP before SMTP Timeout (seconds)</label>
+                            <input type="number" class="form-control" id="smtpTimePopBeforeSmtp"
+                                   @bind="settings.SmtpServer.TimePopBeforeSmtp" min="60" max="3600">
+                            <div class="form-text">
+                                Time window after POP3 authentication during which SMTP is allowed (default: 600)
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <strong>POP before SMTP:</strong>
+                        Users must authenticate via POP3 before being allowed to send mail via SMTP.
+                        The IP address is temporarily whitelisted for @settings.SmtpServer.TimePopBeforeSmtp seconds
+                        after successful POP3 authentication.
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- 保存ボタン -->
+        <div class="border-top pt-3 mt-4">
+            <button class="btn btn-primary me-2" @onclick="SaveSettings">
+                Save Settings
+            </button>
+            <button class="btn btn-secondary" @onclick="ResetToDefault">
+                Reset to Default
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Settings saved successfully!";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+        settings.SmtpServer = defaults.SmtpServer;
+        saveMessage = "Settings reset to default values. Click Save to apply.";
+        saveSuccess = true;
+    }
+}

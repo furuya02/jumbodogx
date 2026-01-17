@@ -8,6 +8,10 @@ public class ApplicationSettings
     public HttpServerSettings HttpServer { get; set; } = new();
     public FtpServerSettings FtpServer { get; set; } = new();
     public DnsServerSettings DnsServer { get; set; } = new();
+    public TftpServerSettings TftpServer { get; set; } = new();
+    public DhcpServerSettings DhcpServer { get; set; } = new();
+    public Pop3ServerSettings Pop3Server { get; set; } = new();
+    public SmtpServerSettings SmtpServer { get; set; } = new();
     public LoggingSettings Logging { get; set; } = new();
 }
 
@@ -301,6 +305,254 @@ public enum DnsType
     Ptr = 12,    // ポインタ（逆引き）
     Mx = 15,     // メールサーバ
     Aaaa = 28    // IPv6アドレス
+}
+
+/// <summary>
+/// TFTPサーバー設定
+/// bjd5-master/TftpServer/Option.cs に対応
+/// </summary>
+public class TftpServerSettings
+{
+    // 基本設定 (Page1 - Basic)
+    public bool Enabled { get; set; } = false;
+    public string BindAddress { get; set; } = "0.0.0.0";
+    public int Port { get; set; } = 69;  // 標準TFTPポート
+    public int TimeOut { get; set; } = 60;  // 秒
+    public int MaxConnections { get; set; } = 10;
+
+    public string WorkDir { get; set; } = "";  // 作業フォルダ
+    public bool Read { get; set; } = true;  // 読込み許可
+    public bool Write { get; set; } = false;  // 書込み許可
+    public bool Override { get; set; } = false;  // 上書き許可
+
+    // ACL設定 (Page2 - Acl)
+    public int EnableAcl { get; set; } = 0;  // 0=Allow, 1=Deny
+    public List<AclEntry> AclList { get; set; } = new();
+}
+
+/// <summary>
+/// DHCPサーバー設定
+/// bjd5-master/DhcpServer/Option.cs に対応
+/// </summary>
+public class DhcpServerSettings
+{
+    // 基本設定 (Page1 - Basic)
+    public bool Enabled { get; set; } = false;
+    public string BindAddress { get; set; } = "0.0.0.0";
+    public int Port { get; set; } = 67;  // 標準DHCPポート
+    public int TimeOut { get; set; } = 30;  // 秒
+    public int MaxConnections { get; set; } = 10;
+
+    public int LeaseTime { get; set; } = 18000;  // リース期間（秒）
+    public string StartIp { get; set; } = "";  // IP範囲開始
+    public string EndIp { get; set; } = "";  // IP範囲終了
+    public string MaskIp { get; set; } = "";  // サブネットマスク
+    public string GwIp { get; set; } = "";  // ゲートウェイIP
+    public string DnsIp0 { get; set; } = "";  // DNS IP #1
+    public string DnsIp1 { get; set; } = "";  // DNS IP #2
+    public bool UseWpad { get; set; } = false;  // WPAD対応
+    public string WpadUrl { get; set; } = "";  // WPAD URL
+
+    // MAC ACL設定 (Page2 - MacAcl)
+    public bool UseMacAcl { get; set; } = false;  // MAC確認有効化
+    public List<DhcpMacEntry> MacAclList { get; set; } = new();
+}
+
+/// <summary>
+/// DHCPMACエントリ
+/// bjd5-master/DhcpServer/OptionMacAcl.cs に対応
+/// </summary>
+public class DhcpMacEntry
+{
+    public string MacAddress { get; set; } = "";  // MACアドレス
+    public string V4Address { get; set; } = "";  // IPv4アドレス
+    public string MacName { get; set; } = "";  // MAC名称
+}
+
+/// <summary>
+/// POP3サーバー設定
+/// bjd5-master/Pop3Server/Option.cs に対応
+/// </summary>
+public class Pop3ServerSettings
+{
+    // 基本設定 (Page1 - Basic)
+    public bool Enabled { get; set; } = false;
+    public string BindAddress { get; set; } = "0.0.0.0";
+    public int Port { get; set; } = 110;  // 標準POP3ポート
+    public int TimeOut { get; set; } = 30;  // 秒
+    public int MaxConnections { get; set; } = 10;
+
+    public string BannerMessage { get; set; } = "$p $v";  // バナーメッセージ（$p=プログラム名, $v=バージョン）
+    public Pop3AuthType AuthType { get; set; } = Pop3AuthType.UserPass;  // 認証方式
+    public int AuthTimeout { get; set; } = 30;  // 認証タイムアウト（秒）
+
+    // Change Password設定 (Page2 - ChangePassword)
+    public bool UseChps { get; set; } = false;  // CPHS（パスワード変更）有効化
+    public int MinimumLength { get; set; } = 8;  // 最小長
+    public bool DisableJoe { get; set; } = false;  // Joe's rules無効化
+    public bool UseNum { get; set; } = false;  // 数字必須
+    public bool UseSmall { get; set; } = false;  // 小文字必須
+    public bool UseLarge { get; set; } = false;  // 大文字必須
+    public bool UseSign { get; set; } = false;  // 記号必須
+
+    // AutoDeny設定 (Page3 - AutoDeny)
+    public bool UseAutoAcl { get; set; } = false;  // 自動ACL有効化
+    public int AutoAclMax { get; set; } = 5;  // 最大失敗回数
+    public int AutoAclSec { get; set; } = 60;  // 対象期間（秒）
+
+    // ACL設定 (Page4 - Acl)
+    public int EnableAcl { get; set; } = 0;  // 0=Allow, 1=Deny
+    public List<AclEntry> AclList { get; set; } = new();
+}
+
+/// <summary>
+/// POP3認証方式
+/// bjd5-master/Pop3Server/AuthType.cs に対応
+/// </summary>
+public enum Pop3AuthType
+{
+    UserPass = 0,  // USER/PASS
+    Apop = 1,      // APOP
+    Other = 2      // その他
+}
+
+/// <summary>
+/// SMTPサーバー設定
+/// bjd5-master/SmtpServer/Option.cs に対応
+/// </summary>
+public class SmtpServerSettings
+{
+    // 基本設定 (Page1 - Basic)
+    public bool Enabled { get; set; } = false;
+    public string BindAddress { get; set; } = "0.0.0.0";
+    public int Port { get; set; } = 25;  // 標準SMTPポート
+    public int TimeOut { get; set; } = 30;  // 秒
+    public int MaxConnections { get; set; } = 10;
+
+    public string DomainName { get; set; } = "";  // ドメイン名（カンマ区切り複数対応）
+    public string BannerMessage { get; set; } = "$d SMTP Server Ready";  // バナーメッセージ
+    public string ReceivedHeader { get; set; } = "from $h by $d with SMTP id $i; $t";  // Receivedヘッダテンプレート
+    public int SizeLimit { get; set; } = 5000;  // メールサイズ制限（KB）
+    public string ErrorFrom { get; set; } = "";  // エラー返信元
+    public bool UseNullFrom { get; set; } = false;  // Null送信元許可
+    public bool UseNullDomain { get; set; } = false;  // Nullドメイン許可
+    public bool UsePopBeforeSmtp { get; set; } = false;  // POP-before-SMTP有効化
+    public int TimePopBeforeSmtp { get; set; } = 600;  // POP-before-SMTP有効期間（秒）
+    public bool UseCheckFrom { get; set; } = false;  // From確認
+
+    // ESMTP設定 (Page2 - Esmtp)
+    public bool UseEsmtp { get; set; } = false;  // ESMTP有効化
+    public bool UseAuthCramMd5 { get; set; } = false;  // CRAM-MD5対応
+    public bool UseAuthPlain { get; set; } = false;  // PLAIN対応
+    public bool UseAuthLogin { get; set; } = false;  // LOGIN対応
+    public bool UsePopAccount { get; set; } = false;  // POP3アカウント認証
+    public List<SmtpUserEntry> EsmtpUserList { get; set; } = new();  // ESMTP専用ユーザリスト
+    public int EnableEsmtp { get; set; } = 0;  // ESMTP許可範囲（0=全て、1=特定ユーザ）
+    public List<SmtpRangeEntry> RangeList { get; set; } = new();  // ESMTP許可範囲リスト
+
+    // Relay設定 (Page3 - Relay)
+    public int Order { get; set; } = 0;  // フィルタリングルール（0=許可優先、1=拒否優先）
+    public List<string> AllowList { get; set; } = new();  // 許可リスト（アドレス指定）
+    public List<string> DenyList { get; set; } = new();  // 拒否リスト（アドレス指定）
+
+    // Queue設定 (Page4 - Queue)
+    public bool Always { get; set; } = false;  // キュー常時処理
+    public int ThreadSpan { get; set; } = 300;  // スレッド待機時間（秒）
+    public int RetryMax { get; set; } = 5;  // リトライ最大回数
+    public int ThreadMax { get; set; } = 5;  // 処理スレッド数
+    public bool MxOnly { get; set; } = false;  // MXレコード優先
+
+    // Host設定 (Page5 - Host)
+    public List<SmtpHostEntry> HostList { get; set; } = new();  // ホスト転送設定
+
+    // Header設定 (Page6 - Header)
+    public List<SmtpHeaderPatternEntry> PatternList { get; set; } = new();  // パターン置換リスト
+    public List<SmtpHeaderAppendEntry> AppendList { get; set; } = new();  // ヘッダ追加リスト
+
+    // Aliases設定 (Page7 - Aliases)
+    public List<SmtpAliasEntry> AliasList { get; set; } = new();  // エリアスリスト
+
+    // AutoReception設定 (Page8 - AutoReception)
+    public List<SmtpFetchEntry> FetchList { get; set; } = new();  // 自動受信リスト
+
+    // ACL設定 (Page9 - Acl)
+    public int EnableAcl { get; set; } = 0;  // 0=Allow, 1=Deny
+    public List<AclEntry> AclList { get; set; } = new();
+}
+
+/// <summary>
+/// SMTPユーザーエントリ（ESMTP認証用）
+/// bjd5-master/SmtpServer/SmtpAuthUserList.cs に対応
+/// </summary>
+public class SmtpUserEntry
+{
+    public string UserName { get; set; } = "";  // ユーザー名
+    public string Password { get; set; } = "";  // パスワード
+}
+
+/// <summary>
+/// SMTP範囲エントリ
+/// bjd5-master/SmtpServer/SmtpAuthRange.cs に対応
+/// </summary>
+public class SmtpRangeEntry
+{
+    public string Address { get; set; } = "";  // IPアドレス範囲（IP/CIDR）
+}
+
+/// <summary>
+/// SMTPホストエントリ（スマートホスト設定）
+/// bjd5-master/SmtpServer/OptionHost.cs に対応
+/// </summary>
+public class SmtpHostEntry
+{
+    public string HostName { get; set; } = "";  // ホスト名またはIPアドレス
+    public int Port { get; set; } = 25;  // ポート番号
+}
+
+/// <summary>
+/// SMTPヘッダパターンエントリ（削除/拒否ルール）
+/// bjd5-master/SmtpServer/OptionHeader.cs に対応
+/// </summary>
+public class SmtpHeaderPatternEntry
+{
+    public string Pattern { get; set; } = "";  // パターン（マッチング文字列）
+    public int Action { get; set; } = 0;  // アクション（0=削除、1=拒否）
+}
+
+/// <summary>
+/// SMTPヘッダ追加エントリ
+/// bjd5-master/SmtpServer/OptionHeader.cs に対応
+/// </summary>
+public class SmtpHeaderAppendEntry
+{
+    public string Header { get; set; } = "";  // ヘッダ名
+    public string Value { get; set; } = "";  // ヘッダ値
+}
+
+/// <summary>
+/// SMTPエリアスエントリ
+/// bjd5-master/SmtpServer/OptionAlias.cs に対応
+/// </summary>
+public class SmtpAliasEntry
+{
+    public string AliasName { get; set; } = "";  // エイリアスアドレス
+    public string UserName { get; set; } = "";  // 実ユーザアカウント
+}
+
+/// <summary>
+/// SMTP自動受信エントリ（フェッチ設定）
+/// bjd5-master/SmtpServer/OptionAutoReception.cs に対応
+/// </summary>
+public class SmtpFetchEntry
+{
+    public string Server { get; set; } = "";  // 受信サーバ
+    public int Port { get; set; } = 110;  // 受信ポート
+    public string UserName { get; set; } = "";  // 認証ユーザ
+    public string Password { get; set; } = "";  // 認証パスワード
+    public int Interval { get; set; } = 300;  // 受信間隔（秒）
+    public int MaxCount { get; set; } = 100;  // 最大取得件数
+    public bool UseSsl { get; set; } = false;  // SSL/TLS使用
+    public bool UseApop { get; set; } = false;  // APOP認証使用
 }
 
 /// <summary>

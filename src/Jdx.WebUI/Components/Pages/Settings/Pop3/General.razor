@@ -1,0 +1,192 @@
+@page "/settings/pop3/general"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>POP3 General Settings - JumboDogX</PageTitle>
+
+<h1>POP3 - General Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <!-- 基本設定 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📧 POP3 Server - Basic Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="pop3Enabled"
+                                   @bind="settings.Pop3Server.Enabled">
+                            <label class="form-check-label" for="pop3Enabled">
+                                <strong>Enabled</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">Enable POP3 server</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="pop3BindAddress" class="form-label">Bind Address</label>
+                        <input type="text" class="form-control" id="pop3BindAddress"
+                               @bind="settings.Pop3Server.BindAddress">
+                        <div class="form-text">IP address to bind (0.0.0.0 = all)</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="pop3Port" class="form-label">Port</label>
+                        <input type="number" class="form-control" id="pop3Port"
+                               @bind="settings.Pop3Server.Port" min="1" max="65535">
+                        <div class="form-text">POP3 server port (default: 110)</div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="pop3Timeout" class="form-label">Timeout (seconds)</label>
+                        <input type="number" class="form-control" id="pop3Timeout"
+                               @bind="settings.Pop3Server.TimeOut" min="1" max="600">
+                        <div class="form-text">Connection timeout in seconds</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="pop3MaxConnections" class="form-label">Max Connections</label>
+                        <input type="number" class="form-control" id="pop3MaxConnections"
+                               @bind="settings.Pop3Server.MaxConnections" min="1" max="1000">
+                        <div class="form-text">Maximum concurrent connections</div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="pop3BannerMessage" class="form-label">Banner Message</label>
+                        <input type="text" class="form-control" id="pop3BannerMessage"
+                               @bind="settings.Pop3Server.BannerMessage">
+                        <div class="form-text">Server greeting message ($p = product, $v = version)</div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <strong>Note:</strong> POP3 is a mail retrieval protocol. Configure mailbox directories
+                    and user accounts separately in the server implementation.
+                </div>
+            </div>
+        </div>
+
+        <!-- 認証設定 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🔐 Authentication Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="pop3AuthType" class="form-label">Authentication Type</label>
+                        <select class="form-select" id="pop3AuthType" @bind="settings.Pop3Server.AuthType">
+                            <option value="0">USER/PASS (Standard)</option>
+                            <option value="1">APOP (Authenticated POP)</option>
+                            <option value="2">Other (Custom)</option>
+                        </select>
+                        <div class="form-text">
+                            @if (settings.Pop3Server.AuthType == Pop3AuthType.UserPass)
+                            {
+                                <span>Standard USER/PASS authentication (password sent in plain text)</span>
+                            }
+                            else if (settings.Pop3Server.AuthType == Pop3AuthType.Apop)
+                            {
+                                <span>APOP authentication using MD5 challenge-response (more secure)</span>
+                            }
+                            else
+                            {
+                                <span>Custom authentication method</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="pop3AuthTimeout" class="form-label">Authentication Timeout (seconds)</label>
+                        <input type="number" class="form-control" id="pop3AuthTimeout"
+                               @bind="settings.Pop3Server.AuthTimeout" min="1" max="600">
+                        <div class="form-text">Time limit for authentication completion</div>
+                    </div>
+                </div>
+
+                @if (settings.Pop3Server.AuthType == Pop3AuthType.Apop)
+                {
+                    <div class="alert alert-success mt-3">
+                        <strong>APOP Enabled:</strong>
+                        <ul class="mb-0">
+                            <li>Uses MD5 challenge-response mechanism</li>
+                            <li>Prevents password from being transmitted in plain text</li>
+                            <li>More secure than standard USER/PASS authentication</li>
+                        </ul>
+                    </div>
+                }
+                else if (settings.Pop3Server.AuthType == Pop3AuthType.UserPass)
+                {
+                    <div class="alert alert-warning mt-3">
+                        <strong>Security Warning:</strong>
+                        Standard USER/PASS authentication sends passwords in plain text.
+                        Consider using APOP authentication or SSL/TLS encryption for better security.
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- 保存ボタン -->
+        <div class="border-top pt-3 mt-4">
+            <button class="btn btn-primary me-2" @onclick="SaveSettings">
+                Save Settings
+            </button>
+            <button class="btn btn-secondary" @onclick="ResetToDefault">
+                Reset to Default
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Settings saved successfully!";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+        settings.Pop3Server = defaults.Pop3Server;
+        saveMessage = "Settings reset to default values. Click Save to apply.";
+        saveSuccess = true;
+    }
+}
