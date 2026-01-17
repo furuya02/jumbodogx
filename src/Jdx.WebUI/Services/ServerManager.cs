@@ -53,15 +53,9 @@ public class ServerManager
             var ftpServer = new FtpServer(ftpLogger, _settingsService);
             _servers["ftp"] = ftpServer;
 
-            // DNS サーバー
+            // DNS サーバー（DnsServerSettings注入）
             var dnsLogger = _loggerFactory.CreateLogger<DnsServer>();
-            var dnsServer = new DnsServer(dnsLogger, settings.DnsServer.Port);
-
-            // テスト用DNSレコード追加
-            dnsServer.AddRecord("example.com", "192.0.2.1");
-            dnsServer.AddRecord("jdx.local", "127.0.0.1");
-            dnsServer.AddRecord("test.local", "192.168.1.100");
-
+            var dnsServer = new DnsServer(dnsLogger, settings.DnsServer);
             _servers["dns"] = dnsServer;
 
             _logger.LogInformation("ServerManager initialized with {Count} servers", _servers.Count);
