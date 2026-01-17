@@ -3,7 +3,7 @@ using System.Text;
 namespace Jdx.Servers.Dns;
 
 /// <summary>
-/// 簡易DNSメッセージ（A レコードクエリ/レスポンスのみサポート）
+/// DNS message handler supporting all major record types
 /// </summary>
 public class DnsMessage
 {
@@ -126,6 +126,92 @@ public class DnsMessage
     }
 
     /// <summary>
+    /// Create DNS response from resource record (supports all record types)
+    /// </summary>
+    public byte[] CreateResponse(OneRr record)
+    {
+        var response = new List<byte>();
+
+        // Header (12 bytes)
+        response.Add((byte)(TransactionId >> 8));
+        response.Add((byte)(TransactionId & 0xFF));
+        response.Add(0x81); // QR=1 (response), Opcode=0, AA=0, TC=0, RD=1
+        response.Add(0x80); // RA=1, Z=0, RCODE=0 (no error)
+        response.Add(0x00); // QDCOUNT high
+        response.Add(0x01); // QDCOUNT low (1 question)
+        response.Add(0x00); // ANCOUNT high
+        response.Add(0x01); // ANCOUNT low (1 answer)
+        response.Add(0x00); // NSCOUNT high
+        response.Add(0x00); // NSCOUNT low
+        response.Add(0x00); // ARCOUNT high
+        response.Add(0x00); // ARCOUNT low
+
+        // Question section (echo original query)
+        AddDomainName(response, QueryName);
+        response.Add((byte)(QueryType >> 8));
+        response.Add((byte)(QueryType & 0xFF));
+        response.Add((byte)(QueryClass >> 8));
+        response.Add((byte)(QueryClass & 0xFF));
+
+        // Answer section
+        AddDomainName(response, record.Name);
+
+        // Type
+        var typeValue = DnsUtil.DnsType2Short(record.DnsType);
+        response.Add((byte)(typeValue >> 8));
+        response.Add((byte)(typeValue & 0xFF));
+
+        // Class (IN = 1)
+        response.Add(0x00);
+        response.Add(0x01);
+
+        // TTL (4 bytes)
+        var ttl = record.Ttl;
+        response.Add((byte)(ttl >> 24));
+        response.Add((byte)((ttl >> 16) & 0xFF));
+        response.Add((byte)((ttl >> 8) & 0xFF));
+        response.Add((byte)(ttl & 0xFF));
+
+        // RDLENGTH and RDATA
+        response.Add((byte)(record.Data.Length >> 8));
+        response.Add((byte)(record.Data.Length & 0xFF));
+        response.AddRange(record.Data);
+
+        return response.ToArray();
+    }
+
+    /// <summary>
+    /// Create NXDOMAIN response (name does not exist)
+    /// </summary>
+    public byte[] CreateNXDomainResponse()
+    {
+        var response = new List<byte>();
+
+        // Header (12 bytes)
+        response.Add((byte)(TransactionId >> 8));
+        response.Add((byte)(TransactionId & 0xFF));
+        response.Add(0x81); // QR=1 (response), Opcode=0, AA=0, TC=0, RD=1
+        response.Add(0x83); // RA=1, Z=0, RCODE=3 (NXDOMAIN)
+        response.Add(0x00); // QDCOUNT high
+        response.Add(0x01); // QDCOUNT low (1 question)
+        response.Add(0x00); // ANCOUNT high
+        response.Add(0x00); // ANCOUNT low (0 answers)
+        response.Add(0x00); // NSCOUNT high
+        response.Add(0x00); // NSCOUNT low
+        response.Add(0x00); // ARCOUNT high
+        response.Add(0x00); // ARCOUNT low
+
+        // Question section (echo original query)
+        AddDomainName(response, QueryName);
+        response.Add((byte)(QueryType >> 8));
+        response.Add((byte)(QueryType & 0xFF));
+        response.Add((byte)(QueryClass >> 8));
+        response.Add((byte)(QueryClass & 0xFF));
+
+        return response.ToArray();
+    }
+
+    /// <summary>
     /// ドメイン名をDNS形式でバイト配列に追加
     /// </summary>
     private void AddDomainName(List<byte> buffer, string domainName)
@@ -133,8 +219,11 @@ public class DnsMessage
         var labels = domainName.Split('.');
         foreach (var label in labels)
         {
-            buffer.Add((byte)label.Length);
-            buffer.AddRange(Encoding.ASCII.GetBytes(label));
+            if (label.Length > 0)
+            {
+                buffer.Add((byte)label.Length);
+                buffer.AddRange(Encoding.ASCII.GetBytes(label));
+            }
         }
         buffer.Add(0); // Null terminator
     }

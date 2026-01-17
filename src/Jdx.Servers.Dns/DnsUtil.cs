@@ -15,6 +15,11 @@ public static class DnsUtil
     /// </summary>
     public static string DnsName2Str(byte[] data)
     {
+        if (data.Length == 0)
+        {
+            return "";
+        }
+
         var tmp = new byte[data.Length - 1];
         for (int src = 0, dst = 0; src < data.Length - 1;)
         {
@@ -26,6 +31,13 @@ public static class DnsUtil
                 tmp = buf;
                 break;
             }
+
+            // Validate: check that length byte doesn't exceed remaining data
+            if (src + c > data.Length)
+            {
+                throw new ArgumentException($"Invalid DNS name format: length byte ({c}) exceeds remaining data (only {data.Length - src} bytes available)");
+            }
+
             for (var i = 0; i < c; i++)
             {
                 tmp[dst++] = data[src++];

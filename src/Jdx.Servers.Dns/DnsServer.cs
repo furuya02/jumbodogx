@@ -16,6 +16,7 @@ public class DnsServer : ServerBase
     private readonly int _port;
     private readonly DnsServerSettings _settings;
     private readonly Dictionary<string, RrDb> _cacheList; // Domain caches
+    private readonly List<string> _sortedDomains; // Pre-sorted domain list by length (descending)
     private readonly RrDb? _rootCache; // Root nameserver cache
     private ServerUdpListener? _listener;
 
@@ -35,6 +36,9 @@ public class DnsServer : ServerBase
             var cache = new RrDb(logger, resources, domain.Name, domain.IsAuthority, settings);
             _cacheList[domain.Name] = cache;
         }
+
+        // Pre-sort domains by length (descending) for efficient lookup
+        _sortedDomains = _cacheList.Keys.OrderByDescending(k => k.Length).ToList();
 
         // Initialize root cache if named.ca exists
         if (File.Exists(settings.RootCache))
@@ -69,11 +73,6 @@ public class DnsServer : ServerBase
             _cacheList[domain].Add(rr);
             Logger.LogInformation("Added A record: {Name} -> {IP}", domainName, ipAddress);
         }
-    }
-
-    public void RemoveRecord(string domainName)
-    {
-        Logger.LogInformation("RemoveRecord not fully implemented: {Name}", domainName);
     }
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
@@ -159,9 +158,9 @@ public class DnsServer : ServerBase
             Logger.LogInformation("DNS query for {QueryName} (type={QueryType}/{TypeName}) from {RemoteAddress}",
                 query.QueryName, query.QueryType, queryType, remoteAddress);
 
-            // Find matching cache
+            // Find matching cache (using pre-sorted domain list)
             RrDb? cache = null;
-            foreach (var domain in _cacheList.Keys.OrderByDescending(k => k.Length))
+            foreach (var domain in _sortedDomains)
             {
                 if (queryName.EndsWith(domain, StringComparison.OrdinalIgnoreCase))
                 {
@@ -186,61 +185,28 @@ public class DnsServer : ServerBase
             // Generate response
             if (records != null && records.Count > 0)
             {
-                // Found - return the records
+                // Found - return the first matching record
                 var firstRecord = records[0];
-                string responseData = "";
 
-                switch (queryType)
+                // Create DNS response with the record
+                var response = query.CreateResponse(firstRecord);
+                if (_listener != null)
                 {
-                    case DnsType.A:
-                        if (firstRecord is RrA rrA)
-                        {
-                            responseData = rrA.Ip.ToString();
-                        }
-                        break;
+                    await _listener.SendAsync(response, remoteEndPoint, cancellationToken);
+                    Statistics.TotalBytesSent += response.Length;
 
-                    case DnsType.Aaaa:
-                        if (firstRecord is RrAaaa rrAaaa)
-                        {
-                            responseData = rrAaaa.Ip.ToString();
-                        }
-                        break;
-
-                    case DnsType.Ns:
-                    case DnsType.Cname:
-                    case DnsType.Ptr:
-                    case DnsType.Mx:
-                    case DnsType.Soa:
-                        // For other types, use simple response for now
-                        responseData = firstRecord.ToString() ?? "";
-                        Logger.LogInformation("Record found: {Record}", responseData);
-                        break;
-                }
-
-                if (!string.IsNullOrEmpty(responseData) && queryType == DnsType.A)
-                {
-                    var response = query.CreateResponse(responseData);
-                    if (_listener != null)
-                    {
-                        await _listener.SendAsync(response, remoteEndPoint, cancellationToken);
-                        Statistics.TotalBytesSent += response.Length;
-                        Logger.LogInformation("DNS response sent: {QueryName} -> {Data}",
-                            query.QueryName, responseData);
-                    }
-                }
-                else
-                {
-                    Logger.LogWarning("Query type {QueryType} response generation not fully implemented", queryType);
+                    var responseData = GetRecordDataString(firstRecord);
+                    Logger.LogInformation("DNS response sent: {QueryName} (type={QueryType}) -> {Data}",
+                        query.QueryName, queryType, responseData);
                 }
             }
             else
             {
-                // Not found - return NXDOMAIN (simplified)
-                Logger.LogWarning("DNS record not found for {QueryName} (type={QueryType})",
+                // Not found - return NXDOMAIN
+                Logger.LogInformation("DNS record not found for {QueryName} (type={QueryType}), returning NXDOMAIN",
                     query.QueryName, queryType);
 
-                // Return empty response for now
-                var response = query.CreateResponse("0.0.0.0");
+                var response = query.CreateNXDomainResponse();
                 if (_listener != null)
                 {
                     await _listener.SendAsync(response, remoteEndPoint, cancellationToken);
@@ -253,5 +219,20 @@ public class DnsServer : ServerBase
             Logger.LogError(ex, "Error handling DNS query from {RemoteAddress}", remoteAddress);
             Statistics.TotalErrors++;
         }
+    }
+
+    private string GetRecordDataString(OneRr record)
+    {
+        return record switch
+        {
+            RrA rrA => rrA.Ip.ToString(),
+            RrAaaa rrAaaa => rrAaaa.Ip.ToString(),
+            RrNs rrNs => rrNs.NsName,
+            RrCname rrCname => rrCname.CName,
+            RrMx rrMx => $"{rrMx.Preference} {rrMx.MailExchangeHost}",
+            RrPtr rrPtr => rrPtr.Ptr,
+            RrSoa rrSoa => $"{rrSoa.NameServer} {rrSoa.PostMaster}",
+            _ => record.ToString() ?? ""
+        };
     }
 }

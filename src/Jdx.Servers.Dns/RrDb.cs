@@ -203,9 +203,9 @@ public class RrDb
                 Add(rr);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore parse errors
+            _logger?.LogWarning(ex, "Failed to parse named.ca line: {Line}", str);
         }
 
         return tmpName;
