@@ -1,0 +1,206 @@
+@page "/settings/pop3/autodeny"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>POP3 Auto Deny Settings - JumboDogX</PageTitle>
+
+<h1>POP3 - Auto Deny Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🛡️ Auto Deny - Brute Force Protection</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="useAutoAcl"
+                               @bind="settings.Pop3Server.UseAutoAcl">
+                        <label class="form-check-label" for="useAutoAcl">
+                            <strong>Enable Auto Deny</strong>
+                        </label>
+                    </div>
+                    <div class="form-text">
+                        Automatically block IP addresses that exceed failed authentication attempts.
+                        This helps protect against brute force password attacks.
+                    </div>
+                </div>
+
+                @if (settings.Pop3Server.UseAutoAcl)
+                {
+                    <hr />
+
+                    <h6 class="mt-3 mb-3">Auto Deny Configuration</h6>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="autoAclMax" class="form-label">Max Failed Attempts</label>
+                            <input type="number" class="form-control" id="autoAclMax"
+                                   @bind="settings.Pop3Server.AutoAclMax" min="1" max="100">
+                            <div class="form-text">
+                                Number of failed authentication attempts before blocking (default: 5)
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="autoAclSec" class="form-label">Time Window (seconds)</label>
+                            <input type="number" class="form-control" id="autoAclSec"
+                                   @bind="settings.Pop3Server.AutoAclSec" min="1" max="3600">
+                            <div class="form-text">
+                                Time period to count failed attempts (default: 60 seconds)
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <strong>How Auto Deny Works:</strong>
+                        <ul class="mb-0">
+                            <li>The server monitors authentication attempts from each IP address</li>
+                            <li>If an IP exceeds <strong>@settings.Pop3Server.AutoAclMax failed attempts</strong> within
+                                <strong>@settings.Pop3Server.AutoAclSec seconds</strong>, it will be temporarily blocked
+                            </li>
+                            <li>Blocked IPs are automatically unblocked after the time window expires</li>
+                            <li>This mechanism helps prevent brute force password guessing attacks</li>
+                        </ul>
+                    </div>
+
+                    <div class="alert alert-success mt-3">
+                        <strong>Current Configuration:</strong><br />
+                        An IP address will be blocked if it fails authentication <strong>@settings.Pop3Server.AutoAclMax times</strong>
+                        within <strong>@settings.Pop3Server.AutoAclSec seconds</strong>.
+                    </div>
+
+                    <div class="alert alert-warning mt-3">
+                        <strong>Important Notes:</strong>
+                        <ul class="mb-0">
+                            <li>Set reasonable thresholds to avoid blocking legitimate users who mistype passwords</li>
+                            <li>Consider the impact on users behind NAT or proxy servers (shared IP addresses)</li>
+                            <li>Auto Deny works independently of the ACL settings</li>
+                            <li>Monitor server logs to review blocked IPs and adjust settings if needed</li>
+                        </ul>
+                    </div>
+
+                    <hr />
+
+                    <h6 class="mt-3 mb-3">Recommended Settings</h6>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">Balanced Protection</h6>
+                                    <p class="card-text">
+                                        <strong>Max Attempts:</strong> 5<br />
+                                        <strong>Time Window:</strong> 60 seconds
+                                    </p>
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => SetBalanced()">
+                                        Apply
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">Strict Protection</h6>
+                                    <p class="card-text">
+                                        <strong>Max Attempts:</strong> 3<br />
+                                        <strong>Time Window:</strong> 120 seconds
+                                    </p>
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => SetStrict()">
+                                        Apply
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-warning mt-3">
+                        <strong>Auto Deny is currently disabled.</strong><br />
+                        Your POP3 server is not protected against brute force attacks.
+                        It is strongly recommended to enable this feature for security.
+                    </div>
+                }
+
+                <div class="border-top pt-3 mt-4">
+                    <button class="btn btn-primary me-2" @onclick="SaveSettings">
+                        Save Settings
+                    </button>
+                    <button class="btn btn-secondary" @onclick="ResetToDefault">
+                        Reset to Default
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private void SetBalanced()
+    {
+        settings.Pop3Server.AutoAclMax = 5;
+        settings.Pop3Server.AutoAclSec = 60;
+        saveMessage = "Balanced protection settings applied. Click Save to apply.";
+        saveSuccess = true;
+    }
+
+    private void SetStrict()
+    {
+        settings.Pop3Server.AutoAclMax = 3;
+        settings.Pop3Server.AutoAclSec = 120;
+        saveMessage = "Strict protection settings applied. Click Save to apply.";
+        saveSuccess = true;
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Settings saved successfully!";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+        settings.Pop3Server.UseAutoAcl = defaults.Pop3Server.UseAutoAcl;
+        settings.Pop3Server.AutoAclMax = defaults.Pop3Server.AutoAclMax;
+        settings.Pop3Server.AutoAclSec = defaults.Pop3Server.AutoAclSec;
+        saveMessage = "Settings reset to default values. Click Save to apply.";
+        saveSuccess = true;
+    }
+}
