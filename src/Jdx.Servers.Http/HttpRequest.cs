@@ -17,7 +17,7 @@ public class HttpRequest
     /// <summary>HTTPヘッダー</summary>
     public Dictionary<string, string> Headers { get; set; } = new();
 
-    /// <summary>クエリ文字列（例: "key=value&foo=bar"）</summary>
+    /// <summary>クエリ文字列（例: "key=value&amp;foo=bar"）</summary>
     public string? QueryString { get; set; }
 
     /// <summary>パースされたクエリパラメータ</summary>
@@ -95,7 +95,7 @@ public class HttpRequest
     }
 
     /// <summary>
-    /// クエリ文字列をパースする（例: "key=value&foo=bar"）
+    /// クエリ文字列をパースする（例: "key=value&amp;foo=bar"）
     /// </summary>
     private static Dictionary<string, string> ParseQueryString(string queryString)
     {

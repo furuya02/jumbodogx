@@ -102,7 +102,7 @@ public class HttpWebDavHandler
     /// <summary>
     /// PROPFIND: プロパティ取得（ディレクトリ一覧）
     /// </summary>
-    private async Task<HttpResponse> HandlePropfindAsync(string physicalPath, HttpRequest request, CancellationToken cancellationToken)
+    private Task<HttpResponse> HandlePropfindAsync(string physicalPath, HttpRequest request, CancellationToken cancellationToken)
     {
         _logger.LogDebug("PROPFIND: {Path}", physicalPath);
 
@@ -111,13 +111,13 @@ public class HttpWebDavHandler
 
         if (!Directory.Exists(physicalPath) && !File.Exists(physicalPath))
         {
-            return HttpResponseBuilder.BuildErrorResponse(404, "Not Found", _settings);
+            return Task.FromResult(HttpResponseBuilder.BuildErrorResponse(404, "Not Found", _settings));
         }
 
         // XML応答を生成
         var xml = GeneratePropertiesXml(physicalPath, depth);
 
-        return new HttpResponse
+        return Task.FromResult(new HttpResponse
         {
             StatusCode = 207, // Multi-Status
             StatusText = "Multi-Status",
@@ -129,7 +129,7 @@ public class HttpWebDavHandler
                 ["Server"] = _settings.ServerHeader,
                 ["Date"] = DateTime.UtcNow.ToString("R")
             }
-        };
+        });
     }
 
     /// <summary>

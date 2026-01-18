@@ -38,7 +38,7 @@ public class HttpSslManager
 
         try
         {
-            _certificate = new X509Certificate2(certificateFile, certificatePassword);
+            _certificate = X509CertificateLoader.LoadPkcs12FromFile(certificateFile, certificatePassword);
             _isEnabled = true;
             _logger.LogInformation("SSL/TLS enabled with certificate: {Subject}", _certificate.Subject);
         }
