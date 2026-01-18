@@ -680,7 +680,9 @@ public class FtpCommandHandler
     {
         // Wait for PASV data connection if needed
         if (!await WaitForDataConnectionAsync(session))
+        {
             return true;
+        }
 
         var fullPath = session.CurrentDirectory?.CreatePath(path, false);
         if (string.IsNullOrEmpty(fullPath))
@@ -727,7 +729,9 @@ public class FtpCommandHandler
     {
         // Wait for PASV data connection if needed
         if (!await WaitForDataConnectionAsync(session))
+        {
             return true;
+        }
 
         var fullPath = session.CurrentDirectory?.CreatePath(path, false);
         if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath))

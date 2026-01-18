@@ -30,7 +30,9 @@ public class FtpUserManager
     public FtpUserEntry? GetUser(string userName)
     {
         if (string.IsNullOrEmpty(userName))
+        {
             return null;
+        }
 
         foreach (var user in _users)
         {

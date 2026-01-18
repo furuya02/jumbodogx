@@ -206,7 +206,9 @@ public class LeasePool
     private void SaveLeases()
     {
         if (string.IsNullOrEmpty(_leaseDbPath))
+        {
             return;
+        }
 
         try
         {
@@ -237,7 +239,9 @@ public class LeasePool
     private void LoadLeases()
     {
         if (string.IsNullOrEmpty(_leaseDbPath) || !File.Exists(_leaseDbPath))
+        {
             return;
+        }
 
         try
         {
@@ -245,7 +249,9 @@ public class LeasePool
             var leaseData = JsonSerializer.Deserialize<List<Dictionary<string, string>>>(json);
 
             if (leaseData == null)
+            {
                 return;
+            }
 
             foreach (var data in leaseData)
             {

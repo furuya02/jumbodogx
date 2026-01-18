@@ -58,7 +58,9 @@ public class DhcpServer : ServerBase
             foreach (var m in _settings.MacAclList)
             {
                 if (string.IsNullOrWhiteSpace(m.MacAddress) || string.IsNullOrWhiteSpace(m.V4Address))
+                {
                     continue;
+                }
 
                 try
                 {
@@ -115,7 +117,9 @@ public class DhcpServer : ServerBase
     private async Task HandleRequestAsync(byte[] data, EndPoint remoteEndPoint, CancellationToken cancellationToken)
     {
         if (_leasePool == null)
+        {
             return;
+        }
 
         // Cast to IPEndPoint for UDP operations
         var ipEndPoint = (IPEndPoint)remoteEndPoint;
@@ -181,7 +185,9 @@ public class DhcpServer : ServerBase
     private async Task HandleDiscoverAsync(DhcpPacket request, IPEndPoint remoteEndPoint, CancellationToken cancellationToken)
     {
         if (_leasePool == null)
+        {
             return;
+        }
 
         var assignedIp = _leasePool.HandleDiscover(request.RequestedIp, request.TransactionId, request.ClientMac);
 
@@ -199,7 +205,9 @@ public class DhcpServer : ServerBase
     private async Task HandleRequestAsync(DhcpPacket request, IPEndPoint remoteEndPoint, CancellationToken cancellationToken)
     {
         if (_leasePool == null || request.RequestedIp == null)
+        {
             return;
+        }
 
         // Check if request is for this server
         if (request.ServerIdentifier != null)
@@ -231,7 +239,9 @@ public class DhcpServer : ServerBase
     private void HandleRelease(DhcpPacket request)
     {
         if (_leasePool == null)
+        {
             return;
+        }
 
         _leasePool.HandleRelease(request.ClientMac);
         Logger.LogDebug("DHCP RELEASE from {Mac}", request.ClientMac);

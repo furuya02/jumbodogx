@@ -73,7 +73,9 @@ public class FtpCurrentDir
     public bool ChangeDirectory(string path)
     {
         if (string.IsNullOrEmpty(path))
+        {
             return false;
+        }
 
         // Handle absolute vs relative paths
         if (path.StartsWith("/"))
@@ -109,7 +111,9 @@ public class FtpCurrentDir
 
         // Check if within home directory
         if (!fullPath.StartsWith(_homeDir, StringComparison.OrdinalIgnoreCase))
+        {
             return false;
+        }
 
         // Check directory exists
         if (Directory.Exists(fullPath))
@@ -239,7 +243,9 @@ public class FtpCurrentDir
     public string CreatePath(string name, bool isDirectory)
     {
         if (string.IsNullOrEmpty(name))
+        {
             return _current;
+        }
 
         // Handle absolute paths
         if (name.StartsWith("/"))
@@ -262,7 +268,9 @@ public class FtpCurrentDir
 
         // Security check: ensure within home directory
         if (!result.StartsWith(_homeDir, StringComparison.OrdinalIgnoreCase))
+        {
             return "";
+        }
 
         return result;
     }
@@ -275,7 +283,9 @@ public class FtpCurrentDir
         var targetPath = string.IsNullOrEmpty(path) ? _current : CreatePath(path, true);
 
         if (string.IsNullOrEmpty(targetPath) || !Directory.Exists(targetPath))
+        {
             return Array.Empty<string>();
+        }
 
         try
         {

@@ -77,13 +77,19 @@ public class FtpAclFilter
             {
                 var parts = aclPattern.Split('/');
                 if (parts.Length != 2)
+                {
                     return false;
+                }
 
                 if (!IPAddress.TryParse(parts[0], out var networkIp))
+                {
                     return false;
+                }
 
                 if (!int.TryParse(parts[1], out var prefixLength))
+                {
                     return false;
+                }
 
                 return IsInSubnet(ip, networkIp, prefixLength);
             }
@@ -106,13 +112,17 @@ public class FtpAclFilter
     private bool IsInSubnet(IPAddress address, IPAddress network, int prefixLength)
     {
         if (address.AddressFamily != network.AddressFamily)
+        {
             return false;
+        }
 
         var addressBytes = address.GetAddressBytes();
         var networkBytes = network.GetAddressBytes();
 
         if (addressBytes.Length != networkBytes.Length)
+        {
             return false;
+        }
 
         var fullBytes = prefixLength / 8;
         var remainingBits = prefixLength % 8;
@@ -121,7 +131,9 @@ public class FtpAclFilter
         for (int i = 0; i < fullBytes; i++)
         {
             if (addressBytes[i] != networkBytes[i])
+            {
                 return false;
+            }
         }
 
         // Check remaining bits
@@ -129,7 +141,9 @@ public class FtpAclFilter
         {
             var mask = (byte)(0xFF << (8 - remainingBits));
             if ((addressBytes[fullBytes] & mask) != (networkBytes[fullBytes] & mask))
+            {
                 return false;
+            }
         }
 
         return true;
