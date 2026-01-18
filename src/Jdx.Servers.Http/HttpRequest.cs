@@ -29,6 +29,9 @@ public class HttpRequest
     /// <summary>
     /// リクエスト行をパースする（基本）
     /// </summary>
+    /// <param name="requestLine">HTTPリクエスト行（例: "GET /index.html HTTP/1.1"）</param>
+    /// <returns>パースされたHttpRequestオブジェクト</returns>
+    /// <exception cref="FormatException">リクエスト行の形式が不正な場合</exception>
     public static HttpRequest Parse(string requestLine)
     {
         var parts = requestLine.Split(' ', 3);
@@ -48,6 +51,9 @@ public class HttpRequest
     /// <summary>
     /// HTTPリクエスト全体をパースする（ヘッダー、クエリ文字列含む）
     /// </summary>
+    /// <param name="lines">HTTPリクエストの各行</param>
+    /// <returns>パースされたHttpRequestオブジェクト（ヘッダーとクエリパラメータを含む）</returns>
+    /// <exception cref="FormatException">リクエストの形式が不正な場合</exception>
     public static HttpRequest ParseFull(string[] lines)
     {
         if (lines.Length == 0)

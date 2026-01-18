@@ -95,6 +95,9 @@ dotnet build
 
 # Run tests
 dotnet test
+
+# Run benchmarks
+dotnet run --project benchmarks/Jdx.Benchmarks -c Release
 ```
 
 ## Running
@@ -116,6 +119,45 @@ dotnet run
 Then, open http://localhost:5001 in your browser.
 
 For detailed instructions, see [startup.md](startup.md).
+
+## Testing
+
+### Running Unit Tests
+
+Run all tests:
+```bash
+dotnet test
+```
+
+Run tests for a specific project:
+```bash
+dotnet test tests/Jdx.Core.Tests
+dotnet test tests/Jdx.Servers.Http.Tests
+dotnet test tests/Jdx.Servers.Dns.Tests
+```
+
+Run tests with coverage:
+```bash
+dotnet test --collect:"XPlat Code Coverage"
+```
+
+### Running Benchmarks
+
+Run all benchmarks:
+```bash
+dotnet run --project benchmarks/Jdx.Benchmarks -c Release
+```
+
+Run specific benchmark:
+```bash
+dotnet run --project benchmarks/Jdx.Benchmarks -c Release -- --filter *HttpRequestBenchmark*
+```
+
+For more details, see [benchmarks/Jdx.Benchmarks/README.md](benchmarks/Jdx.Benchmarks/README.md).
+
+## Configuration
+
+For detailed configuration examples, see [docs/configuration-guide.md](docs/configuration-guide.md).
 
 ## Design Documents
 
