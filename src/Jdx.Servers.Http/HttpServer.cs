@@ -298,7 +298,7 @@ public class HttpServer : ServerBase
     protected override async Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
     {
         var remoteEndPoint = clientSocket.RemoteEndPoint?.ToString() ?? "unknown";
-        Logger.LogInformation("HTTP connection from {RemoteEndPoint}", remoteEndPoint);
+        Logger.LogDebug("HTTP connection from {RemoteEndPoint}", remoteEndPoint);
 
         HttpServerSettings settings;
         HttpAclFilter aclFilter;
@@ -458,7 +458,7 @@ public class HttpServer : ServerBase
                         }
                     }
 
-                    Logger.LogInformation("HTTP {Method} {Path} from {RemoteEndPoint} (request #{Count})",
+                    Logger.LogDebug("HTTP {Method} {Path} from {RemoteEndPoint} (request #{Count})",
                         request.Method, request.Path, remoteEndPoint, requestCount);
 
                     // Keep-Aliveの判定
@@ -483,7 +483,7 @@ public class HttpServer : ServerBase
                     await response.SendAsync(stream, linkedCts.Token);
                     Statistics.TotalBytesSent += response.ContentLength ?? response.ToBytes().Length;
 
-                    Logger.LogInformation("HTTP {StatusCode} {Method} {Path} - Keep-Alive: {KeepAlive}",
+                    Logger.LogDebug("HTTP {StatusCode} {Method} {Path} - Keep-Alive: {KeepAlive}",
                         response.StatusCode, request.Method, request.Path, keepAlive);
                 }
                 catch (OperationCanceledException) when (keepAliveCts.Token.IsCancellationRequested)

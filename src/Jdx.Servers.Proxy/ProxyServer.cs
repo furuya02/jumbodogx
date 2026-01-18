@@ -239,7 +239,7 @@ public class ProxyServer : ServerBase
                     return;
                 }
 
-                Logger.LogInformation("Proxy request: {Method} {Host}:{Port}{Uri}",
+                Logger.LogDebug("Proxy request: {Method} {Host}:{Port}{Uri}",
                     request.HttpMethod, request.HostName, request.Port, request.Uri);
 
                 // 3. URL制限チェック（スレッドセーフ）

@@ -75,7 +75,7 @@ public class Pop3Server : ServerBase
                     .Replace("$v", "1.0");
                 await writer.WriteLineAsync($"+OK {banner}");
 
-                Logger.LogInformation("POP3 client connected from {RemoteEndPoint}", client.Client.RemoteEndPoint);
+                Logger.LogDebug("POP3 client connected from {RemoteEndPoint}", client.Client.RemoteEndPoint);
 
                 // Main command loop
                 var authenticated = false;

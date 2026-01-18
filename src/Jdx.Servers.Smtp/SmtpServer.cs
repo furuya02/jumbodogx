@@ -83,7 +83,7 @@ public class SmtpServer : ServerBase
                     .Replace("$v", "1.0");
                 await writer.WriteLineAsync($"220 {banner}");
 
-                Logger.LogInformation("SMTP client connected from {RemoteEndPoint}", client.Client.RemoteEndPoint);
+                Logger.LogDebug("SMTP client connected from {RemoteEndPoint}", client.Client.RemoteEndPoint);
 
                 // Session state
                 string? mailFrom = null;

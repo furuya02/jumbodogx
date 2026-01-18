@@ -164,7 +164,7 @@ public class DhcpServer : ServerBase
 
                 case DhcpMessageType.Inform:
                     // DHCPINFORM - client already has IP, just wants configuration
-                    Logger.LogInformation("DHCP INFORM from {Mac} - not implemented", packet.ClientMac);
+                    Logger.LogDebug("DHCP INFORM from {Mac} - not implemented", packet.ClientMac);
                     break;
 
                 default:
@@ -191,7 +191,7 @@ public class DhcpServer : ServerBase
             return;
         }
 
-        Logger.LogInformation("DHCP OFFER: {Ip} to {Mac}", assignedIp, request.ClientMac);
+        Logger.LogDebug("DHCP OFFER: {Ip} to {Mac}", assignedIp, request.ClientMac);
 
         await SendResponseAsync(request, DhcpMessageType.Offer, assignedIp, remoteEndPoint, cancellationToken);
     }
@@ -209,7 +209,7 @@ public class DhcpServer : ServerBase
             {
                 // Request is for another server, release our reservation
                 _leasePool.HandleRelease(request.ClientMac);
-                Logger.LogInformation("DHCP REQUEST for another server from {Mac}, releasing reservation", request.ClientMac);
+                Logger.LogDebug("DHCP REQUEST for another server from {Mac}, releasing reservation", request.ClientMac);
                 return;
             }
         }
@@ -223,7 +223,7 @@ public class DhcpServer : ServerBase
             return;
         }
 
-        Logger.LogInformation("DHCP ACK: {Ip} to {Mac}", assignedIp, request.ClientMac);
+        Logger.LogDebug("DHCP ACK: {Ip} to {Mac}", assignedIp, request.ClientMac);
 
         await SendResponseAsync(request, DhcpMessageType.Ack, assignedIp, remoteEndPoint, cancellationToken);
     }
@@ -234,7 +234,7 @@ public class DhcpServer : ServerBase
             return;
 
         _leasePool.HandleRelease(request.ClientMac);
-        Logger.LogInformation("DHCP RELEASE from {Mac}", request.ClientMac);
+        Logger.LogDebug("DHCP RELEASE from {Mac}", request.ClientMac);
     }
 
     private async Task SendResponseAsync(DhcpPacket request, DhcpMessageType messageType, IPAddress assignedIp,
