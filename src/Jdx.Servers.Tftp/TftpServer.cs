@@ -405,16 +405,30 @@ public class TftpServer : ServerBase
             if (filename.Length > 255)
                 return null;
 
-            // パストラバーサル対策: 不正な文字が含まれている場合は即座に拒否
-            // 文字削除ではなく、存在チェックで拒否する（バイパス防止）
-            if (filename.Contains("..") || filename.Contains("/") || filename.Contains("\\"))
+            // パストラバーサル対策: Path.GetFileName()でファイル名部分のみを抽出
+            // パス区切り文字を含む場合、GetFileName()は最後のセグメントのみを返す
+            // これにより、すべての形式のパストラバーサル攻撃を防ぐ
+            var safeFilename = Path.GetFileName(filename);
+
+            // 元のfilenameと異なる場合、パス成分が含まれていたため拒否
+            if (string.IsNullOrWhiteSpace(safeFilename) || safeFilename != filename)
+                return null;
+
+            // URL-encodedパス区切り文字のチェック（%2F, %5C）
+            if (filename.Contains("%2F", StringComparison.OrdinalIgnoreCase) ||
+                filename.Contains("%5C", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            // システム固有のパス区切り文字のチェック
+            if (filename.Contains(Path.DirectorySeparatorChar) ||
+                filename.Contains(Path.AltDirectorySeparatorChar))
                 return null;
 
             // 不正な文字のチェック（制御文字等）
             if (filename.Any(c => char.IsControl(c) || c == '<' || c == '>' || c == '|' || c == '*' || c == '?'))
                 return null;
 
-            var fullPath = Path.Combine(_settings.WorkDir, filename);
+            var fullPath = Path.Combine(_settings.WorkDir, safeFilename);
             var normalizedPath = Path.GetFullPath(fullPath);
 
             // 正規化後のパスがWorkDir内にあることを確認（二重チェック）
