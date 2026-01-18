@@ -246,10 +246,12 @@ public class HttpServer : ServerBase
         Logger.LogInformation("HTTP connection from {RemoteEndPoint}", remoteEndPoint);
 
         HttpServerSettings settings;
+        HttpAclFilter aclFilter;
         _settingsLock.EnterReadLock();
         try
         {
             settings = _settingsService.GetSettings().HttpServer;
+            aclFilter = _aclFilter!; // Capture component reference inside lock
         }
         finally
         {
@@ -258,7 +260,7 @@ public class HttpServer : ServerBase
 
         // ACLチェック（接続元IPアドレス）
         var remoteIp = clientSocket.RemoteEndPoint?.ToString()?.Split(':')[0] ?? "";
-        if (!string.IsNullOrEmpty(remoteIp) && !_aclFilter!.IsAllowed(remoteIp))
+        if (!string.IsNullOrEmpty(remoteIp) && !aclFilter.IsAllowed(remoteIp))
         {
             Logger.LogWarning("Connection from {RemoteIP} rejected by ACL", remoteIp);
 
@@ -343,21 +345,34 @@ public class HttpServer : ServerBase
                     // リクエストボディサイズチェック（DoS対策、RFC 7230準拠）
                     if (request.Headers.TryGetValue("Content-Length", out var contentLengthStr))
                     {
-                        if (long.TryParse(contentLengthStr, out var contentLength))
+                        if (!long.TryParse(contentLengthStr, out var contentLength) || contentLength < 0)
                         {
-                            if (contentLength > NetworkConstants.Http.MaxRequestBodySize)
-                            {
-                                Logger.LogWarning("Request body size {Size} exceeds limit {Max} from {RemoteEndPoint}",
-                                    contentLength, NetworkConstants.Http.MaxRequestBodySize, remoteEndPoint);
+                            // 無効または負のContent-Lengthヘッダー
+                            Logger.LogWarning("Invalid Content-Length header '{ContentLength}' from {RemoteEndPoint}",
+                                contentLengthStr, remoteEndPoint);
 
-                                // 413 Payload Too Large を返す
-                                var errorResponse = HttpResponseBuilder.BuildErrorResponse(413, "Payload Too Large", settings);
-                                var errorBytes = errorResponse.ToBytes();
-                                await clientSocket.SendAsync(errorBytes, SocketFlags.None, linkedCts.Token);
-                                Statistics.TotalErrors++;
-                                keepAlive = false;
-                                break;
-                            }
+                            var errorResponse = HttpResponseBuilder.BuildErrorResponse(400, "Bad Request", settings);
+                            var errorBytes = errorResponse.ToBytes();
+                            await clientSocket.SendAsync(errorBytes, SocketFlags.None, linkedCts.Token);
+                            Statistics.TotalErrors++;
+                            // 接続を即座にクローズ（不正なリクエストのため）
+                            keepAlive = false;
+                            break;
+                        }
+
+                        if (contentLength > NetworkConstants.Http.MaxRequestBodySize)
+                        {
+                            Logger.LogWarning("Request body size {Size} exceeds limit {Max} from {RemoteEndPoint}",
+                                contentLength, NetworkConstants.Http.MaxRequestBodySize, remoteEndPoint);
+
+                            // 413 Payload Too Large を返す
+                            var errorResponse = HttpResponseBuilder.BuildErrorResponse(413, "Payload Too Large", settings);
+                            var errorBytes = errorResponse.ToBytes();
+                            await clientSocket.SendAsync(errorBytes, SocketFlags.None, linkedCts.Token);
+                            Statistics.TotalErrors++;
+                            // 接続を即座にクローズ（巨大なペイロードを読み取らないため）
+                            keepAlive = false;
+                            break;
                         }
                     }
 
@@ -477,10 +492,23 @@ public class HttpServer : ServerBase
     private async Task<HttpResponse> GenerateResponseAsync(HttpRequest request, CancellationToken cancellationToken, string? remoteIp = null)
     {
         HttpServerSettings settings;
+        HttpVirtualHostManager? virtualHostManager;
+        HttpAuthenticator authenticator;
+        HttpWebDavHandler webDavHandler;
+        HttpCgiHandler cgiHandler;
+        HttpTarget target;
+        HttpFileHandler fileHandler;
         _settingsLock.EnterReadLock();
         try
         {
             settings = _settingsService.GetSettings().HttpServer;
+            // Capture all component references inside lock to ensure thread-safe access
+            virtualHostManager = _virtualHostManager;
+            authenticator = _authenticator!;
+            webDavHandler = _webDavHandler!;
+            cgiHandler = _cgiHandler!;
+            target = _target!;
+            fileHandler = _fileHandler!;
         }
         finally
         {
@@ -489,13 +517,13 @@ public class HttpServer : ServerBase
 
         // Virtual Host解決
         string? documentRoot = null;
-        if (_virtualHostManager != null && request.Headers.TryGetValue("Host", out var hostHeader))
+        if (virtualHostManager != null && request.Headers.TryGetValue("Host", out var hostHeader))
         {
             // ローカルアドレス・ポートの取得（TODO: 実際の値を取得）
             var localAddress = settings.BindAddress;
             var localPort = _port;
 
-            documentRoot = _virtualHostManager.ResolveDocumentRoot(hostHeader, localAddress, localPort);
+            documentRoot = virtualHostManager.ResolveDocumentRoot(hostHeader, localAddress, localPort);
             if (documentRoot != settings.DocumentRoot)
             {
                 Logger.LogDebug("Virtual host resolved: {Host} -> {DocumentRoot}", hostHeader, documentRoot);
@@ -509,7 +537,7 @@ public class HttpServer : ServerBase
         }
 
         // 認証チェック
-        var authResult = _authenticator!.Authenticate(request.Path, request);
+        var authResult = authenticator.Authenticate(request.Path, request);
 
         if (authResult.IsUnauthorized)
         {
@@ -536,19 +564,19 @@ public class HttpServer : ServerBase
         }
 
         // WebDAVチェック
-        if (_webDavHandler!.IsWebDavRequest(request.Path, request.Method, out var webDavPhysicalPath, out var allowWrite))
+        if (webDavHandler.IsWebDavRequest(request.Path, request.Method, out var webDavPhysicalPath, out var allowWrite))
         {
-            return await _webDavHandler.HandleWebDavAsync(request.Method, request.Path, webDavPhysicalPath, allowWrite, request, cancellationToken);
+            return await webDavHandler.HandleWebDavAsync(request.Method, request.Path, webDavPhysicalPath, allowWrite, request, cancellationToken);
         }
 
         // CGIチェック
-        if (_cgiHandler!.IsCgiRequest(request.Path, out var scriptPath, out var interpreter))
+        if (cgiHandler.IsCgiRequest(request.Path, out var scriptPath, out var interpreter))
         {
-            return await _cgiHandler.ExecuteCgiAsync(scriptPath, interpreter, request, remoteIp ?? "127.0.0.1", cancellationToken);
+            return await cgiHandler.ExecuteCgiAsync(scriptPath, interpreter, request, remoteIp ?? "127.0.0.1", cancellationToken);
         }
 
         // ターゲット解決（Virtual Host対応）
-        var targetInfo = _target!.ResolveTarget(request.Path, documentRoot);
+        var targetInfo = target.ResolveTarget(request.Path, documentRoot);
 
         if (!targetInfo.IsValid)
         {
@@ -564,7 +592,7 @@ public class HttpServer : ServerBase
         // ファイルハンドラで処理
         if (targetInfo.Type == TargetType.StaticFile || targetInfo.Type == TargetType.Directory)
         {
-            return await _fileHandler!.HandleFileAsync(targetInfo, request, settings, cancellationToken, remoteIp);
+            return await fileHandler.HandleFileAsync(targetInfo, request, settings, cancellationToken, remoteIp);
         }
 
         // その他（本来ここには来ないはず）
@@ -616,6 +644,8 @@ public class HttpServer : ServerBase
     {
         if (disposing)
         {
+            // Unsubscribe from settings changes before disposing the lock to prevent race conditions
+            _settingsService.SettingsChanged -= OnSettingsChanged;
             _settingsLock?.Dispose();
         }
         base.Dispose(disposing);
