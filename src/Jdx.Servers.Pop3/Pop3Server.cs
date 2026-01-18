@@ -1,7 +1,7 @@
-using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
@@ -18,14 +18,13 @@ public class Pop3Server : ServerBase
     private const int MaxCommandLineLength = 512; // POP3コマンドラインの最大長（DoS対策）
 
     private readonly Pop3ServerSettings _settings;
-    private ServerTcpListener? _tcpListener;
-    private readonly SemaphoreSlim _connectionSemaphore;
+    private readonly ConnectionLimiter _connectionLimiter;
 
     public Pop3Server(ILogger<Pop3Server> logger, Pop3ServerSettings settings)
         : base(logger)
     {
         _settings = settings;
-        _connectionSemaphore = new SemaphoreSlim(settings.MaxConnections, settings.MaxConnections);
+        _connectionLimiter = new ConnectionLimiter(settings.MaxConnections);
     }
 
     public override string Name => "Pop3Server";
@@ -34,28 +33,25 @@ public class Pop3Server : ServerBase
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {
-        var bindAddress = string.IsNullOrWhiteSpace(_settings.BindAddress) || _settings.BindAddress == "0.0.0.0"
-            ? IPAddress.Any
-            : IPAddress.Parse(_settings.BindAddress);
-
-        _tcpListener = new ServerTcpListener(_settings.Port, bindAddress, Logger);
-        await _tcpListener.StartAsync(cancellationToken);
+        var listener = await CreateTcpListenerAsync(
+            _settings.Port,
+            _settings.BindAddress,
+            cancellationToken);
 
         Logger.LogInformation("POP3 Server started on {Address}:{Port}", _settings.BindAddress, _settings.Port);
 
         // Start accept loop
-        _ = Task.Run(() => AcceptLoopAsync(StopCts.Token), StopCts.Token);
+        _ = Task.Run(() => RunTcpAcceptLoopAsync(
+            listener,
+            HandleClientInternalAsync,
+            _connectionLimiter,
+            StopCts.Token), StopCts.Token);
     }
 
-    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override Task StopListeningAsync(CancellationToken cancellationToken)
     {
-        if (_tcpListener != null)
-        {
-            await _tcpListener.StopAsync(cancellationToken);
-            _tcpListener = null;
-        }
-
         Logger.LogInformation("POP3 Server stopped");
+        return Task.CompletedTask;
     }
 
     protected override Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
@@ -63,42 +59,6 @@ public class Pop3Server : ServerBase
         // Convert Socket to TcpClient for existing handler
         var tcpClient = new TcpClient { Client = clientSocket };
         return HandleClientInternalAsync(tcpClient, cancellationToken);
-    }
-
-    private async Task AcceptLoopAsync(CancellationToken cancellationToken)
-    {
-        if (_tcpListener == null)
-            return;
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                var clientSocket = await _tcpListener.AcceptAsync(cancellationToken);
-                var client = new TcpClient { Client = clientSocket };
-
-                _ = Task.Run(async () =>
-                {
-                    await _connectionSemaphore.WaitAsync(cancellationToken);
-                    try
-                    {
-                        await HandleClientInternalAsync(client, cancellationToken);
-                    }
-                    finally
-                    {
-                        _connectionSemaphore.Release();
-                    }
-                }, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error accepting POP3 client");
-            }
-        }
     }
 
     private async Task HandleClientInternalAsync(TcpClient client, CancellationToken cancellationToken)
@@ -214,17 +174,9 @@ public class Pop3Server : ServerBase
                     }
                 }
             }
-            catch (OperationCanceledException)
-            {
-                Logger.LogDebug("POP3 client cancelled");
-            }
-            catch (IOException ex) when (ex.InnerException is SocketException)
-            {
-                Logger.LogDebug(ex, "POP3 client connection closed (network error)");
-            }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Unexpected error handling POP3 client");
+                NetworkExceptionHandler.LogNetworkException(ex, Logger, "POP3 client handling");
             }
         }
     }
@@ -233,8 +185,7 @@ public class Pop3Server : ServerBase
     {
         if (disposing)
         {
-            _tcpListener?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
-            _connectionSemaphore?.Dispose();
+            _connectionLimiter?.Dispose();
         }
         base.Dispose(disposing);
     }

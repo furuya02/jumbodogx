@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
@@ -15,15 +16,14 @@ namespace Jdx.Servers.Dhcp;
 public class DhcpServer : ServerBase
 {
     private readonly DhcpServerSettings _settings;
-    private ServerUdpListener? _udpListener;
     private LeasePool? _leasePool;
-    private readonly SemaphoreSlim _connectionSemaphore;
+    private readonly ConnectionLimiter _connectionLimiter;
 
     public DhcpServer(ILogger<DhcpServer> logger, DhcpServerSettings settings)
         : base(logger)
     {
         _settings = settings;
-        _connectionSemaphore = new SemaphoreSlim(settings.MaxConnections, settings.MaxConnections);
+        _connectionLimiter = new ConnectionLimiter(settings.MaxConnections);
     }
 
     public override string Name => "DhcpServer";
@@ -81,93 +81,43 @@ public class DhcpServer : ServerBase
         _leasePool = new LeasePool(startIp, endIp, _settings.LeaseTime, macReservations, leaseDbPath, Logger);
 
         // Create UDP listener
-        IPAddress bindAddress;
-        if (string.IsNullOrWhiteSpace(_settings.BindAddress) || _settings.BindAddress == "0.0.0.0")
-        {
-            bindAddress = IPAddress.Any;
-        }
-        else if (!IPAddress.TryParse(_settings.BindAddress, out bindAddress))
-        {
-            Logger.LogWarning("Invalid bind address '{Address}', using Any", _settings.BindAddress);
-            bindAddress = IPAddress.Any;
-        }
-
-        _udpListener = new ServerUdpListener(_settings.Port, bindAddress, Logger);
-        await _udpListener.StartAsync(cancellationToken);
+        var listener = await CreateUdpListenerAsync(
+            _settings.Port,
+            _settings.BindAddress,
+            cancellationToken);
 
         Logger.LogInformation(
             "DHCP Server started on {Address}:{Port} (Pool: {StartIp}-{EndIp}, Lease: {LeaseTime}s)",
             _settings.BindAddress, _settings.Port, _settings.StartIp, _settings.EndIp, _settings.LeaseTime);
 
         // Start listening loop
-        _ = Task.Run(() => ListenLoopAsync(StopCts.Token), StopCts.Token);
+        _ = Task.Run(() => RunUdpReceiveLoopAsync(
+            listener,
+            HandleRequestAsync,
+            _connectionLimiter,
+            StopCts.Token), StopCts.Token);
     }
 
-    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override Task StopListeningAsync(CancellationToken cancellationToken)
     {
-        if (_udpListener != null)
-        {
-            await _udpListener.StopAsync(cancellationToken);
-            _udpListener = null;
-        }
-
         Logger.LogInformation("DHCP Server stopped");
+        return Task.CompletedTask;
     }
 
     protected override Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
     {
         // DHCP uses UDP, not TCP, so this method is not used
-        // Client handling is done in ListenLoopAsync -> HandleRequestAsync
+        // Client handling is done in RunUdpReceiveLoopAsync -> HandleRequestAsync
         return Task.CompletedTask;
     }
 
-    private async Task ListenLoopAsync(CancellationToken cancellationToken)
-    {
-        if (_udpListener == null || _leasePool == null)
-            return;
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                var (data, remoteEndPoint) = await _udpListener.ReceiveAsync(cancellationToken);
-
-                if (data.Length == 0)
-                    continue;
-
-                // Handle request in background
-                _ = Task.Run(async () =>
-                {
-                    await _connectionSemaphore.WaitAsync(cancellationToken);
-                    try
-                    {
-                        await HandleRequestAsync(data, (IPEndPoint)remoteEndPoint, cancellationToken);
-                    }
-                    finally
-                    {
-                        _connectionSemaphore.Release();
-                    }
-                }, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (SocketException ex)
-            {
-                Logger.LogDebug(ex, "Socket error in DHCP listen loop");
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Unexpected error in DHCP listen loop");
-            }
-        }
-    }
-
-    private async Task HandleRequestAsync(byte[] data, IPEndPoint remoteEndPoint, CancellationToken cancellationToken)
+    private async Task HandleRequestAsync(byte[] data, EndPoint remoteEndPoint, CancellationToken cancellationToken)
     {
         if (_leasePool == null)
             return;
+
+        // Cast to IPEndPoint for UDP operations
+        var ipEndPoint = (IPEndPoint)remoteEndPoint;
 
         try
         {
@@ -179,19 +129,19 @@ public class DhcpServer : ServerBase
             if (data.Length < MinSize || data.Length > MaxSize)
             {
                 Logger.LogWarning("Invalid DHCP packet size from {RemoteEndPoint}: {Size} bytes (min={Min}, max={Max})",
-                    remoteEndPoint, data.Length, MinSize, MaxSize);
+                    ipEndPoint, data.Length, MinSize, MaxSize);
                 return;
             }
 
             var packet = new DhcpPacket();
             if (!packet.Parse(data))
             {
-                Logger.LogWarning("Failed to parse DHCP packet from {RemoteEndPoint}", remoteEndPoint);
+                Logger.LogWarning("Failed to parse DHCP packet from {RemoteEndPoint}", ipEndPoint);
                 return;
             }
 
             Logger.LogDebug("DHCP {MessageType} from {Mac} ({RemoteEndPoint})",
-                packet.MessageType, packet.ClientMac, remoteEndPoint);
+                packet.MessageType, packet.ClientMac, ipEndPoint);
 
             // Check MAC ACL if enabled
             if (_settings.UseMacAcl && !_leasePool.IsMacAllowed(packet.ClientMac))
@@ -203,11 +153,11 @@ public class DhcpServer : ServerBase
             switch (packet.MessageType)
             {
                 case DhcpMessageType.Discover:
-                    await HandleDiscoverAsync(packet, remoteEndPoint, cancellationToken);
+                    await HandleDiscoverAsync(packet, ipEndPoint, cancellationToken);
                     break;
 
                 case DhcpMessageType.Request:
-                    await HandleRequestAsync(packet, remoteEndPoint, cancellationToken);
+                    await HandleRequestAsync(packet, ipEndPoint, cancellationToken);
                     break;
 
                 case DhcpMessageType.Release:
@@ -224,17 +174,9 @@ public class DhcpServer : ServerBase
                     break;
             }
         }
-        catch (OperationCanceledException)
-        {
-            Logger.LogDebug("DHCP request cancelled from {RemoteEndPoint}", remoteEndPoint);
-        }
-        catch (SocketException ex)
-        {
-            Logger.LogDebug(ex, "Socket error handling DHCP request from {RemoteEndPoint}", remoteEndPoint);
-        }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Unexpected error handling DHCP request from {RemoteEndPoint}", remoteEndPoint);
+            NetworkExceptionHandler.LogNetworkException(ex, Logger, "DHCP request handling");
         }
     }
 
@@ -377,8 +319,7 @@ public class DhcpServer : ServerBase
     {
         if (disposing)
         {
-            _udpListener?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
-            _connectionSemaphore?.Dispose();
+            _connectionLimiter?.Dispose();
         }
         base.Dispose(disposing);
     }

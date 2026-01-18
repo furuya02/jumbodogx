@@ -1,7 +1,7 @@
-using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
@@ -20,14 +20,13 @@ public class SmtpServer : ServerBase
     private const int MaxMessageLines = 100000; // 最大メッセージ行数
 
     private readonly SmtpServerSettings _settings;
-    private ServerTcpListener? _tcpListener;
-    private readonly SemaphoreSlim _connectionSemaphore;
+    private readonly ConnectionLimiter _connectionLimiter;
 
     public SmtpServer(ILogger<SmtpServer> logger, SmtpServerSettings settings)
         : base(logger)
     {
         _settings = settings;
-        _connectionSemaphore = new SemaphoreSlim(settings.MaxConnections, settings.MaxConnections);
+        _connectionLimiter = new ConnectionLimiter(settings.MaxConnections);
     }
 
     public override string Name => "SmtpServer";
@@ -36,29 +35,26 @@ public class SmtpServer : ServerBase
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {
-        var bindAddress = string.IsNullOrWhiteSpace(_settings.BindAddress) || _settings.BindAddress == "0.0.0.0"
-            ? IPAddress.Any
-            : IPAddress.Parse(_settings.BindAddress);
-
-        _tcpListener = new ServerTcpListener(_settings.Port, bindAddress, Logger);
-        await _tcpListener.StartAsync(cancellationToken);
+        var listener = await CreateTcpListenerAsync(
+            _settings.Port,
+            _settings.BindAddress,
+            cancellationToken);
 
         Logger.LogInformation("SMTP Server started on {Address}:{Port} (Domain: {Domain})",
             _settings.BindAddress, _settings.Port, _settings.DomainName);
 
         // Start accept loop
-        _ = Task.Run(() => AcceptLoopAsync(StopCts.Token), StopCts.Token);
+        _ = Task.Run(() => RunTcpAcceptLoopAsync(
+            listener,
+            HandleClientInternalAsync,
+            _connectionLimiter,
+            StopCts.Token), StopCts.Token);
     }
 
-    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override Task StopListeningAsync(CancellationToken cancellationToken)
     {
-        if (_tcpListener != null)
-        {
-            await _tcpListener.StopAsync(cancellationToken);
-            _tcpListener = null;
-        }
-
         Logger.LogInformation("SMTP Server stopped");
+        return Task.CompletedTask;
     }
 
     protected override Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
@@ -66,42 +62,6 @@ public class SmtpServer : ServerBase
         // Convert Socket to TcpClient for existing handler
         var tcpClient = new TcpClient { Client = clientSocket };
         return HandleClientInternalAsync(tcpClient, cancellationToken);
-    }
-
-    private async Task AcceptLoopAsync(CancellationToken cancellationToken)
-    {
-        if (_tcpListener == null)
-            return;
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                var clientSocket = await _tcpListener.AcceptAsync(cancellationToken);
-                var client = new TcpClient { Client = clientSocket };
-
-                _ = Task.Run(async () =>
-                {
-                    await _connectionSemaphore.WaitAsync(cancellationToken);
-                    try
-                    {
-                        await HandleClientInternalAsync(client, cancellationToken);
-                    }
-                    finally
-                    {
-                        _connectionSemaphore.Release();
-                    }
-                }, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error accepting SMTP client");
-            }
-        }
     }
 
     private async Task HandleClientInternalAsync(TcpClient client, CancellationToken cancellationToken)
@@ -281,17 +241,9 @@ public class SmtpServer : ServerBase
                     }
                 }
             }
-            catch (OperationCanceledException)
-            {
-                Logger.LogDebug("SMTP client cancelled");
-            }
-            catch (IOException ex) when (ex.InnerException is SocketException)
-            {
-                Logger.LogDebug(ex, "SMTP client connection closed (network error)");
-            }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Unexpected error handling SMTP client");
+                NetworkExceptionHandler.LogNetworkException(ex, Logger, "SMTP client handling");
             }
         }
     }
@@ -300,8 +252,7 @@ public class SmtpServer : ServerBase
     {
         if (disposing)
         {
-            _tcpListener?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
-            _connectionSemaphore?.Dispose();
+            _connectionLimiter?.Dispose();
         }
         base.Dispose(disposing);
     }
