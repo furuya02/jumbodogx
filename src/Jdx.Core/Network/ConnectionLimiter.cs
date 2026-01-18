@@ -7,6 +7,7 @@ namespace Jdx.Core.Network;
 public class ConnectionLimiter : IDisposable
 {
     private readonly SemaphoreSlim _semaphore;
+    private bool _disposed;
 
     public ConnectionLimiter(int maxConnections)
     {
@@ -21,6 +22,9 @@ public class ConnectionLimiter : IDisposable
         Func<CancellationToken, Task> action,
         CancellationToken cancellationToken)
     {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(ConnectionLimiter));
+
         await _semaphore.WaitAsync(cancellationToken);
         try
         {
@@ -38,6 +42,9 @@ public class ConnectionLimiter : IDisposable
     /// </summary>
     public async Task<IDisposable> AcquireAsync(CancellationToken cancellationToken)
     {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(ConnectionLimiter));
+
         await _semaphore.WaitAsync(cancellationToken);
         return new ReleaseHandle(_semaphore);
     }
@@ -45,12 +52,22 @@ public class ConnectionLimiter : IDisposable
     private class ReleaseHandle : IDisposable
     {
         private readonly SemaphoreSlim _semaphore;
+        private bool _disposed;
+
         public ReleaseHandle(SemaphoreSlim semaphore) => _semaphore = semaphore;
-        public void Dispose() => _semaphore.Release();
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _semaphore.Release();
+        }
     }
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         _semaphore?.Dispose();
     }
 }
