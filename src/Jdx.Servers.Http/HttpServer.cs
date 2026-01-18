@@ -110,48 +110,48 @@ public class HttpServer : ServerBase
                     {
                         try
                         {
-                            ApplicationSettings currentSettings;
-                            _settingsLock.EnterReadLock();
+                            // 書き込みロックを取得して設定の読み取り・変更・保存を原子的に実行
+                            // これにより複数の攻撃が同時検出された場合の競合を防止
+                            _settingsLock.EnterWriteLock();
                             try
                             {
-                                currentSettings = _settingsService.GetSettings();
+                                var currentSettings = _settingsService.GetSettings();
+                                var httpSettings = currentSettings.HttpServer;
+
+                                // EnableAcl設定がDenyMode(1)であることを確認
+                                if (httpSettings.EnableAcl != 1)
+                                {
+                                    Logger.LogWarning("ACL is not in Deny mode (current: {Mode}). Auto-ACL requires Deny mode to block attackers. Skipping auto-add.",
+                                        httpSettings.EnableAcl);
+                                    return;
+                                }
+
+                                // 既にACLリストに存在するかチェック
+                                if (httpSettings.AclList.Any(acl => acl.Address == remoteIp))
+                                {
+                                    Logger.LogInformation("IP {RemoteIp} is already in ACL list, skipping duplicate entry", remoteIp);
+                                    return;
+                                }
+
+                                // 新しいACLエントリを追加
+                                var newAclEntry = new AclEntry
+                                {
+                                    Name = $"AutoBlock_{DateTime.Now:yyyyMMdd_HHmmss}",
+                                    Address = remoteIp
+                                };
+
+                                httpSettings.AclList.Add(newAclEntry);
+
+                                // 設定を保存（ロック内で実行）
+                                await _settingsService.SaveSettingsAsync(currentSettings);
+
+                                Logger.LogWarning("Auto-blocked IP {RemoteIp} added to ACL (Entry name: {Name})",
+                                    remoteIp, newAclEntry.Name);
                             }
                             finally
                             {
-                                _settingsLock.ExitReadLock();
+                                _settingsLock.ExitWriteLock();
                             }
-
-                            var httpSettings = currentSettings.HttpServer;
-
-                            // EnableAcl設定がDenyMode(1)であることを確認
-                            if (httpSettings.EnableAcl != 1)
-                            {
-                                Logger.LogWarning("ACL is not in Deny mode (current: {Mode}). Auto-ACL requires Deny mode to block attackers. Skipping auto-add.",
-                                    httpSettings.EnableAcl);
-                                return;
-                            }
-
-                            // 既にACLリストに存在するかチェック
-                            if (httpSettings.AclList.Any(acl => acl.Address == remoteIp))
-                            {
-                                Logger.LogInformation("IP {RemoteIp} is already in ACL list, skipping duplicate entry", remoteIp);
-                                return;
-                            }
-
-                            // 新しいACLエントリを追加
-                            var newAclEntry = new AclEntry
-                            {
-                                Name = $"AutoBlock_{DateTime.Now:yyyyMMdd_HHmmss}",
-                                Address = remoteIp
-                            };
-
-                            httpSettings.AclList.Add(newAclEntry);
-
-                            // 設定を保存
-                            await _settingsService.SaveSettingsAsync(currentSettings);
-
-                            Logger.LogWarning("Auto-blocked IP {RemoteIp} added to ACL (Entry name: {Name})",
-                                remoteIp, newAclEntry.Name);
                         }
                         catch (Exception ex)
                         {
