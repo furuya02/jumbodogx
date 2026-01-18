@@ -664,11 +664,13 @@ public class ProxyServer : ServerBase
     {
         if (settings.AclList == null || settings.AclList.Count == 0)
         {
-            // ACLが設定されていない場合（fail-safe: すべて拒否）
-            // Allow Mode (0): リストが空ならすべて拒否（明示的な許可がないため）
-            // Deny Mode (1): リストが空ならすべて拒否（セキュリティ優先）
-            Logger.LogDebug("ACL list is empty, denying access for {RemoteIp}", remoteIp);
-            return false;
+            // EnableAcl: 0=Allow list, 1=Deny list
+            // Allow list + empty → deny all (fail-secure)
+            // Deny list + empty → allow all (no one is denied)
+            var result = settings.EnableAcl != 0;
+            Logger.LogDebug("ACL list is empty, {Action} access for {RemoteIp} (EnableAcl={Mode})",
+                result ? "allowing" : "denying", remoteIp, settings.EnableAcl);
+            return result;
         }
 
         // IPアドレスがACLリストに含まれているかチェック

@@ -26,11 +26,16 @@ public class FtpAclFilter
     /// </summary>
     public bool IsAllowed(string remoteAddress)
     {
+        // ACL list is empty
         if (_settings.AclList.Count == 0)
         {
-            // No ACL rules: fail-secure (deny all)
-            _logger.LogDebug("ACL list is empty, denying all connections (fail-secure default)");
-            return false;
+            // EnableAcl: 0=Allow list, 1=Deny list
+            // Allow list + empty → deny all (fail-secure)
+            // Deny list + empty → allow all (no one is denied)
+            var result = _settings.EnableAcl != 0;
+            _logger.LogDebug("ACL list is empty, {Action} all connections (EnableAcl={Mode})",
+                result ? "allowing" : "denying", _settings.EnableAcl);
+            return result;
         }
 
         // Parse IP address from endpoint format

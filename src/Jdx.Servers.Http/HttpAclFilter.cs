@@ -25,10 +25,17 @@ public class HttpAclFilter
     /// </summary>
     public bool IsAllowed(string remoteAddress)
     {
-        // No ACL rules: fail-secure (deny all)
+        // EnableAcl: 0=無効, 1=許可リスト, 2=拒否リスト
+        // ACL無効の場合は全て許可
+        if (_settings.EnableAcl == 0)
+        {
+            return true;
+        }
+
+        // ACL有効だがリストが空/null: fail-secure (deny all)
         if (_settings.AclList == null || _settings.AclList.Count == 0)
         {
-            _logger.LogDebug("ACL list is empty, denying all connections (fail-secure default)");
+            _logger.LogDebug("ACL enabled but list is empty, denying all connections (fail-secure default)");
             return false;
         }
 
@@ -37,12 +44,6 @@ public class HttpAclFilter
         {
             _logger.LogWarning("Invalid remote address: {RemoteAddress}", remoteAddress);
             return false;
-        }
-
-        // EnableAcl: 0=無効, 1=許可リスト, 2=拒否リスト
-        if (_settings.EnableAcl == 0)
-        {
-            return true;
         }
 
         bool isInList = false;
