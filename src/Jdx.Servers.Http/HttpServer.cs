@@ -133,10 +133,17 @@ public class HttpServer : ServerBase
                                     return;
                                 }
 
+                                // IPアドレス形式の検証
+                                if (!IPAddress.TryParse(remoteIp, out _))
+                                {
+                                    Logger.LogWarning("Invalid IP address format: {RemoteIp}, skipping ACL add", remoteIp);
+                                    return;
+                                }
+
                                 // 新しいACLエントリを追加
                                 var newAclEntry = new AclEntry
                                 {
-                                    Name = $"AutoBlock_{DateTime.Now:yyyyMMdd_HHmmss}",
+                                    Name = $"AutoBlock_{DateTime.UtcNow:yyyyMMdd_HHmmss_fff}",
                                     Address = remoteIp
                                 };
 
