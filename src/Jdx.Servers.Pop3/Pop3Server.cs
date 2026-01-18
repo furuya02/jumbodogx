@@ -18,7 +18,6 @@ public class Pop3Server : ServerBase
     private const int MaxCommandLineLength = 512; // POP3コマンドラインの最大長（DoS対策）
 
     private readonly Pop3ServerSettings _settings;
-    private ServerTcpListener? _tcpListener;
     private readonly ConnectionLimiter _connectionLimiter;
 
     public Pop3Server(ILogger<Pop3Server> logger, Pop3ServerSettings settings)
@@ -34,7 +33,7 @@ public class Pop3Server : ServerBase
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {
-        _tcpListener = await CreateTcpListenerAsync(
+        var listener = await CreateTcpListenerAsync(
             _settings.Port,
             _settings.BindAddress,
             cancellationToken);
@@ -43,21 +42,16 @@ public class Pop3Server : ServerBase
 
         // Start accept loop
         _ = Task.Run(() => RunTcpAcceptLoopAsync(
-            _tcpListener,
+            listener,
             HandleClientInternalAsync,
             _connectionLimiter,
             StopCts.Token), StopCts.Token);
     }
 
-    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override Task StopListeningAsync(CancellationToken cancellationToken)
     {
-        if (_tcpListener != null)
-        {
-            await _tcpListener.StopAsync(cancellationToken);
-            _tcpListener = null;
-        }
-
         Logger.LogInformation("POP3 Server stopped");
+        return Task.CompletedTask;
     }
 
     protected override Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
@@ -191,7 +185,6 @@ public class Pop3Server : ServerBase
     {
         if (disposing)
         {
-            _tcpListener?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
             _connectionLimiter?.Dispose();
         }
         base.Dispose(disposing);

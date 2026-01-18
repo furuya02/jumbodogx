@@ -16,7 +16,6 @@ namespace Jdx.Servers.Dhcp;
 public class DhcpServer : ServerBase
 {
     private readonly DhcpServerSettings _settings;
-    private ServerUdpListener? _udpListener;
     private LeasePool? _leasePool;
     private readonly ConnectionLimiter _connectionLimiter;
 
@@ -82,7 +81,7 @@ public class DhcpServer : ServerBase
         _leasePool = new LeasePool(startIp, endIp, _settings.LeaseTime, macReservations, leaseDbPath, Logger);
 
         // Create UDP listener
-        _udpListener = await CreateUdpListenerAsync(
+        var listener = await CreateUdpListenerAsync(
             _settings.Port,
             _settings.BindAddress,
             cancellationToken);
@@ -93,21 +92,16 @@ public class DhcpServer : ServerBase
 
         // Start listening loop
         _ = Task.Run(() => RunUdpReceiveLoopAsync(
-            _udpListener,
+            listener,
             HandleRequestAsync,
             _connectionLimiter,
             StopCts.Token), StopCts.Token);
     }
 
-    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override Task StopListeningAsync(CancellationToken cancellationToken)
     {
-        if (_udpListener != null)
-        {
-            await _udpListener.StopAsync(cancellationToken);
-            _udpListener = null;
-        }
-
         Logger.LogInformation("DHCP Server stopped");
+        return Task.CompletedTask;
     }
 
     protected override Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
@@ -325,7 +319,6 @@ public class DhcpServer : ServerBase
     {
         if (disposing)
         {
-            _udpListener?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
             _connectionLimiter?.Dispose();
         }
         base.Dispose(disposing);

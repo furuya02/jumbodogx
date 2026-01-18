@@ -20,7 +20,6 @@ public class SmtpServer : ServerBase
     private const int MaxMessageLines = 100000; // 最大メッセージ行数
 
     private readonly SmtpServerSettings _settings;
-    private ServerTcpListener? _tcpListener;
     private readonly ConnectionLimiter _connectionLimiter;
 
     public SmtpServer(ILogger<SmtpServer> logger, SmtpServerSettings settings)
@@ -36,7 +35,7 @@ public class SmtpServer : ServerBase
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {
-        _tcpListener = await CreateTcpListenerAsync(
+        var listener = await CreateTcpListenerAsync(
             _settings.Port,
             _settings.BindAddress,
             cancellationToken);
@@ -46,21 +45,16 @@ public class SmtpServer : ServerBase
 
         // Start accept loop
         _ = Task.Run(() => RunTcpAcceptLoopAsync(
-            _tcpListener,
+            listener,
             HandleClientInternalAsync,
             _connectionLimiter,
             StopCts.Token), StopCts.Token);
     }
 
-    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override Task StopListeningAsync(CancellationToken cancellationToken)
     {
-        if (_tcpListener != null)
-        {
-            await _tcpListener.StopAsync(cancellationToken);
-            _tcpListener = null;
-        }
-
         Logger.LogInformation("SMTP Server stopped");
+        return Task.CompletedTask;
     }
 
     protected override Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
@@ -258,7 +252,6 @@ public class SmtpServer : ServerBase
     {
         if (disposing)
         {
-            _tcpListener?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
             _connectionLimiter?.Dispose();
         }
         base.Dispose(disposing);
