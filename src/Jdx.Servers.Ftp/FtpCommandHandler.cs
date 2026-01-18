@@ -446,15 +446,44 @@ public class FtpCommandHandler
                 return true;
             }
 
-            var ip = $"{parts[0]}.{parts[1]}.{parts[2]}.{parts[3]}";
-            var port = int.Parse(parts[4]) * 256 + int.Parse(parts[5]);
+            // PORT/PASVコマンド入力検証（DoS対策）
+            // 各パートが0-255の範囲内であることを確認
+            var bytes = new byte[6];
+            for (int i = 0; i < 6; i++)
+            {
+                if (!byte.TryParse(parts[i], out bytes[i]))
+                {
+                    _logger.LogWarning("Invalid PORT parameter: {Param}", param);
+                    await session.SendResponseAsync("500 Invalid PORT command.");
+                    return true;
+                }
+            }
+
+            var ip = $"{bytes[0]}.{bytes[1]}.{bytes[2]}.{bytes[3]}";
+            var port = bytes[4] * 256 + bytes[5];
+
+            // ポート番号の範囲チェック（1-65535）
+            if (port < 1 || port > 65535)
+            {
+                _logger.LogWarning("Invalid PORT port number: {Port}", port);
+                await session.SendResponseAsync("500 Invalid port number.");
+                return true;
+            }
+
+            // IPアドレスの妥当性チェック
+            if (!IPAddress.TryParse(ip, out var ipAddress))
+            {
+                _logger.LogWarning("Invalid PORT IP address: {IP}", ip);
+                await session.SendResponseAsync("500 Invalid IP address.");
+                return true;
+            }
 
             // Close existing data connection
             session.CloseDataConnection();
 
             // Connect to client
             var client = new TcpClient();
-            await client.ConnectAsync(ip, port);
+            await client.ConnectAsync(ipAddress, port);
             session.DataClient = client;
             session.DataSocket = client.Client;
             session.DataStream = client.GetStream();
@@ -463,7 +492,7 @@ public class FtpCommandHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to handle PORT command");
+            _logger.LogWarning(ex, "Failed to handle PORT command");
             await session.SendResponseAsync("500 Failed to establish data connection.");
         }
 

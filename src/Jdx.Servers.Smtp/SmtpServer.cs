@@ -14,6 +14,11 @@ namespace Jdx.Servers.Smtp;
 /// </summary>
 public class SmtpServer : ServerBase
 {
+    // 定数定義
+    private const int MaxLineLength = 1000; // RFC 5321: 最大行長998文字 + CRLF
+    private const int MaxRecipients = 100; // 最大受信者数
+    private const int MaxMessageLines = 100000; // 最大メッセージ行数
+
     private readonly SmtpServerSettings _settings;
     private ServerTcpListener? _tcpListener;
     private readonly SemaphoreSlim _connectionSemaphore;
@@ -128,6 +133,14 @@ public class SmtpServer : ServerBase
                     if (string.IsNullOrEmpty(line))
                         break;
 
+                    // 行長制限チェック（DoS対策）
+                    if (line.Length > MaxLineLength)
+                    {
+                        await writer.WriteLineAsync("500 Line too long");
+                        Logger.LogWarning("SMTP line too long: {Length} bytes", line.Length);
+                        break;
+                    }
+
                     Logger.LogDebug("SMTP << {Command}", line);
 
                     var parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
@@ -171,6 +184,13 @@ public class SmtpServer : ServerBase
                         case "RCPT":
                             if (args.StartsWith("TO:", StringComparison.OrdinalIgnoreCase))
                             {
+                                // 受信者数制限チェック（DoS対策）
+                                if (rcptTo.Count >= MaxRecipients)
+                                {
+                                    await writer.WriteLineAsync($"452 Too many recipients (max {MaxRecipients})");
+                                    break;
+                                }
+
                                 var recipient = args[3..].Trim();
                                 rcptTo.Add(recipient);
                                 await writer.WriteLineAsync("250 OK");
@@ -190,8 +210,11 @@ public class SmtpServer : ServerBase
 
                             await writer.WriteLineAsync("354 Start mail input; end with <CRLF>.<CRLF>");
 
-                            // Read message data
+                            // Read message data with size limits
                             messageLines.Clear();
+                            long totalBytes = 0;
+                            var sizeLimitBytes = _settings.SizeLimit * 1024L;
+
                             while (true)
                             {
                                 var dataLine = await reader.ReadLineAsync(cancellationToken);
@@ -199,14 +222,34 @@ public class SmtpServer : ServerBase
                                     break;
                                 if (dataLine == null)
                                     break;
+
+                                // 行数制限チェック（DoS対策）
+                                if (messageLines.Count >= MaxMessageLines)
+                                {
+                                    await writer.WriteLineAsync($"552 Too many lines (max {MaxMessageLines})");
+                                    Logger.LogWarning("SMTP message exceeds max lines: {Count}", messageLines.Count);
+                                    goto ResetSession;
+                                }
+
+                                // メッセージサイズ制限チェック（SizeLimit設定を実際に適用）
+                                totalBytes += dataLine.Length + 2; // +2 for CRLF
+                                if (totalBytes > sizeLimitBytes)
+                                {
+                                    await writer.WriteLineAsync($"552 Message size exceeds fixed maximum message size ({_settings.SizeLimit} KB)");
+                                    Logger.LogWarning("SMTP message size exceeds limit: {Size} KB", totalBytes / 1024);
+                                    goto ResetSession;
+                                }
+
                                 messageLines.Add(dataLine);
                             }
 
                             // TODO: Process message (save, relay, etc.)
-                            Logger.LogInformation("SMTP mail from {From} to {Recipients} ({Lines} lines)",
-                                mailFrom, string.Join(", ", rcptTo), messageLines.Count);
+                            Logger.LogInformation("SMTP mail from {From} to {Recipients} ({Lines} lines, {Size} KB)",
+                                mailFrom, string.Join(", ", rcptTo), messageLines.Count, totalBytes / 1024);
 
                             await writer.WriteLineAsync("250 OK: Message accepted");
+
+                        ResetSession:
 
                             // Reset session
                             mailFrom = null;
@@ -235,9 +278,17 @@ public class SmtpServer : ServerBase
                     }
                 }
             }
+            catch (OperationCanceledException)
+            {
+                Logger.LogDebug("SMTP client cancelled");
+            }
+            catch (IOException ex) when (ex.InnerException is SocketException)
+            {
+                Logger.LogDebug(ex, "SMTP client connection closed (network error)");
+            }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "Error handling SMTP client");
+                Logger.LogWarning(ex, "Unexpected error handling SMTP client");
             }
         }
     }

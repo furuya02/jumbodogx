@@ -14,6 +14,9 @@ namespace Jdx.Servers.Pop3;
 /// </summary>
 public class Pop3Server : ServerBase
 {
+    // 定数定義
+    private const int MaxCommandLineLength = 512; // POP3コマンドラインの最大長（DoS対策）
+
     private readonly Pop3ServerSettings _settings;
     private ServerTcpListener? _tcpListener;
     private readonly SemaphoreSlim _connectionSemaphore;
@@ -126,6 +129,14 @@ public class Pop3Server : ServerBase
                     if (string.IsNullOrEmpty(line))
                         break;
 
+                    // コマンドライン長制限チェック（DoS対策）
+                    if (line.Length > MaxCommandLineLength)
+                    {
+                        await writer.WriteLineAsync("-ERR Command line too long");
+                        Logger.LogWarning("POP3 command line too long: {Length} bytes", line.Length);
+                        break;
+                    }
+
                     Logger.LogDebug("POP3 << {Command}", line);
 
                     var parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
@@ -203,9 +214,17 @@ public class Pop3Server : ServerBase
                     }
                 }
             }
+            catch (OperationCanceledException)
+            {
+                Logger.LogDebug("POP3 client cancelled");
+            }
+            catch (IOException ex) when (ex.InnerException is SocketException)
+            {
+                Logger.LogDebug(ex, "POP3 client connection closed (network error)");
+            }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "Error handling POP3 client");
+                Logger.LogWarning(ex, "Unexpected error handling POP3 client");
             }
         }
     }

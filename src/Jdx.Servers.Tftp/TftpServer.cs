@@ -13,7 +13,10 @@ namespace Jdx.Servers.Tftp;
 /// </summary>
 public class TftpServer : ServerBase
 {
-    private const int BlockSize = 512;
+    // 定数定義
+    private const int BlockSize = 512; // RFC 1350: TFTP標準ブロックサイズ
+    private const int MaxFileSize = 100 * 1024 * 1024; // 最大ファイルサイズ: 100MB（DoS対策）
+
     private readonly TftpServerSettings _settings;
     private ServerUdpListener? _udpListener;
     private readonly SemaphoreSlim _connectionSemaphore;
@@ -44,9 +47,16 @@ public class TftpServer : ServerBase
         }
 
         // Create UDP listener
-        var bindAddress = string.IsNullOrWhiteSpace(_settings.BindAddress) || _settings.BindAddress == "0.0.0.0"
-            ? IPAddress.Any
-            : IPAddress.Parse(_settings.BindAddress);
+        IPAddress bindAddress;
+        if (string.IsNullOrWhiteSpace(_settings.BindAddress) || _settings.BindAddress == "0.0.0.0")
+        {
+            bindAddress = IPAddress.Any;
+        }
+        else if (!IPAddress.TryParse(_settings.BindAddress, out bindAddress))
+        {
+            Logger.LogWarning("Invalid bind address '{Address}', using Any", _settings.BindAddress);
+            bindAddress = IPAddress.Any;
+        }
 
         _udpListener = new ServerUdpListener(_settings.Port, bindAddress, Logger);
         await _udpListener.StartAsync(cancellationToken);
@@ -109,9 +119,13 @@ public class TftpServer : ServerBase
             {
                 break;
             }
+            catch (SocketException ex)
+            {
+                Logger.LogDebug(ex, "Socket error in TFTP listen loop");
+            }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "Error in TFTP listen loop");
+                Logger.LogWarning(ex, "Unexpected error in TFTP listen loop");
             }
         }
     }
@@ -295,6 +309,7 @@ public class TftpServer : ServerBase
 
             await using var fileStream = File.Create(filePath);
             ushort expectedBlock = 1;
+            long totalBytesReceived = 0;
 
             while (true)
             {
@@ -322,6 +337,16 @@ public class TftpServer : ServerBase
 
                 // Extract and write data
                 var blockData = TftpPacket.ExtractData(dataResult.Buffer);
+
+                // ファイルサイズ制限チェック（DoS対策）
+                totalBytesReceived += blockData.Length;
+                if (totalBytesReceived > MaxFileSize)
+                {
+                    Logger.LogWarning("File size exceeds limit: {Size} bytes (max {MaxSize})", totalBytesReceived, MaxFileSize);
+                    await SendErrorAsync(remoteEndPoint, TftpErrorCode.DiskFull, "File too large", cancellationToken);
+                    throw new InvalidOperationException("File size exceeds limit");
+                }
+
                 await fileStream.WriteAsync(blockData, cancellationToken);
 
                 // Send ACK
@@ -372,6 +397,18 @@ public class TftpServer : ServerBase
     {
         try
         {
+            // ファイル名検証の強化（DoS対策）
+            if (string.IsNullOrWhiteSpace(filename))
+                return null;
+
+            // ファイル名長制限チェック
+            if (filename.Length > 255)
+                return null;
+
+            // 不正な文字のチェック（制御文字、パストラバーサル等）
+            if (filename.Any(c => char.IsControl(c) || c == '<' || c == '>' || c == '|' || c == '*' || c == '?'))
+                return null;
+
             // Remove any directory traversal attempts
             filename = filename.Replace("..", "").Replace("/", "").Replace("\\", "");
 

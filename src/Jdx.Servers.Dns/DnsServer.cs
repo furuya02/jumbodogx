@@ -68,7 +68,12 @@ public class DnsServer : ServerBase
         var domain = _cacheList.Keys.FirstOrDefault(d => domainName.EndsWith(d, StringComparison.OrdinalIgnoreCase));
         if (domain != null)
         {
-            var ip = IPAddress.Parse(ipAddress);
+            // IPAddress.Parse()をTryParse()に置き換え（DoS対策）
+            if (!IPAddress.TryParse(ipAddress, out var ip))
+            {
+                Logger.LogWarning("Invalid IP address in AddRecord: {IPAddress}", ipAddress);
+                return;
+            }
             var rr = new RrA(domainName, (uint)_settings.SoaExpire, ip);
             _cacheList[domain].Add(rr);
             Logger.LogInformation("Added A record: {Name} -> {IP}", domainName, ipAddress);
@@ -105,6 +110,15 @@ public class DnsServer : ServerBase
                     Statistics.TotalConnections++;
                     Statistics.TotalBytesReceived += data.Length;
 
+                    // DNSメッセージサイズ検証（DoS対策）
+                    // RFC 1035: UDPの場合は512バイトまで、EDNS0拡張で最大4096バイト
+                    if (data.Length < 12 || data.Length > 4096)
+                    {
+                        Logger.LogWarning("Invalid DNS message size from {RemoteEndPoint}: {Size} bytes", remoteEndPoint, data.Length);
+                        Statistics.TotalErrors++;
+                        continue;
+                    }
+
                     _ = Task.Run(async () =>
                     {
                         await HandleDnsQueryAsync(data, remoteEndPoint, StopCts.Token);
@@ -114,9 +128,14 @@ public class DnsServer : ServerBase
                 {
                     break;
                 }
+                catch (SocketException ex)
+                {
+                    Logger.LogDebug(ex, "Socket error receiving DNS query");
+                    Statistics.TotalErrors++;
+                }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex, "Error receiving DNS query");
+                    Logger.LogWarning(ex, "Unexpected error receiving DNS query");
                     Statistics.TotalErrors++;
                 }
             }

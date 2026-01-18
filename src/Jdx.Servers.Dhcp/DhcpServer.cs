@@ -38,22 +38,42 @@ public class DhcpServer : ServerBase
             throw new InvalidOperationException("StartIp and EndIp must be configured");
         }
 
-        var startIp = IPAddress.Parse(_settings.StartIp);
-        var endIp = IPAddress.Parse(_settings.EndIp);
+        // IPAddress.Parse()をTryParse()に置き換え（DoS対策）
+        if (!IPAddress.TryParse(_settings.StartIp, out var startIp))
+        {
+            throw new InvalidOperationException($"Invalid StartIp: {_settings.StartIp}");
+        }
+        if (!IPAddress.TryParse(_settings.EndIp, out var endIp))
+        {
+            throw new InvalidOperationException($"Invalid EndIp: {_settings.EndIp}");
+        }
 
         // Build MAC reservations
         List<(PhysicalAddress mac, IPAddress ip)>? macReservations = null;
         if (_settings.UseMacAcl && _settings.MacAclList.Any())
         {
-            macReservations = _settings.MacAclList
-                .Where(m => !string.IsNullOrWhiteSpace(m.MacAddress) && !string.IsNullOrWhiteSpace(m.V4Address))
-                .Select(m =>
+            // MAC/IPアドレス解析のエラーハンドリング（DoS対策）
+            macReservations = new List<(PhysicalAddress mac, IPAddress ip)>();
+            foreach (var m in _settings.MacAclList)
+            {
+                if (string.IsNullOrWhiteSpace(m.MacAddress) || string.IsNullOrWhiteSpace(m.V4Address))
+                    continue;
+
+                try
                 {
                     var mac = PhysicalAddress.Parse(m.MacAddress.Replace("-", "").Replace(":", ""));
-                    var ip = IPAddress.Parse(m.V4Address);
-                    return (mac, ip);
-                })
-                .ToList();
+                    if (!IPAddress.TryParse(m.V4Address, out var ip))
+                    {
+                        Logger.LogWarning("Invalid IP address in MAC ACL: {IPAddress}", m.V4Address);
+                        continue;
+                    }
+                    macReservations.Add((mac, ip));
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Failed to parse MAC/IP reservation: {Mac}/{IP}", m.MacAddress, m.V4Address);
+                }
+            }
         }
 
         // Initialize lease pool
@@ -61,9 +81,16 @@ public class DhcpServer : ServerBase
         _leasePool = new LeasePool(startIp, endIp, _settings.LeaseTime, macReservations, leaseDbPath, Logger);
 
         // Create UDP listener
-        var bindAddress = string.IsNullOrWhiteSpace(_settings.BindAddress) || _settings.BindAddress == "0.0.0.0"
-            ? IPAddress.Any
-            : IPAddress.Parse(_settings.BindAddress);
+        IPAddress bindAddress;
+        if (string.IsNullOrWhiteSpace(_settings.BindAddress) || _settings.BindAddress == "0.0.0.0")
+        {
+            bindAddress = IPAddress.Any;
+        }
+        else if (!IPAddress.TryParse(_settings.BindAddress, out bindAddress))
+        {
+            Logger.LogWarning("Invalid bind address '{Address}', using Any", _settings.BindAddress);
+            bindAddress = IPAddress.Any;
+        }
 
         _udpListener = new ServerUdpListener(_settings.Port, bindAddress, Logger);
         await _udpListener.StartAsync(cancellationToken);
@@ -126,9 +153,13 @@ public class DhcpServer : ServerBase
             {
                 break;
             }
+            catch (SocketException ex)
+            {
+                Logger.LogDebug(ex, "Socket error in DHCP listen loop");
+            }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "Error in DHCP listen loop");
+                Logger.LogWarning(ex, "Unexpected error in DHCP listen loop");
             }
         }
     }
@@ -140,6 +171,14 @@ public class DhcpServer : ServerBase
 
         try
         {
+            // DHCPパケットサイズ検証（DoS対策）
+            // RFC 2131: 最小300バイト、最大576バイト（通常）、拡張オプションで最大1500バイト
+            if (data.Length < 300 || data.Length > 1500)
+            {
+                Logger.LogWarning("Invalid DHCP packet size from {RemoteEndPoint}: {Size} bytes", remoteEndPoint, data.Length);
+                return;
+            }
+
             var packet = new DhcpPacket();
             if (!packet.Parse(data))
             {
@@ -181,9 +220,17 @@ public class DhcpServer : ServerBase
                     break;
             }
         }
+        catch (OperationCanceledException)
+        {
+            Logger.LogDebug("DHCP request cancelled from {RemoteEndPoint}", remoteEndPoint);
+        }
+        catch (SocketException ex)
+        {
+            Logger.LogDebug(ex, "Socket error handling DHCP request from {RemoteEndPoint}", remoteEndPoint);
+        }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error handling DHCP request from {RemoteEndPoint}", remoteEndPoint);
+            Logger.LogWarning(ex, "Unexpected error handling DHCP request from {RemoteEndPoint}", remoteEndPoint);
         }
     }
 
@@ -213,8 +260,8 @@ public class DhcpServer : ServerBase
         // Check if request is for this server
         if (request.ServerIdentifier != null)
         {
-            var serverIp = IPAddress.Parse(_settings.BindAddress == "0.0.0.0" ? "127.0.0.1" : _settings.BindAddress);
-            if (!request.ServerIdentifier.Equals(serverIp))
+            var serverIpStr = _settings.BindAddress == "0.0.0.0" ? "127.0.0.1" : _settings.BindAddress;
+            if (IPAddress.TryParse(serverIpStr, out var serverIp) && !request.ServerIdentifier.Equals(serverIp))
             {
                 // Request is for another server, release our reservation
                 _leasePool.HandleRelease(request.ClientMac);
@@ -251,13 +298,39 @@ public class DhcpServer : ServerBase
     {
         try
         {
-            IPAddress? subnetMask = string.IsNullOrWhiteSpace(_settings.MaskIp) ? null : IPAddress.Parse(_settings.MaskIp);
-            IPAddress? router = string.IsNullOrWhiteSpace(_settings.GwIp) ? null : IPAddress.Parse(_settings.GwIp);
-            IPAddress? dns1 = string.IsNullOrWhiteSpace(_settings.DnsIp0) ? null : IPAddress.Parse(_settings.DnsIp0);
-            IPAddress? dns2 = string.IsNullOrWhiteSpace(_settings.DnsIp1) ? null : IPAddress.Parse(_settings.DnsIp1);
+            // IPAddress.Parse()をTryParse()に置き換え（DoS対策）
+            IPAddress? subnetMask = null;
+            if (!string.IsNullOrWhiteSpace(_settings.MaskIp) && !IPAddress.TryParse(_settings.MaskIp, out subnetMask))
+            {
+                Logger.LogWarning("Invalid subnet mask: {MaskIp}", _settings.MaskIp);
+            }
+
+            IPAddress? router = null;
+            if (!string.IsNullOrWhiteSpace(_settings.GwIp) && !IPAddress.TryParse(_settings.GwIp, out router))
+            {
+                Logger.LogWarning("Invalid gateway IP: {GwIp}", _settings.GwIp);
+            }
+
+            IPAddress? dns1 = null;
+            if (!string.IsNullOrWhiteSpace(_settings.DnsIp0) && !IPAddress.TryParse(_settings.DnsIp0, out dns1))
+            {
+                Logger.LogWarning("Invalid DNS IP 0: {DnsIp0}", _settings.DnsIp0);
+            }
+
+            IPAddress? dns2 = null;
+            if (!string.IsNullOrWhiteSpace(_settings.DnsIp1) && !IPAddress.TryParse(_settings.DnsIp1, out dns2))
+            {
+                Logger.LogWarning("Invalid DNS IP 1: {DnsIp1}", _settings.DnsIp1);
+            }
+
             var wpadUrl = _settings.UseWpad ? _settings.WpadUrl : null;
 
-            var serverIp = IPAddress.Parse(_settings.BindAddress == "0.0.0.0" ? "127.0.0.1" : _settings.BindAddress);
+            var serverIpStr = _settings.BindAddress == "0.0.0.0" ? "127.0.0.1" : _settings.BindAddress;
+            if (!IPAddress.TryParse(serverIpStr, out var serverIp))
+            {
+                Logger.LogError("Invalid server IP address: {ServerIp}", serverIpStr);
+                return;
+            }
 
             var responseData = request.Build(messageType, assignedIp, serverIp, _settings.LeaseTime,
                 subnetMask, router, dns1, dns2, wpadUrl);
@@ -278,7 +351,12 @@ public class DhcpServer : ServerBase
     {
         try
         {
-            var serverIp = IPAddress.Parse(_settings.BindAddress == "0.0.0.0" ? "127.0.0.1" : _settings.BindAddress);
+            var serverIpStr = _settings.BindAddress == "0.0.0.0" ? "127.0.0.1" : _settings.BindAddress;
+            if (!IPAddress.TryParse(serverIpStr, out var serverIp))
+            {
+                Logger.LogError("Invalid server IP address: {ServerIp}", serverIpStr);
+                return;
+            }
             var responseData = request.Build(DhcpMessageType.Nak, IPAddress.Any, serverIp, 0);
 
             using var udpClient = new UdpClient();
