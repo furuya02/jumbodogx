@@ -41,7 +41,7 @@ public class FtpCommandHandler
     {
         if (string.IsNullOrWhiteSpace(line))
         {
-            await session.SendResponseAsync("500 Invalid command: try being more creative.");
+            await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
             return true;
         }
 
@@ -65,20 +65,20 @@ public class FtpCommandHandler
         // Handle unknown commands
         if (command == FtpCommand.UNKNOWN)
         {
-            await session.SendResponseAsync("500 Command not understood.");
+            await session.SendResponseAsync(FtpResponseCodes.CommandNotUnderstood);
             return true;
         }
 
         // Handle QUIT/ABOR
         if (command == FtpCommand.QUIT)
         {
-            await session.SendResponseAsync("221 Goodbye.");
+            await session.SendResponseAsync(FtpResponseCodes.ServiceClosing);
             return false;
         }
 
         if (command == FtpCommand.ABOR)
         {
-            await session.SendResponseAsync("250 ABOR command successful.");
+            await session.SendResponseAsync(FtpResponseCodes.ActionCompleted);
             return false;
         }
 
@@ -126,7 +126,7 @@ public class FtpCommandHandler
                 return await HandlePassCommandAsync(session, param);
 
             default:
-                await session.SendResponseAsync("530 Please login with USER and PASS.");
+                await session.SendResponseAsync(FtpResponseCodes.NotLoggedIn);
                 return true;
         }
     }
@@ -151,7 +151,7 @@ public class FtpCommandHandler
         var requiresData = new[] { FtpCommand.NLST, FtpCommand.LIST, FtpCommand.STOR, FtpCommand.RETR };
         if (requiresData.Contains(command) && session.DataStream == null)
         {
-            await session.SendResponseAsync("425 Use PORT or PASV first.");
+            await session.SendResponseAsync(FtpResponseCodes.DataConnectionFailed);
             return true;
         }
 
@@ -164,13 +164,13 @@ public class FtpCommandHandler
 
             if (session.User.AccessControl == FtpAccessControl.Down && writeCommands.Contains(command))
             {
-                await session.SendResponseAsync("550 Permission denied.");
+                await session.SendResponseAsync(FtpResponseCodes.AccessDenied);
                 return true;
             }
 
             if (session.User.AccessControl == FtpAccessControl.Up && readCommands.Contains(command))
             {
-                await session.SendResponseAsync("550 Permission denied.");
+                await session.SendResponseAsync(FtpResponseCodes.AccessDenied);
                 return true;
             }
         }
@@ -178,7 +178,7 @@ public class FtpCommandHandler
         // Reject USER/PASS after login
         if (command == FtpCommand.USER || command == FtpCommand.PASS)
         {
-            await session.SendResponseAsync("530 Already logged in.");
+            await session.SendResponseAsync(FtpResponseCodes.NotLoggedIn);
             return true;
         }
 
@@ -207,7 +207,7 @@ public class FtpCommandHandler
     private async Task<bool> HandleUserCommandAsync(FtpSession session, string userName)
     {
         session.UserName = userName;
-        await session.SendResponseAsync($"331 Password required for {userName}.");
+        await session.SendResponseAsync(FtpResponseCodes.PasswordRequired);
         return true;
     }
 
@@ -215,7 +215,7 @@ public class FtpCommandHandler
     {
         if (string.IsNullOrEmpty(session.UserName))
         {
-            await session.SendResponseAsync("503 Login with USER first.");
+            await session.SendResponseAsync(FtpResponseCodes.BadSequence);
             return true;
         }
 
@@ -226,27 +226,27 @@ public class FtpCommandHandler
             {
                 session.User = user;
                 session.CurrentDirectory = new FtpCurrentDir(user.HomeDirectory, _mountManager);
-                await session.SendResponseAsync($"230 User {session.UserName} logged in.");
+                await session.SendResponseAsync(FtpResponseCodes.UserLoggedIn);
                 _logger.LogInformation("User logged in: {UserName} from {RemoteAddress}",
                     session.UserName, session.RemoteAddress);
                 return true;
             }
         }
 
-        await session.SendResponseAsync("530 Login incorrect.");
+        await session.SendResponseAsync(FtpResponseCodes.NotLoggedIn);
         return true;
     }
 
     private async Task<bool> HandleNoopAsync(FtpSession session)
     {
-        await session.SendResponseAsync("200 NOOP command successful.");
+        await session.SendResponseAsync(FtpResponseCodes.CommandOk);
         return true;
     }
 
     private async Task<bool> HandlePwdAsync(FtpSession session)
     {
         var pwd = session.CurrentDirectory?.GetPwd() ?? "/";
-        await session.SendResponseAsync($"257 \"{pwd}\" is current directory.");
+        await session.SendResponseAsync(FtpResponseCodes.CurrentDirectory(pwd));
         return true;
     }
 
@@ -254,11 +254,11 @@ public class FtpCommandHandler
     {
         if (session.CurrentDirectory?.ChangeDirectory(path) == true)
         {
-            await session.SendResponseAsync("250 CWD command successful.");
+            await session.SendResponseAsync(FtpResponseCodes.ActionCompleted);
             return true;
         }
 
-        await session.SendResponseAsync("550 Failed to change directory.");
+        await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
         return true;
     }
 
@@ -275,16 +275,16 @@ public class FtpCommandHandler
         if (type == "A" || type == "ASCII")
         {
             session.TransferType = FtpTransferType.ASCII;
-            await session.SendResponseAsync("200 Type set to A.");
+            await session.SendResponseAsync(FtpResponseCodes.CommandOk);
         }
         else if (type == "I" || type == "BINARY")
         {
             session.TransferType = FtpTransferType.BINARY;
-            await session.SendResponseAsync("200 Type set to I.");
+            await session.SendResponseAsync(FtpResponseCodes.CommandOk);
         }
         else
         {
-            await session.SendResponseAsync("500 Unknown TYPE.");
+            await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
         }
         return true;
     }
@@ -294,19 +294,19 @@ public class FtpCommandHandler
         var fullPath = session.CurrentDirectory?.CreatePath(path, true);
         if (string.IsNullOrEmpty(fullPath))
         {
-            await session.SendResponseAsync("550 Failed to create directory.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
             return true;
         }
 
         try
         {
             Directory.CreateDirectory(fullPath);
-            await session.SendResponseAsync($"257 \"{path}\" directory created.");
+            await session.SendResponseAsync(FtpResponseCodes.PathCreated(path));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create directory: {Path}", fullPath);
-            await session.SendResponseAsync("550 Failed to create directory.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
         }
 
         return true;
@@ -317,19 +317,19 @@ public class FtpCommandHandler
         var fullPath = session.CurrentDirectory?.CreatePath(path, true);
         if (string.IsNullOrEmpty(fullPath))
         {
-            await session.SendResponseAsync("550 Failed to remove directory.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
             return true;
         }
 
         try
         {
             Directory.Delete(fullPath);
-            await session.SendResponseAsync("250 RMD command successful.");
+            await session.SendResponseAsync(FtpResponseCodes.ActionCompleted);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to remove directory: {Path}", fullPath);
-            await session.SendResponseAsync("550 Failed to remove directory.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
         }
 
         return true;
@@ -340,19 +340,19 @@ public class FtpCommandHandler
         var fullPath = session.CurrentDirectory?.CreatePath(path, false);
         if (string.IsNullOrEmpty(fullPath))
         {
-            await session.SendResponseAsync("550 Failed to delete file.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
             return true;
         }
 
         try
         {
             File.Delete(fullPath);
-            await session.SendResponseAsync("250 DELE command successful.");
+            await session.SendResponseAsync(FtpResponseCodes.ActionCompleted);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to delete file: {Path}", fullPath);
-            await session.SendResponseAsync("550 Failed to delete file.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
         }
 
         return true;
@@ -370,14 +370,14 @@ public class FtpCommandHandler
             }
             catch (TimeoutException)
             {
-                await session.SendResponseAsync("425 Data connection timeout.");
+                await session.SendResponseAsync(FtpResponseCodes.DataConnectionFailed);
                 session.CloseDataConnection();
                 return true;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to establish data connection");
-                await session.SendResponseAsync("425 Can't open data connection.");
+                await session.SendResponseAsync(FtpResponseCodes.DataConnectionFailed);
                 session.CloseDataConnection();
                 return true;
             }
@@ -389,11 +389,11 @@ public class FtpCommandHandler
 
         if (session.DataStream == null)
         {
-            await session.SendResponseAsync("425 Use PORT or PASV first.");
+            await session.SendResponseAsync(FtpResponseCodes.DataConnectionFailed);
             return true;
         }
 
-        await session.SendResponseAsync("150 Opening data connection.");
+        await session.SendResponseAsync(FtpResponseCodes.FileStatusOk);
 
         try
         {
@@ -423,13 +423,13 @@ public class FtpCommandHandler
 
             await writer.FlushAsync();
             session.CloseDataConnection();
-            await session.SendResponseAsync("226 Transfer complete.");
+            await session.SendResponseAsync(FtpResponseCodes.TransferComplete);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to list directory");
             session.CloseDataConnection();
-            await session.SendResponseAsync("550 Failed to list directory.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
         }
 
         return true;
@@ -443,7 +443,7 @@ public class FtpCommandHandler
             var parts = param.Split(',');
             if (parts.Length != 6)
             {
-                await session.SendResponseAsync("500 Invalid PORT command.");
+                await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
                 return true;
             }
 
@@ -455,7 +455,7 @@ public class FtpCommandHandler
                 if (!byte.TryParse(parts[i], out bytes[i]))
                 {
                     _logger.LogWarning("Invalid PORT parameter: {Param}", param);
-                    await session.SendResponseAsync("500 Invalid PORT command.");
+                    await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
                     return true;
                 }
             }
@@ -468,7 +468,7 @@ public class FtpCommandHandler
             {
                 _logger.LogWarning("Invalid PORT port number: {Port} (allowed: {Min}-{Max})",
                     port, NetworkConstants.Ftp.MinPort, NetworkConstants.Ftp.MaxPort);
-                await session.SendResponseAsync("500 Invalid port number.");
+                await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
                 return true;
             }
 
@@ -476,7 +476,7 @@ public class FtpCommandHandler
             if (!IPAddress.TryParse(ip, out var ipAddress))
             {
                 _logger.LogWarning("Invalid PORT IP address: {IP}", ip);
-                await session.SendResponseAsync("500 Invalid IP address.");
+                await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
                 return true;
             }
 
@@ -486,7 +486,7 @@ public class FtpCommandHandler
             {
                 _logger.LogWarning("FTP bounce attack attempt: client {ClientIP} tried to connect to {TargetIP}",
                     clientIp, ip);
-                await session.SendResponseAsync("500 PORT command rejected (security).");
+                await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
                 return true;
             }
 
@@ -503,7 +503,7 @@ public class FtpCommandHandler
                 session.DataSocket = client.Client;
                 session.DataStream = client.GetStream();
 
-                await session.SendResponseAsync("200 PORT command successful.");
+                await session.SendResponseAsync(FtpResponseCodes.CommandOk);
             }
             catch
             {
@@ -515,7 +515,7 @@ public class FtpCommandHandler
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to handle PORT command");
-            await session.SendResponseAsync("500 Failed to establish data connection.");
+            await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
         }
 
         return true;
@@ -538,13 +538,11 @@ public class FtpCommandHandler
 
             // Get server IP from bind address setting or control connection
             var localIp = GetServerIpForPasv();
-            var p1 = port / 256;
-            var p2 = port % 256;
 
             // Create TaskCompletionSource for connection synchronization
             session.PasvConnectionReady = new TaskCompletionSource<bool>();
 
-            await session.SendResponseAsync($"227 Entering Passive Mode ({localIp},{p1},{p2})");
+            await session.SendResponseAsync(FtpResponseCodes.EnteringPassiveMode(localIp.Replace(',', '.'), port));
 
             // Accept connection in background with synchronization
             _ = Task.Run(async () =>
@@ -567,7 +565,7 @@ public class FtpCommandHandler
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to handle PASV command");
-            await session.SendResponseAsync("500 Failed to enter passive mode.");
+            await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
         }
 
         return true;
@@ -605,14 +603,14 @@ public class FtpCommandHandler
             }
             catch (TimeoutException)
             {
-                await session.SendResponseAsync("425 Data connection timeout.");
+                await session.SendResponseAsync(FtpResponseCodes.DataConnectionFailed);
                 session.CloseDataConnection();
                 return false;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to establish data connection");
-                await session.SendResponseAsync("425 Can't open data connection.");
+                await session.SendResponseAsync(FtpResponseCodes.DataConnectionFailed);
                 session.CloseDataConnection();
                 return false;
             }
@@ -624,7 +622,7 @@ public class FtpCommandHandler
 
         if (session.DataStream == null)
         {
-            await session.SendResponseAsync("425 Use PORT or PASV first.");
+            await session.SendResponseAsync(FtpResponseCodes.DataConnectionFailed);
             return false;
         }
 
@@ -636,12 +634,12 @@ public class FtpCommandHandler
         var fullPath = session.CurrentDirectory?.CreatePath(path, false);
         if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath))
         {
-            await session.SendResponseAsync("550 File not found.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
             return true;
         }
 
         session.RenameFromPath = fullPath;
-        await session.SendResponseAsync("350 File exists, ready for destination name.");
+        await session.SendResponseAsync(FtpResponseCodes.ActionPending);
         return true;
     }
 
@@ -649,14 +647,14 @@ public class FtpCommandHandler
     {
         if (string.IsNullOrEmpty(session.RenameFromPath))
         {
-            await session.SendResponseAsync("503 RNFR required first.");
+            await session.SendResponseAsync(FtpResponseCodes.BadSequence);
             return true;
         }
 
         var fullPath = session.CurrentDirectory?.CreatePath(path, false);
         if (string.IsNullOrEmpty(fullPath))
         {
-            await session.SendResponseAsync("550 Invalid destination.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
             session.RenameFromPath = null;
             return true;
         }
@@ -664,12 +662,12 @@ public class FtpCommandHandler
         try
         {
             File.Move(session.RenameFromPath, fullPath);
-            await session.SendResponseAsync("250 RNTO command successful.");
+            await session.SendResponseAsync(FtpResponseCodes.ActionCompleted);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to rename file");
-            await session.SendResponseAsync("550 Failed to rename file.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
         }
 
         session.RenameFromPath = null;
@@ -687,18 +685,18 @@ public class FtpCommandHandler
         var fullPath = session.CurrentDirectory?.CreatePath(path, false);
         if (string.IsNullOrEmpty(fullPath))
         {
-            await session.SendResponseAsync("550 Failed to create file.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
             return true;
         }
 
-        await session.SendResponseAsync("150 Opening data connection.");
+        await session.SendResponseAsync(FtpResponseCodes.FileStatusOk);
 
         try
         {
             using var fileStream = File.Create(fullPath);
             await session.DataStream.CopyToAsync(fileStream);
             session.CloseDataConnection();
-            await session.SendResponseAsync("226 Transfer complete.");
+            await session.SendResponseAsync(FtpResponseCodes.TransferComplete);
         }
         catch (Exception ex)
         {
@@ -719,7 +717,7 @@ public class FtpCommandHandler
                 _logger.LogWarning(deleteEx, "Failed to delete partial file: {Path}", fullPath);
             }
 
-            await session.SendResponseAsync("550 Failed to store file.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
         }
 
         return true;
@@ -736,24 +734,24 @@ public class FtpCommandHandler
         var fullPath = session.CurrentDirectory?.CreatePath(path, false);
         if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath))
         {
-            await session.SendResponseAsync("550 File not found.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
             return true;
         }
 
-        await session.SendResponseAsync("150 Opening data connection.");
+        await session.SendResponseAsync(FtpResponseCodes.FileStatusOk);
 
         try
         {
             using var fileStream = File.OpenRead(fullPath);
             await fileStream.CopyToAsync(session.DataStream);
             session.CloseDataConnection();
-            await session.SendResponseAsync("226 Transfer complete.");
+            await session.SendResponseAsync(FtpResponseCodes.TransferComplete);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to retrieve file: {Path}", fullPath);
             session.CloseDataConnection();
-            await session.SendResponseAsync("550 Failed to retrieve file.");
+            await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
         }
 
         return true;
