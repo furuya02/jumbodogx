@@ -120,8 +120,8 @@ public class HttpResponse
                 await stream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
             }
 
-            // ストリームを閉じる
-            await BodyStream.DisposeAsync();
+            // Note: BodyStreamの破棄は呼び出し側の責任とする
+            // これによりストリームの所有権が明確になり、再利用が可能になる
         }
         // バイナリボディ送信
         else if (BodyBytes != null)

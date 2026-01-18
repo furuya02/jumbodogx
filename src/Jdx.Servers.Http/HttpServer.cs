@@ -321,12 +321,13 @@ public class HttpServer : ServerBase
         {
             Logger.LogWarning("Connection from {RemoteIP} rejected by ACL", remoteIp);
 
-            // 403 Forbidden を送信してクローズ
+            // 403 Forbidden を送信してクローズ（ベストエフォート、短いタイムアウト）
             try
             {
+                using var errorCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
                 var forbiddenResponse = HttpResponseBuilder.BuildErrorResponse(403, "Forbidden", settings);
                 var forbiddenBytes = forbiddenResponse.ToBytes();
-                await clientSocket.SendAsync(forbiddenBytes, SocketFlags.None, CancellationToken.None);
+                await clientSocket.SendAsync(forbiddenBytes, SocketFlags.None, errorCts.Token);
             }
             catch (Exception ex)
             {
@@ -335,7 +336,6 @@ public class HttpServer : ServerBase
             }
             finally
             {
-                clientSocket.Close();
                 clientSocket.Dispose();
             }
 
@@ -344,9 +344,13 @@ public class HttpServer : ServerBase
         }
 
         // NetworkStream/SslStreamを作成
-        Stream stream = new NetworkStream(clientSocket, ownsSocket: false);
+        NetworkStream? networkStream = null;
+        Stream? stream = null;
         try
         {
+            networkStream = new NetworkStream(clientSocket, ownsSocket: false);
+            stream = networkStream;
+
             // SSL/TLSハンドシェイク（SSL有効時）
             if (sslManager?.IsEnabled == true)
             {
@@ -359,8 +363,8 @@ public class HttpServer : ServerBase
         catch (Exception ex)
         {
             Logger.LogError(ex, "SSL/TLS handshake failed for {RemoteEndPoint}", remoteEndPoint);
-            stream.Dispose();
-            clientSocket.Close();
+            stream?.Dispose();
+            networkStream?.Dispose();
             clientSocket.Dispose();
             Statistics.TotalErrors++;
             return;
@@ -491,11 +495,12 @@ public class HttpServer : ServerBase
                             remoteEndPoint, timeout);
                         Statistics.TotalErrors++;
 
-                        // タイムアウトエラーレスポンスを送信（ベストエフォート）
+                        // タイムアウトエラーレスポンスを送信（ベストエフォート、短いタイムアウト）
                         try
                         {
+                            using var errorCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
                             var timeoutResponse = HttpResponseBuilder.BuildErrorResponse(408, "Request Timeout", settings);
-                            await timeoutResponse.SendAsync(stream, CancellationToken.None);
+                            await timeoutResponse.SendAsync(stream, errorCts.Token);
                         }
                         catch (Exception ex)
                         {
@@ -524,7 +529,6 @@ public class HttpServer : ServerBase
         finally
         {
             stream.Dispose();
-            clientSocket.Close();
             clientSocket.Dispose();
         }
     }
