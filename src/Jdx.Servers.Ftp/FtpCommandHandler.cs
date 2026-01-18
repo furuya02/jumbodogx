@@ -41,7 +41,7 @@ public class FtpCommandHandler
     {
         if (string.IsNullOrWhiteSpace(line))
         {
-            await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
+            await session.SendResponseAsync(FtpResponseCodes.SyntaxError);
             return true;
         }
 
@@ -65,7 +65,7 @@ public class FtpCommandHandler
         // Handle unknown commands
         if (command == FtpCommand.UNKNOWN)
         {
-            await session.SendResponseAsync(FtpResponseCodes.CommandNotUnderstood);
+            await session.SendResponseAsync(FtpResponseCodes.SyntaxError);
             return true;
         }
 
@@ -117,7 +117,7 @@ public class FtpCommandHandler
             case FtpCommand.USER:
                 if (string.IsNullOrEmpty(param))
                 {
-                    await session.SendResponseAsync($"500 {command}: command requires a parameter.");
+                    await session.SendResponseAsync(FtpResponseCodes.ParameterRequired(command));
                     return true;
                 }
                 return await HandleUserCommandAsync(session, param);
@@ -143,7 +143,7 @@ public class FtpCommandHandler
 
         if (requiresParam.Contains(command) && string.IsNullOrEmpty(param))
         {
-            await session.SendResponseAsync($"500 {command}: command requires a parameter.");
+            await session.SendResponseAsync(FtpResponseCodes.ParameterRequired(command));
             return true;
         }
 
@@ -264,8 +264,7 @@ public class FtpCommandHandler
 
     private async Task<bool> HandleSystAsync(FtpSession session)
     {
-        var os = Environment.OSVersion;
-        await session.SendResponseAsync($"215 {os.Platform}");
+        await session.SendResponseAsync(FtpResponseCodes.SystemType);
         return true;
     }
 
@@ -284,7 +283,7 @@ public class FtpCommandHandler
         }
         else
         {
-            await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
+            await session.SendResponseAsync(FtpResponseCodes.SyntaxError);
         }
         return true;
     }
@@ -443,7 +442,7 @@ public class FtpCommandHandler
             var parts = param.Split(',');
             if (parts.Length != 6)
             {
-                await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
+                await session.SendResponseAsync(FtpResponseCodes.SyntaxError);
                 return true;
             }
 
@@ -455,7 +454,7 @@ public class FtpCommandHandler
                 if (!byte.TryParse(parts[i], out bytes[i]))
                 {
                     _logger.LogWarning("Invalid PORT parameter: {Param}", param);
-                    await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
+                    await session.SendResponseAsync(FtpResponseCodes.SyntaxError);
                     return true;
                 }
             }
@@ -468,7 +467,7 @@ public class FtpCommandHandler
             {
                 _logger.LogWarning("Invalid PORT port number: {Port} (allowed: {Min}-{Max})",
                     port, NetworkConstants.Ftp.MinPort, NetworkConstants.Ftp.MaxPort);
-                await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
+                await session.SendResponseAsync(FtpResponseCodes.SyntaxError);
                 return true;
             }
 
@@ -476,7 +475,7 @@ public class FtpCommandHandler
             if (!IPAddress.TryParse(ip, out var ipAddress))
             {
                 _logger.LogWarning("Invalid PORT IP address: {IP}", ip);
-                await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
+                await session.SendResponseAsync(FtpResponseCodes.SyntaxError);
                 return true;
             }
 
@@ -486,7 +485,7 @@ public class FtpCommandHandler
             {
                 _logger.LogWarning("FTP bounce attack attempt: client {ClientIP} tried to connect to {TargetIP}",
                     clientIp, ip);
-                await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
+                await session.SendResponseAsync(FtpResponseCodes.SyntaxError);
                 return true;
             }
 
@@ -515,7 +514,7 @@ public class FtpCommandHandler
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to handle PORT command");
-            await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
+            await session.SendResponseAsync(FtpResponseCodes.SyntaxError);
         }
 
         return true;
@@ -565,7 +564,7 @@ public class FtpCommandHandler
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to handle PASV command");
-            await session.SendResponseAsync(FtpResponseCodes.InvalidCommand);
+            await session.SendResponseAsync(FtpResponseCodes.SyntaxError);
         }
 
         return true;

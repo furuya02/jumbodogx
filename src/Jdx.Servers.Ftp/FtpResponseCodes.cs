@@ -40,13 +40,13 @@ public static class FtpResponseCodes
     public const string ServiceReady = "220 Service ready for new user.";
 
     /// <summary>221 Service closing control connection</summary>
-    public const string ServiceClosing = "221 Goodbye.";
+    public const string ServiceClosing = "221 Service closing control connection.";
 
     /// <summary>225 Data connection open; no transfer in progress</summary>
     public const string DataConnectionNoTransfer = "225 Data connection open; no transfer in progress.";
 
     /// <summary>226 Closing data connection; transfer complete</summary>
-    public const string TransferComplete = "226 Closing data connection.";
+    public const string TransferComplete = "226 Closing data connection. Requested file action successful.";
 
     /// <summary>227 Entering Passive Mode (h1,h2,h3,h4,p1,p2)</summary>
     public static string EnteringPassiveMode(string host, int port)
@@ -102,12 +102,6 @@ public static class FtpResponseCodes
     /// <summary>500 Syntax error, command unrecognized</summary>
     public const string SyntaxError = "500 Syntax error, command unrecognized.";
 
-    /// <summary>500 Invalid command: try being more creative</summary>
-    public const string InvalidCommand = "500 Invalid command: try being more creative.";
-
-    /// <summary>500 Command not understood</summary>
-    public const string CommandNotUnderstood = "500 Command not understood.";
-
     /// <summary>501 Syntax error in parameters or arguments</summary>
     public const string ParameterSyntaxError = "501 Syntax error in parameters or arguments.";
 
@@ -146,4 +140,7 @@ public static class FtpResponseCodes
 
     /// <summary>553 Requested action not taken (file name not allowed)</summary>
     public const string FileNameNotAllowed = "553 Requested action not taken.";
+
+    /// <summary>500 Command requires a parameter</summary>
+    public static string ParameterRequired(FtpCommand command) => $"500 {command}: command requires a parameter.";
 }
