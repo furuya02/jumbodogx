@@ -697,7 +697,9 @@ public class ProxyServer : ServerBase
         if (pattern.Contains('*'))
         {
             var regex = new System.Text.RegularExpressions.Regex(
-                "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$"
+                "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$",
+                System.Text.RegularExpressions.RegexOptions.None,
+                TimeSpan.FromMilliseconds(100) // ReDoS protection
             );
             return regex.IsMatch(remoteIp);
         }

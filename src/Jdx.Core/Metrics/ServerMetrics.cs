@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace Jdx.Core.Metrics;
@@ -188,12 +189,23 @@ public class ServerMetrics
         // Custom counters
         foreach (var counter in _customCounters)
         {
-            var counterName = $"{prefix}_{counter.Key.ToLowerInvariant().Replace(' ', '_')}";
+            var sanitizedKey = SanitizePrometheusName(counter.Key);
+            var counterName = $"{prefix}_{sanitizedKey}";
             lines.AppendLine($"# HELP {counterName} Custom counter: {counter.Key}");
             lines.AppendLine($"# TYPE {counterName} counter");
             lines.AppendLine($"{counterName}{{server=\"{ServerName}\"}} {counter.Value}");
         }
 
         return lines.ToString();
+    }
+
+    /// <summary>
+    /// Sanitize metric name for Prometheus format (keep only [a-zA-Z0-9_])
+    /// </summary>
+    private static string SanitizePrometheusName(string name)
+    {
+        // Remove invalid characters, keep only alphanumeric and underscores
+        var sanitized = Regex.Replace(name, @"[^a-zA-Z0-9_]", "_");
+        return sanitized.ToLowerInvariant();
     }
 }
