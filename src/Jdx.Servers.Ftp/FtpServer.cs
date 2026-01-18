@@ -17,6 +17,9 @@ namespace Jdx.Servers.Ftp;
 /// </summary>
 public class FtpServer : ServerBase
 {
+    // 定数定義
+    private const int MaxCommandLineLength = 512; // FTPコマンドラインの最大長（DoS対策）
+
     private readonly ISettingsService _settingsService;
     private FtpUserManager? _userManager;
     private FtpMountManager? _mountManager;
@@ -144,6 +147,15 @@ public class FtpServer : ServerBase
                     break;
                 }
 
+                // コマンドライン長制限チェック（DoS対策）
+                if (line.Length > MaxCommandLineLength)
+                {
+                    await session.SendResponseAsync("500 Command line too long");
+                    Logger.LogWarning("FTP command line too long from {RemoteAddress}: {Length} bytes",
+                        remoteAddress, line.Length);
+                    break;
+                }
+
                 Logger.LogDebug("FTP command received from {RemoteAddress}: {Command}",
                     remoteAddress, line);
 
@@ -158,9 +170,17 @@ public class FtpServer : ServerBase
                     session.UserName, remoteAddress);
             }
         }
+        catch (OperationCanceledException)
+        {
+            Logger.LogDebug("FTP client cancelled: {RemoteAddress}", remoteAddress);
+        }
+        catch (IOException ex) when (ex.InnerException is SocketException)
+        {
+            Logger.LogDebug(ex, "FTP client connection closed (network error): {RemoteAddress}", remoteAddress);
+        }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error handling FTP client: {RemoteAddress}", remoteAddress);
+            Logger.LogWarning(ex, "Unexpected error handling FTP client: {RemoteAddress}", remoteAddress);
         }
         finally
         {
