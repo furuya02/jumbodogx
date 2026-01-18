@@ -32,6 +32,7 @@ public class HttpResponse
     /// <summary>
     /// HTTP形式のバイト配列に変換
     /// </summary>
+    /// <returns>HTTPレスポンス全体のバイト配列（ヘッダー + ボディ）</returns>
     public byte[] ToBytes()
     {
         // ヘッダー生成
@@ -104,6 +105,9 @@ public class HttpResponse
     /// <summary>
     /// ストリームにレスポンスを送信（ストリーム対応）
     /// </summary>
+    /// <param name="stream">送信先のストリーム</param>
+    /// <param name="cancellationToken">キャンセルトークン</param>
+    /// <returns>送信完了を表すTask</returns>
     public async Task SendAsync(Stream stream, CancellationToken cancellationToken)
     {
         // ヘッダー送信
@@ -141,6 +145,9 @@ public class HttpResponse
     /// <summary>
     /// ソケットにレスポンスを送信（ストリーム対応）
     /// </summary>
+    /// <param name="socket">送信先のソケット</param>
+    /// <param name="cancellationToken">キャンセルトークン</param>
+    /// <returns>送信完了を表すTask</returns>
     public async Task SendAsync(Socket socket, CancellationToken cancellationToken)
     {
         using var networkStream = new NetworkStream(socket, ownsSocket: false);
@@ -150,6 +157,9 @@ public class HttpResponse
     /// <summary>
     /// 200 OKレスポンスを作成
     /// </summary>
+    /// <param name="body">レスポンスボディ</param>
+    /// <param name="contentType">コンテンツタイプ（デフォルト: text/html; charset=utf-8）</param>
+    /// <returns>200 OKのHttpResponseオブジェクト</returns>
     public static HttpResponse Ok(string body, string contentType = "text/html; charset=utf-8")
     {
         return new HttpResponse
@@ -167,6 +177,7 @@ public class HttpResponse
     /// <summary>
     /// 404 Not Foundレスポンスを作成
     /// </summary>
+    /// <returns>404 Not FoundのHttpResponseオブジェクト</returns>
     public static HttpResponse NotFound()
     {
         return new HttpResponse
