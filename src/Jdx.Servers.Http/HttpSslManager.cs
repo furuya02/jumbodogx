@@ -79,7 +79,7 @@ public class HttpSslManager
                 ServerCertificate = _certificate,
                 ClientCertificateRequired = false,
                 EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
-                CertificateRevocationCheckMode = X509RevocationMode.NoCheck
+                CertificateRevocationCheckMode = X509RevocationMode.Online
             };
 
             await sslStream.AuthenticateAsServerAsync(sslOptions, cancellationToken);

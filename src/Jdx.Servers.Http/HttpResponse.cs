@@ -102,13 +102,13 @@ public class HttpResponse
     }
 
     /// <summary>
-    /// ソケットにレスポンスを送信（ストリーム対応）
+    /// ストリームにレスポンスを送信（ストリーム対応）
     /// </summary>
-    public async Task SendAsync(Socket socket, CancellationToken cancellationToken)
+    public async Task SendAsync(Stream stream, CancellationToken cancellationToken)
     {
         // ヘッダー送信
         var headerBytes = Encoding.UTF8.GetBytes(BuildHeaders());
-        await socket.SendAsync(headerBytes, SocketFlags.None, cancellationToken);
+        await stream.WriteAsync(headerBytes, cancellationToken);
 
         // ストリームボディ送信（1MBバッファ）
         if (BodyStream != null)
@@ -117,23 +117,34 @@ public class HttpResponse
             int bytesRead;
             while ((bytesRead = await BodyStream.ReadAsync(buffer, cancellationToken)) > 0)
             {
-                await socket.SendAsync(buffer.AsMemory(0, bytesRead), SocketFlags.None, cancellationToken);
+                await stream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
             }
 
-            // ストリームを閉じる
-            await BodyStream.DisposeAsync();
+            // Note: BodyStreamの破棄は呼び出し側の責任とする
+            // これによりストリームの所有権が明確になり、再利用が可能になる
         }
         // バイナリボディ送信
         else if (BodyBytes != null)
         {
-            await socket.SendAsync(BodyBytes, SocketFlags.None, cancellationToken);
+            await stream.WriteAsync(BodyBytes, cancellationToken);
         }
         // テキストボディ送信
         else if (!string.IsNullOrEmpty(Body))
         {
             var bodyBytes = Encoding.UTF8.GetBytes(Body);
-            await socket.SendAsync(bodyBytes, SocketFlags.None, cancellationToken);
+            await stream.WriteAsync(bodyBytes, cancellationToken);
         }
+
+        await stream.FlushAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// ソケットにレスポンスを送信（ストリーム対応）
+    /// </summary>
+    public async Task SendAsync(Socket socket, CancellationToken cancellationToken)
+    {
+        using var networkStream = new NetworkStream(socket, ownsSocket: false);
+        await SendAsync(networkStream, cancellationToken);
     }
 
     /// <summary>
