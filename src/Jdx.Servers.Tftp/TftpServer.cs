@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
@@ -18,14 +19,13 @@ public class TftpServer : ServerBase
     private const int MaxFileSize = 100 * 1024 * 1024; // 最大ファイルサイズ: 100MB（DoS対策）
 
     private readonly TftpServerSettings _settings;
-    private ServerUdpListener? _udpListener;
-    private readonly SemaphoreSlim _connectionSemaphore;
+    private readonly ConnectionLimiter _connectionLimiter;
 
     public TftpServer(ILogger<TftpServer> logger, TftpServerSettings settings)
         : base(logger)
     {
         _settings = settings;
-        _connectionSemaphore = new SemaphoreSlim(settings.MaxConnections, settings.MaxConnections);
+        _connectionLimiter = new ConnectionLimiter(settings.MaxConnections);
     }
 
     public override string Name => "TftpServer";
@@ -47,116 +47,65 @@ public class TftpServer : ServerBase
         }
 
         // Create UDP listener
-        IPAddress bindAddress;
-        if (string.IsNullOrWhiteSpace(_settings.BindAddress) || _settings.BindAddress == "0.0.0.0")
-        {
-            bindAddress = IPAddress.Any;
-        }
-        else if (!IPAddress.TryParse(_settings.BindAddress, out bindAddress))
-        {
-            Logger.LogWarning("Invalid bind address '{Address}', using Any", _settings.BindAddress);
-            bindAddress = IPAddress.Any;
-        }
-
-        _udpListener = new ServerUdpListener(_settings.Port, bindAddress, Logger);
-        await _udpListener.StartAsync(cancellationToken);
+        var listener = await CreateUdpListenerAsync(
+            _settings.Port,
+            _settings.BindAddress,
+            cancellationToken);
 
         Logger.LogInformation(
             "TFTP Server started on {Address}:{Port} (WorkDir: {WorkDir}, Read: {Read}, Write: {Write})",
             _settings.BindAddress, _settings.Port, _settings.WorkDir, _settings.Read, _settings.Write);
 
         // Start listening loop
-        _ = Task.Run(() => ListenLoopAsync(StopCts.Token), StopCts.Token);
+        _ = Task.Run(() => RunUdpReceiveLoopAsync(
+            listener,
+            HandleRequestAsync,
+            _connectionLimiter,
+            StopCts.Token), StopCts.Token);
     }
 
-    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override Task StopListeningAsync(CancellationToken cancellationToken)
     {
-        if (_udpListener != null)
-        {
-            await _udpListener.StopAsync(cancellationToken);
-            _udpListener = null;
-        }
-
         Logger.LogInformation("TFTP Server stopped");
+        return Task.CompletedTask;
     }
 
     protected override Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
     {
         // TFTP uses UDP, not TCP, so this method is not used
-        // Client handling is done in ListenLoopAsync -> HandleRequestAsync
+        // Client handling is done in RunUdpReceiveLoopAsync -> HandleRequestAsync
         return Task.CompletedTask;
     }
 
-    private async Task ListenLoopAsync(CancellationToken cancellationToken)
+    private async Task HandleRequestAsync(byte[] data, EndPoint remoteEndPoint, CancellationToken cancellationToken)
     {
-        if (_udpListener == null)
-            return;
+        var ipEndPoint = (IPEndPoint)remoteEndPoint;
 
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                var (data, remoteEndPoint) = await _udpListener.ReceiveAsync(cancellationToken);
-
-                if (data.Length == 0)
-                    continue;
-
-                // Handle request in background
-                _ = Task.Run(async () =>
-                {
-                    await _connectionSemaphore.WaitAsync(cancellationToken);
-                    try
-                    {
-                        await HandleRequestAsync(data, (IPEndPoint)remoteEndPoint, cancellationToken);
-                    }
-                    finally
-                    {
-                        _connectionSemaphore.Release();
-                    }
-                }, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (SocketException ex)
-            {
-                Logger.LogDebug(ex, "Socket error in TFTP listen loop");
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Unexpected error in TFTP listen loop");
-            }
-        }
-    }
-
-    private async Task HandleRequestAsync(byte[] data, IPEndPoint remoteEndPoint, CancellationToken cancellationToken)
-    {
         try
         {
             var opcode = TftpPacket.GetOpcode(data);
 
-            Logger.LogDebug("TFTP request from {RemoteEndPoint}: Opcode={Opcode}", remoteEndPoint, opcode);
+            Logger.LogDebug("TFTP request from {RemoteEndPoint}: Opcode={Opcode}", ipEndPoint, opcode);
 
             switch (opcode)
             {
                 case TftpOpcode.RRQ:
-                    await HandleReadRequestAsync(data, remoteEndPoint, cancellationToken);
+                    await HandleReadRequestAsync(data, ipEndPoint, cancellationToken);
                     break;
 
                 case TftpOpcode.WRQ:
-                    await HandleWriteRequestAsync(data, remoteEndPoint, cancellationToken);
+                    await HandleWriteRequestAsync(data, ipEndPoint, cancellationToken);
                     break;
 
                 default:
-                    Logger.LogWarning("Invalid TFTP opcode from {RemoteEndPoint}: {Opcode}", remoteEndPoint, opcode);
-                    await SendErrorAsync(remoteEndPoint, TftpErrorCode.IllegalOperation, "Invalid opcode", cancellationToken);
+                    Logger.LogWarning("Invalid TFTP opcode from {RemoteEndPoint}: {Opcode}", ipEndPoint, opcode);
+                    await SendErrorAsync(ipEndPoint, TftpErrorCode.IllegalOperation, "Invalid opcode", cancellationToken);
                     break;
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error handling TFTP request from {RemoteEndPoint}", remoteEndPoint);
+            NetworkExceptionHandler.LogNetworkException(ex, Logger, "TFTP request handling");
         }
     }
 
@@ -447,8 +396,7 @@ public class TftpServer : ServerBase
     {
         if (disposing)
         {
-            _udpListener?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
-            _connectionSemaphore?.Dispose();
+            _connectionLimiter?.Dispose();
         }
         base.Dispose(disposing);
     }
