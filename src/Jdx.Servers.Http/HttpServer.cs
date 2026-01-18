@@ -378,7 +378,7 @@ public class HttpServer : ServerBase
                 try
                 {
                     // リクエストを読み取る
-                    var buffer = new byte[8192];
+                    var buffer = new byte[NetworkConstants.Http.MaxLineLength];
                     var bytesRead = await clientSocket.ReceiveAsync(buffer, SocketFlags.None, linkedCts.Token);
 
                     if (bytesRead == 0)

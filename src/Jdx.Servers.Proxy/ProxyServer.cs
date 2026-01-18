@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Constants;
 using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
@@ -28,9 +29,7 @@ public class ProxyServer : ServerBase
 
     // 定数定義
     private const int DefaultTimeoutSeconds = 60; // デフォルトタイムアウト（秒）
-    private const int RelayBufferSize = 8192; // リレーバッファサイズ（バイト）
     private const int MaxBufferedResponseSize = 1024 * 1024; // 完全バッファリングの上限（1MB）
-    private const int StreamingCheckSize = 8192; // ストリーミング時のチェック単位（バイト）
     private const int CacheDisposeGracePeriodMs = 100; // キャッシュ破棄時の猶予期間（ミリ秒）
 
     public ProxyServer(ILogger<ProxyServer> logger, ISettingsService settingsService) : base(logger)
@@ -459,7 +458,7 @@ public class ProxyServer : ServerBase
     {
         try
         {
-            var buffer = new byte[RelayBufferSize];
+            var buffer = new byte[NetworkConstants.Http.MaxLineLength];
             int bytesRead;
 
             while ((bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
@@ -482,7 +481,7 @@ public class ProxyServer : ServerBase
     {
         try
         {
-            var buffer = new byte[RelayBufferSize];
+            var buffer = new byte[NetworkConstants.Http.MaxLineLength];
             var responseBuffer = new List<byte>();
             var headerEndPosition = -1;
             var headersSent = false;
@@ -547,7 +546,7 @@ public class ProxyServer : ServerBase
                         streamBuffer.AddRange(buffer.Take(bytesRead));
 
                         // 定期的にフィルタリングチェック
-                        if (streamBuffer.Count >= StreamingCheckSize || bytesRead == 0)
+                        if (streamBuffer.Count >= NetworkConstants.Http.MaxLineLength || bytesRead == 0)
                         {
                             var checkData = streamBuffer.ToArray();
                             if (limitString.Contains(checkData))
