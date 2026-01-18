@@ -76,8 +76,8 @@ jdx/
 - [x] Keep-Alive (HTTP persistent connections)
 - [x] Virtual Host (host header-based routing)
 - [x] SSL/TLS basic structure (certificate management)
-- [ ] SSL/TLS full integration (actual SSL communication)
-- [ ] AttackDb ACL auto-addition
+- [x] SSL/TLS full integration (actual SSL communication - PR #20)
+- [x] AttackDb ACL auto-addition (PR #18)
 
 ## Requirements
 
