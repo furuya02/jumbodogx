@@ -28,8 +28,9 @@ public class FtpAclFilter
     {
         if (_settings.AclList.Count == 0)
         {
-            // No ACL rules: allow all in allow mode, deny all in deny mode
-            return _settings.EnableAcl == 0;
+            // No ACL rules: fail-secure (deny all)
+            _logger.LogDebug("ACL list is empty, denying all connections (fail-secure default)");
+            return false;
         }
 
         // Parse IP address from endpoint format

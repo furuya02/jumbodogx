@@ -25,10 +25,11 @@ public class HttpAclFilter
     /// </summary>
     public bool IsAllowed(string remoteAddress)
     {
-        // ACLが無効の場合は全て許可
+        // No ACL rules: fail-secure (deny all)
         if (_settings.AclList == null || _settings.AclList.Count == 0)
         {
-            return true;
+            _logger.LogDebug("ACL list is empty, denying all connections (fail-secure default)");
+            return false;
         }
 
         // IPアドレスをパース
