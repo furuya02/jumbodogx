@@ -1,6 +1,8 @@
 using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Constants;
 using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
@@ -14,10 +16,11 @@ namespace Jdx.Servers.Smtp;
 /// </summary>
 public class SmtpServer : ServerBase
 {
-    // 定数定義
-    private const int MaxLineLength = 1000; // RFC 5321: 最大行長998文字 + CRLF
-    private const int MaxRecipients = 100; // 最大受信者数
-    private const int MaxMessageLines = 100000; // 最大メッセージ行数
+    // Email address validation regex (RFC 5321 compliant)
+    private static readonly Regex EmailRegex = new(
+        @"^<?([a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>?$",
+        RegexOptions.Compiled,
+        TimeSpan.FromMilliseconds(NetworkConstants.Timeouts.RegexTimeoutMilliseconds));
 
     private readonly SmtpServerSettings _settings;
     private readonly ConnectionLimiter _connectionLimiter;
@@ -96,11 +99,12 @@ public class SmtpServer : ServerBase
                     if (string.IsNullOrEmpty(line))
                         break;
 
-                    // 行長制限チェック（DoS対策）
-                    if (line.Length > MaxLineLength)
+                    // 行長制限チェック（DoS対策、RFC 5321準拠）
+                    if (line.Length > NetworkConstants.Smtp.MaxLineLength)
                     {
                         await writer.WriteLineAsync("500 Line too long");
-                        Logger.LogWarning("SMTP line too long: {Length} bytes", line.Length);
+                        Logger.LogWarning("SMTP line too long: {Length} bytes (max: {Max})",
+                            line.Length, NetworkConstants.Smtp.MaxLineLength);
                         break;
                     }
 
@@ -148,13 +152,31 @@ public class SmtpServer : ServerBase
                             if (args.StartsWith("TO:", StringComparison.OrdinalIgnoreCase))
                             {
                                 // 受信者数制限チェック（DoS対策）
-                                if (rcptTo.Count >= MaxRecipients)
+                                if (rcptTo.Count >= NetworkConstants.Smtp.MaxRecipients)
                                 {
-                                    await writer.WriteLineAsync($"452 Too many recipients (max {MaxRecipients})");
+                                    await writer.WriteLineAsync($"452 Too many recipients (max {NetworkConstants.Smtp.MaxRecipients})");
                                     break;
                                 }
 
                                 var recipient = args[3..].Trim();
+
+                                // メールアドレス形式の検証（RFC 5321準拠、ReDoS保護付き）
+                                try
+                                {
+                                    if (!EmailRegex.IsMatch(recipient))
+                                    {
+                                        await writer.WriteLineAsync("553 Invalid recipient address format");
+                                        Logger.LogWarning("SMTP invalid recipient address: {Recipient}", recipient);
+                                        break;
+                                    }
+                                }
+                                catch (RegexMatchTimeoutException)
+                                {
+                                    await writer.WriteLineAsync("553 Invalid recipient address");
+                                    Logger.LogWarning("SMTP regex timeout validating recipient: {Recipient}", recipient);
+                                    break;
+                                }
+
                                 rcptTo.Add(recipient);
                                 await writer.WriteLineAsync("250 OK");
                             }
@@ -186,10 +208,19 @@ public class SmtpServer : ServerBase
                                 if (dataLine == null)
                                     break;
 
-                                // 行数制限チェック（DoS対策）
-                                if (messageLines.Count >= MaxMessageLines)
+                                // 行長制限チェック（DoS対策、RFC 5321準拠）
+                                if (dataLine.Length > NetworkConstants.Smtp.MaxLineLength)
                                 {
-                                    await writer.WriteLineAsync($"552 Too many lines (max {MaxMessageLines})");
+                                    await writer.WriteLineAsync("552 Line too long in message body");
+                                    Logger.LogWarning("SMTP message line too long: {Length} bytes (max: {Max})",
+                                        dataLine.Length, NetworkConstants.Smtp.MaxLineLength);
+                                    goto ResetSession;
+                                }
+
+                                // 行数制限チェック（DoS対策）
+                                if (messageLines.Count >= NetworkConstants.Smtp.MaxMessageLines)
+                                {
+                                    await writer.WriteLineAsync($"552 Too many lines (max {NetworkConstants.Smtp.MaxMessageLines})");
                                     Logger.LogWarning("SMTP message exceeds max lines: {Count}", messageLines.Count);
                                     goto ResetSession;
                                 }
