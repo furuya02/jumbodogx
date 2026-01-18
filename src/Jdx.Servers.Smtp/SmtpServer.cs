@@ -125,6 +125,9 @@ public class SmtpServer : ServerBase
                 // Session state
                 string? mailFrom = null;
                 var rcptTo = new List<string>();
+                // メッセージをメモリに格納（最大100,000行 x 平均80文字 ≈ 8MB/接続）
+                // MaxConnections制限により、総メモリ使用量は管理可能
+                // TODO: 大規模運用時はストリーミング処理への変更を検討
                 var messageLines = new List<string>();
 
                 while (!cancellationToken.IsCancellationRequested)

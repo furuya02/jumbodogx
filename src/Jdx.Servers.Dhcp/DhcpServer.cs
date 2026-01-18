@@ -172,10 +172,14 @@ public class DhcpServer : ServerBase
         try
         {
             // DHCPパケットサイズ検証（DoS対策）
-            // RFC 2131: 最小300バイト、最大576バイト（通常）、拡張オプションで最大1500バイト
-            if (data.Length < 300 || data.Length > 1500)
+            // RFC 2131: 最小300バイト、標準最大576バイト
+            const int MinSize = 300;
+            const int MaxSize = 576;
+
+            if (data.Length < MinSize || data.Length > MaxSize)
             {
-                Logger.LogWarning("Invalid DHCP packet size from {RemoteEndPoint}: {Size} bytes", remoteEndPoint, data.Length);
+                Logger.LogWarning("Invalid DHCP packet size from {RemoteEndPoint}: {Size} bytes (min={Min}, max={Max})",
+                    remoteEndPoint, data.Length, MinSize, MaxSize);
                 return;
             }
 

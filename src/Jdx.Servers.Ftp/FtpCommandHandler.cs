@@ -481,14 +481,24 @@ public class FtpCommandHandler
             // Close existing data connection
             session.CloseDataConnection();
 
-            // Connect to client
-            var client = new TcpClient();
-            await client.ConnectAsync(ipAddress, port);
-            session.DataClient = client;
-            session.DataSocket = client.Client;
-            session.DataStream = client.GetStream();
+            // Connect to client with proper resource management
+            TcpClient? client = null;
+            try
+            {
+                client = new TcpClient();
+                await client.ConnectAsync(ipAddress, port);
+                session.DataClient = client;
+                session.DataSocket = client.Client;
+                session.DataStream = client.GetStream();
 
-            await session.SendResponseAsync("200 PORT command successful.");
+                await session.SendResponseAsync("200 PORT command successful.");
+            }
+            catch
+            {
+                // Clean up TcpClient if connection fails
+                client?.Dispose();
+                throw;
+            }
         }
         catch (Exception ex)
         {

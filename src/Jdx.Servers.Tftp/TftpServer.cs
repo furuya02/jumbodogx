@@ -405,20 +405,19 @@ public class TftpServer : ServerBase
             if (filename.Length > 255)
                 return null;
 
-            // 不正な文字のチェック（制御文字、パストラバーサル等）
-            if (filename.Any(c => char.IsControl(c) || c == '<' || c == '>' || c == '|' || c == '*' || c == '?'))
+            // パストラバーサル対策: 不正な文字が含まれている場合は即座に拒否
+            // 文字削除ではなく、存在チェックで拒否する（バイパス防止）
+            if (filename.Contains("..") || filename.Contains("/") || filename.Contains("\\"))
                 return null;
 
-            // Remove any directory traversal attempts
-            filename = filename.Replace("..", "").Replace("/", "").Replace("\\", "");
-
-            if (string.IsNullOrWhiteSpace(filename))
+            // 不正な文字のチェック（制御文字等）
+            if (filename.Any(c => char.IsControl(c) || c == '<' || c == '>' || c == '|' || c == '*' || c == '?'))
                 return null;
 
             var fullPath = Path.Combine(_settings.WorkDir, filename);
             var normalizedPath = Path.GetFullPath(fullPath);
 
-            // Ensure the path is within WorkDir
+            // 正規化後のパスがWorkDir内にあることを確認（二重チェック）
             if (!normalizedPath.StartsWith(Path.GetFullPath(_settings.WorkDir), StringComparison.OrdinalIgnoreCase))
                 return null;
 
