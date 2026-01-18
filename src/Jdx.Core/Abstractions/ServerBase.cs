@@ -1,4 +1,7 @@
+using System.Net;
 using System.Net.Sockets;
+using Jdx.Core.Helpers;
+using Jdx.Core.Network;
 using Microsoft.Extensions.Logging;
 
 namespace Jdx.Core.Abstractions;
@@ -15,6 +18,8 @@ public abstract class ServerBase : IServer
 
     private ServerStatus _status;
     private bool _disposed;
+    private ServerTcpListener? _tcpListener;
+    private ServerUdpListener? _udpListener;
 
     /// <summary>
     /// コンストラクタ
@@ -128,6 +133,183 @@ public abstract class ServerBase : IServer
     /// クライアント接続処理（派生クラスで実装）
     /// </summary>
     protected abstract Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken);
+
+    #region リスナー管理メソッド（Phase 2で追加）
+
+    /// <summary>
+    /// TCPリスナーを作成・起動し、既存のリスナーは停止する
+    /// </summary>
+    protected async Task<ServerTcpListener> CreateTcpListenerAsync(
+        int port,
+        string? bindAddress,
+        CancellationToken cancellationToken)
+    {
+        await StopExistingListenerAsync(_tcpListener);
+
+        var ipAddress = NetworkHelper.ParseBindAddress(bindAddress, Logger);
+        var listener = new ServerTcpListener(port, ipAddress, Logger);
+        await listener.StartAsync(cancellationToken);
+
+        _tcpListener = listener;
+        return listener;
+    }
+
+    /// <summary>
+    /// UDPリスナーを作成・起動し、既存のリスナーは停止する
+    /// </summary>
+    protected async Task<ServerUdpListener> CreateUdpListenerAsync(
+        int port,
+        string? bindAddress,
+        CancellationToken cancellationToken)
+    {
+        await StopExistingListenerAsync(_udpListener);
+
+        var ipAddress = NetworkHelper.ParseBindAddress(bindAddress, Logger);
+        var listener = new ServerUdpListener(port, ipAddress, Logger);
+        await listener.StartAsync(cancellationToken);
+
+        _udpListener = listener;
+        return listener;
+    }
+
+    /// <summary>
+    /// 既存のリスナーを停止する（タイムアウト付き）
+    /// </summary>
+    private async Task StopExistingListenerAsync(IDisposable? listener)
+    {
+        if (listener == null) return;
+
+        try
+        {
+            // タイムアウト付きで停止処理を実行（デッドロック防止）
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+            if (listener is ServerTcpListener tcp)
+                await tcp.StopAsync(cts.Token);
+            else if (listener is ServerUdpListener udp)
+                await udp.StopAsync(cts.Token);
+
+            listener.Dispose();
+        }
+        catch (OperationCanceledException)
+        {
+            Logger.LogWarning("Listener stop timed out (5s), forcing disposal");
+            // タイムアウト時も Dispose を試みる
+            try { listener.Dispose(); } catch { }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error stopping existing listener");
+            // エラー時も Dispose を試みる
+            try { listener.Dispose(); } catch { }
+        }
+    }
+
+    #endregion
+
+    #region Accept/Receiveループメソッド（Phase 2で追加）
+
+    /// <summary>
+    /// TCP Accept ループを実行
+    /// </summary>
+    protected async Task RunTcpAcceptLoopAsync(
+        ServerTcpListener listener,
+        Func<TcpClient, CancellationToken, Task> handler,
+        ConnectionLimiter? limiter,
+        CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                var clientSocket = await listener.AcceptAsync(cancellationToken);
+                // SocketをTcpClientにラップ（既存のサーバー実装との互換性維持）
+                var client = new TcpClient { Client = clientSocket };
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        if (limiter != null)
+                        {
+                            await limiter.ExecuteWithLimitAsync(
+                                async ct => await handler(client, ct),
+                                cancellationToken);
+                        }
+                        else
+                        {
+                            await handler(client, cancellationToken);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        NetworkExceptionHandler.LogNetworkException(ex, Logger, "Client handling");
+                    }
+                    finally
+                    {
+                        client.Dispose();
+                    }
+                }, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error accepting client");
+            }
+        }
+    }
+
+    /// <summary>
+    /// UDP Receive ループを実行
+    /// </summary>
+    protected async Task RunUdpReceiveLoopAsync(
+        ServerUdpListener listener,
+        Func<byte[], EndPoint, CancellationToken, Task> handler,
+        ConnectionLimiter? limiter,
+        CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                var (data, remoteEndPoint) = await listener.ReceiveAsync(cancellationToken);
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        if (limiter != null)
+                        {
+                            await limiter.ExecuteWithLimitAsync(
+                                async ct => await handler(data, remoteEndPoint, ct),
+                                cancellationToken);
+                        }
+                        else
+                        {
+                            await handler(data, remoteEndPoint, cancellationToken);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        NetworkExceptionHandler.LogNetworkException(ex, Logger, "Request handling");
+                    }
+                }, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error receiving request");
+            }
+        }
+    }
+
+    #endregion
 
     /// <inheritdoc/>
     public void Dispose()
