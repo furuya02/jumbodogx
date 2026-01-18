@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Constants;
 using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
@@ -15,6 +16,7 @@ namespace Jdx.Servers.Http;
 public class HttpServer : ServerBase
 {
     private readonly ISettingsService _settingsService;
+    private readonly ReaderWriterLockSlim _settingsLock = new ReaderWriterLockSlim();
     private int _port;
     private ServerTcpListener? _listener;
     private HttpTarget? _target;
@@ -112,23 +114,40 @@ public class HttpServer : ServerBase
 
     private void OnSettingsChanged(object? sender, ApplicationSettings settings)
     {
-        var httpSettings = settings.HttpServer;
-
-        // ポート変更があればサーバーを再起動
-        if (_port != httpSettings.Port)
+        _settingsLock.EnterWriteLock();
+        try
         {
-            _port = httpSettings.Port;
-            Logger.LogInformation("HTTP Server port changed to {Port}", _port);
-        }
+            var httpSettings = settings.HttpServer;
 
-        // コンポーネントを再初期化
-        InitializeComponents(httpSettings);
-        Logger.LogInformation("HTTP Server settings updated");
+            // ポート変更があればサーバーを再起動
+            if (_port != httpSettings.Port)
+            {
+                _port = httpSettings.Port;
+                Logger.LogInformation("HTTP Server port changed to {Port}", _port);
+            }
+
+            // コンポーネントを再初期化
+            InitializeComponents(httpSettings);
+            Logger.LogInformation("HTTP Server settings updated");
+        }
+        finally
+        {
+            _settingsLock.ExitWriteLock();
+        }
     }
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {
-        var settings = _settingsService.GetSettings().HttpServer;
+        HttpServerSettings settings;
+        _settingsLock.EnterReadLock();
+        try
+        {
+            settings = _settingsService.GetSettings().HttpServer;
+        }
+        finally
+        {
+            _settingsLock.ExitReadLock();
+        }
 
         _listener = await CreateTcpListenerAsync(_port, settings.BindAddress, cancellationToken);
 
@@ -150,7 +169,17 @@ public class HttpServer : ServerBase
                     Statistics.TotalConnections++;
 
                     // 最大接続数チェック
-                    var currentSettings = _settingsService.GetSettings().HttpServer;
+                    HttpServerSettings currentSettings;
+                    _settingsLock.EnterReadLock();
+                    try
+                    {
+                        currentSettings = _settingsService.GetSettings().HttpServer;
+                    }
+                    finally
+                    {
+                        _settingsLock.ExitReadLock();
+                    }
+
                     if (currentSettings.MaxConnections > 0 && Statistics.ActiveConnections >= currentSettings.MaxConnections)
                     {
                         Logger.LogWarning("Max connections ({MaxConnections}) reached, rejecting connection from {RemoteEndPoint}",
@@ -216,7 +245,16 @@ public class HttpServer : ServerBase
         var remoteEndPoint = clientSocket.RemoteEndPoint?.ToString() ?? "unknown";
         Logger.LogInformation("HTTP connection from {RemoteEndPoint}", remoteEndPoint);
 
-        var settings = _settingsService.GetSettings().HttpServer;
+        HttpServerSettings settings;
+        _settingsLock.EnterReadLock();
+        try
+        {
+            settings = _settingsService.GetSettings().HttpServer;
+        }
+        finally
+        {
+            _settingsLock.ExitReadLock();
+        }
 
         // ACLチェック（接続元IPアドレス）
         var remoteIp = clientSocket.RemoteEndPoint?.ToString()?.Split(':')[0] ?? "";
@@ -301,6 +339,27 @@ public class HttpServer : ServerBase
                     // リクエスト全体をパース（ヘッダー含む）
                     var request = HttpRequest.ParseFull(lines);
                     Statistics.TotalRequests++;
+
+                    // リクエストボディサイズチェック（DoS対策、RFC 7230準拠）
+                    if (request.Headers.TryGetValue("Content-Length", out var contentLengthStr))
+                    {
+                        if (long.TryParse(contentLengthStr, out var contentLength))
+                        {
+                            if (contentLength > NetworkConstants.Http.MaxRequestBodySize)
+                            {
+                                Logger.LogWarning("Request body size {Size} exceeds limit {Max} from {RemoteEndPoint}",
+                                    contentLength, NetworkConstants.Http.MaxRequestBodySize, remoteEndPoint);
+
+                                // 413 Payload Too Large を返す
+                                var errorResponse = HttpResponseBuilder.BuildErrorResponse(413, "Payload Too Large", settings);
+                                var errorBytes = errorResponse.ToBytes();
+                                await clientSocket.SendAsync(errorBytes, SocketFlags.None, linkedCts.Token);
+                                Statistics.TotalErrors++;
+                                keepAlive = false;
+                                break;
+                            }
+                        }
+                    }
 
                     Logger.LogInformation("HTTP {Method} {Path} from {RemoteEndPoint} (request #{Count})",
                         request.Method, request.Path, remoteEndPoint, requestCount);
@@ -417,7 +476,16 @@ public class HttpServer : ServerBase
 
     private async Task<HttpResponse> GenerateResponseAsync(HttpRequest request, CancellationToken cancellationToken, string? remoteIp = null)
     {
-        var settings = _settingsService.GetSettings().HttpServer;
+        HttpServerSettings settings;
+        _settingsLock.EnterReadLock();
+        try
+        {
+            settings = _settingsService.GetSettings().HttpServer;
+        }
+        finally
+        {
+            _settingsLock.ExitReadLock();
+        }
 
         // Virtual Host解決
         string? documentRoot = null;
@@ -542,5 +610,14 @@ public class HttpServer : ServerBase
         var assembly = System.Reflection.Assembly.GetExecutingAssembly();
         var version = assembly.GetName().Version;
         return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "9.0.0";
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _settingsLock?.Dispose();
+        }
+        base.Dispose(disposing);
     }
 }
