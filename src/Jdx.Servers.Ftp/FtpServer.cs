@@ -142,8 +142,8 @@ public class FtpServer : ServerBase
                 Logger.LogDebug("FTP command received from {RemoteAddress}: {Command}",
                     remoteAddress, line);
 
-                // Execute command
-                continueSession = await _commandHandler.ExecuteCommandAsync(session, line);
+                // Execute command (session and line are guaranteed non-null, _commandHandler is initialized in StartAsync)
+                continueSession = await _commandHandler!.ExecuteCommandAsync(session!, line!);
             }
 
             // Log logout if user was authenticated
