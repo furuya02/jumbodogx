@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
@@ -82,74 +83,36 @@ public class DnsServer : ServerBase
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {
-        if (_listener != null)
-        {
-            try
-            {
-                await _listener.StopAsync(CancellationToken.None);
-                _listener.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Error stopping existing listener");
-            }
-        }
-
-        _listener = new ServerUdpListener(_port, null, Logger);
-        await _listener.StartAsync(cancellationToken);
+        _listener = await CreateUdpListenerAsync(_port, null, cancellationToken);
 
         Logger.LogInformation("DNS Server listening on port {Port}", _port);
 
-        _ = Task.Run(async () =>
-        {
-            while (!StopCts.Token.IsCancellationRequested)
+        _ = Task.Run(() => RunUdpReceiveLoopAsync(
+            _listener,
+            async (data, remoteEndPoint, ct) =>
             {
-                try
-                {
-                    var (data, remoteEndPoint) = await _listener.ReceiveAsync(StopCts.Token);
-                    Statistics.TotalConnections++;
-                    Statistics.TotalBytesReceived += data.Length;
+                Statistics.TotalConnections++;
+                Statistics.TotalBytesReceived += data.Length;
 
-                    // DNSメッセージサイズ検証（DoS対策）
-                    // RFC 1035: UDPの場合は512バイトまで、EDNS0拡張で最大4096バイト
-                    if (data.Length < 12 || data.Length > 4096)
-                    {
-                        Logger.LogWarning("Invalid DNS message size from {RemoteEndPoint}: {Size} bytes", remoteEndPoint, data.Length);
-                        Statistics.TotalErrors++;
-                        continue;
-                    }
+                // DNSメッセージサイズ検証（DoS対策）
+                // RFC 1035: UDPの場合は512バイトまで、EDNS0拡張で最大4096バイト
+                if (data.Length < 12 || data.Length > 4096)
+                {
+                    Logger.LogWarning("Invalid DNS message size from {RemoteEndPoint}: {Size} bytes", remoteEndPoint, data.Length);
+                    Statistics.TotalErrors++;
+                    return;
+                }
 
-                    _ = Task.Run(async () =>
-                    {
-                        await HandleDnsQueryAsync(data, remoteEndPoint, StopCts.Token);
-                    }, StopCts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch (SocketException ex)
-                {
-                    Logger.LogDebug(ex, "Socket error receiving DNS query");
-                    Statistics.TotalErrors++;
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning(ex, "Unexpected error receiving DNS query");
-                    Statistics.TotalErrors++;
-                }
-            }
-        }, StopCts.Token);
+                await HandleDnsQueryAsync(data, remoteEndPoint, ct);
+            },
+            null,
+            StopCts.Token), StopCts.Token);
     }
 
-    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override Task StopListeningAsync(CancellationToken cancellationToken)
     {
-        if (_listener != null)
-        {
-            await _listener.StopAsync(cancellationToken);
-            _listener.Dispose();
-            _listener = null;
-        }
+        Logger.LogInformation("DNS Server stopped");
+        return Task.CompletedTask;
     }
 
     protected override Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
@@ -235,7 +198,7 @@ public class DnsServer : ServerBase
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error handling DNS query from {RemoteAddress}", remoteAddress);
+            NetworkExceptionHandler.LogNetworkException(ex, Logger, "DNS query handling");
             Statistics.TotalErrors++;
         }
     }
