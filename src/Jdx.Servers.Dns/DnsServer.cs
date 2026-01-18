@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Constants;
 using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
@@ -95,10 +96,15 @@ public class DnsServer : ServerBase
                 Statistics.TotalBytesReceived += data.Length;
 
                 // DNSメッセージサイズ検証（DoS対策）
-                // RFC 1035: UDPの場合は512バイトまで、EDNS0拡張で最大4096バイト
-                if (data.Length < 12 || data.Length > 4096)
+                // RFC 1035: UDPの場合は512バイトまで（NetworkConstants.Dns.MaxUdpPacketSize）
+                // RFC 6891: EDNS0拡張で最大4096バイト
+                const int DnsHeaderSize = 12;
+                const int EdnsMaxSize = 4096; // EDNS0 extension (RFC 6891)
+
+                if (data.Length < DnsHeaderSize || data.Length > EdnsMaxSize)
                 {
-                    Logger.LogWarning("Invalid DNS message size from {RemoteEndPoint}: {Size} bytes", remoteEndPoint, data.Length);
+                    Logger.LogWarning("Invalid DNS message size from {RemoteEndPoint}: {Size} bytes (min={Min}, max={Max})",
+                        remoteEndPoint, data.Length, DnsHeaderSize, EdnsMaxSize);
                     Statistics.TotalErrors++;
                     return;
                 }
