@@ -200,6 +200,27 @@ public class ProxyRequest
                 Extension = pathPart.Substring(lastDotIndex + 1);
             }
 
+            // ホスト名とポート番号の検証
+            if (string.IsNullOrWhiteSpace(HostName))
+            {
+                logger.LogError("Empty hostname");
+                return false;
+            }
+
+            // ホスト名に不正な文字が含まれていないかチェック
+            if (HostName.Any(c => char.IsControl(c) || c == ' '))
+            {
+                logger.LogError("Invalid characters in hostname: {HostName}", HostName);
+                return false;
+            }
+
+            // ポート番号の範囲チェック
+            if (Port < 1 || Port > 65535)
+            {
+                logger.LogError("Invalid port number: {Port}", Port);
+                return false;
+            }
+
             return true;
         }
         catch (Exception ex)
@@ -229,10 +250,18 @@ public class ProxyRequest
 
     private async Task ReadBodyAsync(Stream stream, CancellationToken cancellationToken)
     {
+        const int MaxRequestBodySize = 100 * 1024 * 1024; // 100MB（DoS対策）
+
         if (Headers.TryGetValue("Content-Length", out var lengthStr) &&
             int.TryParse(lengthStr, out var length) &&
             length > 0)
         {
+            // リクエストサイズ制限チェック（DoS攻撃防止）
+            if (length > MaxRequestBodySize)
+            {
+                throw new InvalidOperationException($"Request body too large (max {MaxRequestBodySize} bytes)");
+            }
+
             var buffer = new byte[length];
             var totalRead = 0;
             while (totalRead < length)
@@ -248,6 +277,7 @@ public class ProxyRequest
 
     private async Task<string> ReadLineAsync(Stream stream, CancellationToken cancellationToken)
     {
+        const int MaxLineLength = 8192; // HTTP行の最大長（DoS対策）
         var buffer = new List<byte>();
         var prevByte = (byte)0;
 
@@ -260,6 +290,12 @@ public class ProxyRequest
 
             var currentByte = byteBuffer[0];
             buffer.Add(currentByte);
+
+            // 行長制限チェック（DoS攻撃防止）
+            if (buffer.Count > MaxLineLength)
+            {
+                throw new InvalidOperationException($"Request line too long (max {MaxLineLength} bytes)");
+            }
 
             // CRLF検出
             if (prevByte == '\r' && currentByte == '\n')

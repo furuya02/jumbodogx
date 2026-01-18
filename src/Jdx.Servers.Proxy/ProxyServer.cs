@@ -18,7 +18,8 @@ public class ProxyServer : ServerBase
     private int _port;
     private ServerTcpListener? _listener;
 
-    // Proxyコンポーネント
+    // Proxyコンポーネント（スレッドセーフアクセスのためロック使用）
+    private readonly object _componentsLock = new();
     private ProxyLimitUrl? _limitUrl;
     private ProxyLimitString? _limitString;
     private ProxyCache? _cache;
@@ -48,37 +49,45 @@ public class ProxyServer : ServerBase
 
     private void InitializeComponents(ProxyServerSettings settings)
     {
-        // 上位プロキシを経由しないサーバのリスト
-        _disableAddressList = settings.DisableAddressList
-            .Select(e => e.Address)
-            .Where(a => !string.IsNullOrWhiteSpace(a))
-            .ToList();
-
-        // URL制限
-        _limitUrl = new ProxyLimitUrl(settings.LimitUrlAllowList, settings.LimitUrlDenyList, Logger);
-
-        // コンテンツ制限
-        if (settings.LimitStringList != null && settings.LimitStringList.Count > 0)
+        lock (_componentsLock)
         {
-            _limitString = new ProxyLimitString(settings.LimitStringList, Logger);
-        }
-        else
-        {
-            _limitString = null;
-        }
+            // 上位プロキシを経由しないサーバのリスト
+            _disableAddressList = settings.DisableAddressList
+                .Select(e => e.Address)
+                .Where(a => !string.IsNullOrWhiteSpace(a))
+                .ToList();
 
-        // キャッシュ
-        if (settings.UseCache)
-        {
-            _cache = new ProxyCache(settings, Logger);
-            Logger.LogInformation("Proxy cache enabled: Dir={CacheDir}", settings.CacheDir);
-        }
-        else
-        {
-            _cache = null;
-        }
+            // URL制限
+            _limitUrl = new ProxyLimitUrl(settings.LimitUrlAllowList, settings.LimitUrlDenyList, Logger);
 
-        Logger.LogInformation("Proxy server components initialized");
+            // コンテンツ制限
+            if (settings.LimitStringList != null && settings.LimitStringList.Count > 0)
+            {
+                _limitString = new ProxyLimitString(settings.LimitStringList, Logger);
+            }
+            else
+            {
+                _limitString = null;
+            }
+
+            // キャッシュ
+            // 既存のキャッシュを停止
+            if (_cache != null)
+            {
+                _cache.Stop();
+                _cache.Dispose();
+                _cache = null;
+            }
+
+            if (settings.UseCache)
+            {
+                _cache = new ProxyCache(settings, Logger);
+                _cache.Start(); // キャッシュを開始
+                Logger.LogInformation("Proxy cache enabled: Dir={CacheDir}", settings.CacheDir);
+            }
+
+            Logger.LogInformation("Proxy server components initialized");
+        }
     }
 
     private void OnSettingsChanged(object? sender, ApplicationSettings settings)
@@ -225,16 +234,17 @@ public class ProxyServer : ServerBase
                 settings.UpperProxyAuthPass
             );
 
-            // Proxy接続オブジェクトを作成
-            var proxyConnection = new ProxyConnection(
-                client,
-                settings.TimeOut,
-                upperProxy,
-                Logger
-            );
-
+            // Proxy接続オブジェクトを作成（リソースリーク防止のためtry内で作成）
+            ProxyConnection? proxyConnection = null;
             try
             {
+                proxyConnection = new ProxyConnection(
+                    client,
+                    settings.TimeOut,
+                    upperProxy,
+                    Logger
+                );
+
                 // 1. クライアントからリクエストを読み取り
                 var clientStream = client.GetStream();
                 var request = new ProxyRequest();
@@ -248,9 +258,15 @@ public class ProxyServer : ServerBase
                 Logger.LogInformation("Proxy request: {Method} {Host}:{Port}{Uri}",
                     request.HttpMethod, request.HostName, request.Port, request.Uri);
 
-                // 3. URL制限チェック
+                // 3. URL制限チェック（スレッドセーフ）
                 var fullUrl = $"{request.Protocol.ToString().ToLower()}://{request.HostName}:{request.Port}{request.Uri}";
-                if (_limitUrl != null && !_limitUrl.IsAllowed(fullUrl))
+                ProxyLimitUrl? limitUrl;
+                lock (_componentsLock)
+                {
+                    limitUrl = _limitUrl;
+                }
+
+                if (limitUrl != null && !limitUrl.IsAllowed(fullUrl))
                 {
                     Logger.LogWarning("URL blocked by limit: {Url}", fullUrl);
                     await SendErrorResponseAsync(clientStream, 403, "Forbidden", cancellationToken);
@@ -278,7 +294,7 @@ public class ProxyServer : ServerBase
             }
             finally
             {
-                proxyConnection.Dispose();
+                proxyConnection?.Dispose();
             }
 
             Logger.LogDebug("Proxy client disconnected from {RemoteIp}", remoteIp);
@@ -324,6 +340,17 @@ public class ProxyServer : ServerBase
             var requestLine = request.GetRequestLineBytes(connection.UpperProxy.Use);
             await serverStream.WriteAsync(requestLine, 0, requestLine.Length, cancellationToken);
 
+            // 上位プロキシ認証ヘッダーを追加
+            if (connection.UpperProxy.Use && connection.UpperProxy.UseAuth)
+            {
+                var credentials = $"{connection.UpperProxy.AuthUser}:{connection.UpperProxy.AuthPass}";
+                var credentialsBytes = Encoding.UTF8.GetBytes(credentials);
+                var base64Credentials = Convert.ToBase64String(credentialsBytes);
+                var authHeader = $"Proxy-Authorization: Basic {base64Credentials}\r\n";
+                var authBytes = Encoding.ASCII.GetBytes(authHeader);
+                await serverStream.WriteAsync(authBytes, 0, authBytes.Length, cancellationToken);
+            }
+
             // ヘッダーを送信
             foreach (var header in request.Headers)
             {
@@ -341,8 +368,21 @@ public class ProxyServer : ServerBase
                 await serverStream.WriteAsync(request.Body, 0, request.Body.Length, cancellationToken);
             }
 
-            // レスポンスを転送
-            await RelayDataAsync(serverStream, clientStream, cancellationToken);
+            // レスポンスを転送（コンテンツフィルタリング対応、スレッドセーフ）
+            ProxyLimitString? limitString;
+            lock (_componentsLock)
+            {
+                limitString = _limitString;
+            }
+
+            if (limitString != null)
+            {
+                await RelayWithContentFilteringAsync(serverStream, clientStream, limitString, cancellationToken);
+            }
+            else
+            {
+                await RelayDataAsync(serverStream, clientStream, cancellationToken);
+            }
         }
         catch (Exception ex)
         {
@@ -449,6 +489,96 @@ public class ProxyServer : ServerBase
         }
     }
 
+    private async Task RelayWithContentFilteringAsync(
+        NetworkStream source,
+        NetworkStream destination,
+        ProxyLimitString limitString,
+        CancellationToken cancellationToken)
+    {
+        const int MaxContentFilterSize = 1024 * 1024; // 1MB（コンテンツフィルタリング対象の最大サイズ）
+
+        try
+        {
+            var buffer = new byte[8192];
+            var contentBuffer = new List<byte>();
+            var headerComplete = false;
+            var contentLength = 0;
+
+            while (true)
+            {
+                var bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
+                if (bytesRead == 0)
+                    break;
+
+                if (!headerComplete)
+                {
+                    // ヘッダー部分を先に転送
+                    await destination.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+                    await destination.FlushAsync(cancellationToken);
+
+                    // ヘッダー終了（\r\n\r\n）を検出
+                    for (int i = 0; i < bytesRead - 3; i++)
+                    {
+                        if (buffer[i] == '\r' && buffer[i + 1] == '\n' &&
+                            buffer[i + 2] == '\r' && buffer[i + 3] == '\n')
+                        {
+                            headerComplete = true;
+                            // ヘッダー後のボディ部分をバッファに追加
+                            var bodyStart = i + 4;
+                            if (bodyStart < bytesRead)
+                            {
+                                contentBuffer.AddRange(buffer.Skip(bodyStart).Take(bytesRead - bodyStart));
+                            }
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    // ボディ部分を蓄積
+                    contentBuffer.AddRange(buffer.Take(bytesRead));
+
+                    // サイズ制限チェック
+                    if (contentBuffer.Count > MaxContentFilterSize)
+                    {
+                        // サイズ超過の場合は残りを通常転送
+                        await destination.WriteAsync(contentBuffer.ToArray(), 0, contentBuffer.Count, cancellationToken);
+                        await destination.FlushAsync(cancellationToken);
+                        contentBuffer.Clear();
+
+                        // 残りのデータを通常転送
+                        while ((bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+                        {
+                            await destination.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+                            await destination.FlushAsync(cancellationToken);
+                        }
+                        return;
+                    }
+                }
+            }
+
+            // コンテンツフィルタリングチェック
+            if (contentBuffer.Count > 0)
+            {
+                var contentBytes = contentBuffer.ToArray();
+                if (limitString.Contains(contentBytes))
+                {
+                    Logger.LogWarning("Content blocked by filter");
+                    await SendErrorResponseAsync(destination, 403, "Forbidden - Content Blocked", cancellationToken);
+                    return;
+                }
+
+                // フィルタリングOKの場合は転送
+                await destination.WriteAsync(contentBytes, 0, contentBytes.Length, cancellationToken);
+                await destination.FlushAsync(cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Relay with content filtering closed");
+        }
+    }
+
     private bool CheckAcl(string remoteIp, ProxyServerSettings settings)
     {
         if (settings.AclList == null || settings.AclList.Count == 0)
@@ -483,11 +613,54 @@ public class ProxyServer : ServerBase
         if (remoteIp == pattern)
             return true;
 
-        // CIDR表記のサポート（簡易版）
+        // CIDR表記のサポート（192.168.1.0/24 形式）
         if (pattern.Contains('/'))
         {
-            // TODO: CIDR表記の実装
-            return false;
+            var parts = pattern.Split('/');
+            if (parts.Length != 2)
+                return false;
+
+            if (!IPAddress.TryParse(parts[0], out var networkAddress))
+                return false;
+
+            if (!int.TryParse(parts[1], out var prefixLength))
+                return false;
+
+            if (!IPAddress.TryParse(remoteIp, out var remoteAddress))
+                return false;
+
+            // IPv4とIPv6の両方をサポート
+            if (networkAddress.AddressFamily != remoteAddress.AddressFamily)
+                return false;
+
+            var networkBytes = networkAddress.GetAddressBytes();
+            var remoteBytes = remoteAddress.GetAddressBytes();
+
+            // プレフィックス長の妥当性チェック
+            var maxPrefixLength = networkBytes.Length * 8;
+            if (prefixLength < 0 || prefixLength > maxPrefixLength)
+                return false;
+
+            // ネットワーク部分を比較
+            var fullBytes = prefixLength / 8;
+            var remainingBits = prefixLength % 8;
+
+            // 完全バイトの比較
+            for (int i = 0; i < fullBytes; i++)
+            {
+                if (networkBytes[i] != remoteBytes[i])
+                    return false;
+            }
+
+            // 残りのビットの比較
+            if (remainingBits > 0)
+            {
+                var mask = (byte)(0xFF << (8 - remainingBits));
+                if ((networkBytes[fullBytes] & mask) != (remoteBytes[fullBytes] & mask))
+                    return false;
+            }
+
+            return true;
         }
 
         // ワイルドカード表記のサポート（簡易版）
