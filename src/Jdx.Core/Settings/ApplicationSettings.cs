@@ -12,6 +12,7 @@ public class ApplicationSettings
     public DhcpServerSettings DhcpServer { get; set; } = new();
     public Pop3ServerSettings Pop3Server { get; set; } = new();
     public SmtpServerSettings SmtpServer { get; set; } = new();
+    public ProxyServerSettings ProxyServer { get; set; } = new();
     public LoggingSettings Logging { get; set; } = new();
 }
 
@@ -562,4 +563,116 @@ public class LoggingSettings
 {
     public string LogLevel { get; set; } = "Information";
     public int MaxEntries { get; set; }
+}
+
+/// <summary>
+/// Proxyサーバー設定
+/// bjd5-master/ProxyHttpServer/Option.cs に対応
+/// </summary>
+public class ProxyServerSettings
+{
+    // 基本設定 (TAB1: Basic)
+    public bool Enabled { get; set; } = false;
+    public string BindAddress { get; set; } = "0.0.0.0";
+    public int Port { get; set; } = 8080;  // 標準Proxyポート
+    public int TimeOut { get; set; } = 60;  // 秒
+    public int MaxConnections { get; set; } = 300;
+
+    // リクエストログ
+    public bool UseRequestLog { get; set; } = false;
+
+    // 匿名設定
+    public string AnonymousAddress { get; set; } = "BlackJumboDog@";
+    public string ServerHeader { get; set; } = "BlackJumboDog Version $v";
+
+    // ブラウザヘッダー
+    public bool UseBrowserHeader { get; set; } = false;
+
+    // 追加ヘッダー（UseBrowserHeader が false の場合有効）
+    public bool AddHeaderRemoteHost { get; set; } = false;
+    public bool AddHeaderXForwardedFor { get; set; } = false;
+    public bool AddHeaderForwarded { get; set; } = false;
+
+    // 上位プロキシ設定 (TAB2: HigherProxy)
+    public bool UseUpperProxy { get; set; } = false;
+    public string UpperProxyServer { get; set; } = "";
+    public int UpperProxyPort { get; set; } = 8080;
+    public bool UpperProxyUseAuth { get; set; } = false;
+    public string UpperProxyAuthName { get; set; } = "";
+    // WARNING: Storing passwords in plaintext is insecure.
+    // Consider using environment variables or ASP.NET Core User Secrets in production.
+    public string UpperProxyAuthPass { get; set; } = "";
+    public List<ProxyDisableAddressEntry> DisableAddressList { get; set; } = new();
+
+    // キャッシュ設定 (TAB3: Cache1)
+    public bool UseCache { get; set; } = false;
+    public string CacheDir { get; set; } = "";
+    public int TestTime { get; set; } = 3;  // 分
+    public int MemorySize { get; set; } = 1000;  // KB
+    public int DiskSize { get; set; } = 5000;  // KB
+    public int Expires { get; set; } = 24;  // 時間
+    public int MaxSize { get; set; } = 1200;  // KB
+
+    // キャッシュホスト・拡張子設定 (TAB4: Cache2)
+    public int EnableHost { get; set; } = 1;  // 0=すべて, 1=指定したホストのみ
+    public List<ProxyCacheHostEntry> CacheHostList { get; set; } = new();
+    public int EnableExt { get; set; } = 1;  // 0=すべて, 1=指定した拡張子のみ
+    public List<ProxyCacheExtEntry> CacheExtList { get; set; } = new();
+
+    // URL制限設定 (TAB5: LimitUrl)
+    public List<ProxyLimitUrlEntry> LimitUrlAllowList { get; set; } = new();
+    public List<ProxyLimitUrlEntry> LimitUrlDenyList { get; set; } = new();
+
+    // コンテンツ制限設定 (TAB6: LimitContents)
+    public List<ProxyLimitStringEntry> LimitStringList { get; set; } = new();
+
+    // ACL設定 (TAB7: Acl)
+    public int EnableAcl { get; set; } = 0;  // 0=Allow, 1=Deny
+    public List<AclEntry> AclList { get; set; } = new();
+}
+
+/// <summary>
+/// Proxy除外アドレスエントリ（上位プロキシを使用しないアドレス）
+/// bjd5-master/ProxyHttpServer/Option.cs Page2 に対応
+/// </summary>
+public class ProxyDisableAddressEntry
+{
+    public string Address { get; set; } = "";  // アドレス（IP、ホスト名）
+}
+
+/// <summary>
+/// Proxyキャッシュホストエントリ
+/// bjd5-master/ProxyHttpServer/Option.cs Page4 に対応
+/// </summary>
+public class ProxyCacheHostEntry
+{
+    public string Host { get; set; } = "";  // ホスト名
+}
+
+/// <summary>
+/// Proxyキャッシュ拡張子エントリ
+/// bjd5-master/ProxyHttpServer/Option.cs Page4 に対応
+/// </summary>
+public class ProxyCacheExtEntry
+{
+    public string Ext { get; set; } = "";  // 拡張子（例: jpg, png, css）
+}
+
+/// <summary>
+/// ProxyURL制限エントリ
+/// bjd5-master/ProxyHttpServer/Option.cs Page5 に対応
+/// </summary>
+public class ProxyLimitUrlEntry
+{
+    public string Url { get; set; } = "";  // URL
+    public int Matching { get; set; } = 0;  // マッチング方式（0=前方一致, 1=後方一致, 2=部分一致, 3=正規表現）
+}
+
+/// <summary>
+/// Proxyコンテンツ制限文字列エントリ
+/// bjd5-master/ProxyHttpServer/Option.cs Page6 に対応
+/// </summary>
+public class ProxyLimitStringEntry
+{
+    public string String { get; set; } = "";  // 制限する文字列
 }

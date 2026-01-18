@@ -1,0 +1,193 @@
+@page "/settings/proxy/higherproxy"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>Proxy Higher Proxy Settings - JumboDogX</PageTitle>
+
+<h1>Proxy - Higher Proxy Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">⬆️ Higher Proxy Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useUpperProxy"
+                                   @bind="settings.ProxyServer.UseUpperProxy">
+                            <label class="form-check-label" for="useUpperProxy">
+                                <strong>Use Upper Proxy</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">Enable cascading to an upstream proxy server</div>
+                    </div>
+                </div>
+
+                @if (settings.ProxyServer.UseUpperProxy)
+                {
+                    <div class="border-top pt-3">
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label for="upperProxyServer" class="form-label">Upper Proxy Server</label>
+                                <input type="text" class="form-control" id="upperProxyServer"
+                                       @bind="settings.ProxyServer.UpperProxyServer" placeholder="proxy.example.com">
+                                <div class="form-text">Hostname or IP address of the upstream proxy</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="upperProxyPort" class="form-label">Port</label>
+                                <input type="number" class="form-control" id="upperProxyPort"
+                                       @bind="settings.ProxyServer.UpperProxyPort" min="1" max="65535">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="upperProxyUseAuth"
+                                           @bind="settings.ProxyServer.UpperProxyUseAuth">
+                                    <label class="form-check-label" for="upperProxyUseAuth">
+                                        Use Authentication
+                                    </label>
+                                </div>
+                                <div class="form-text">Enable if upstream proxy requires authentication</div>
+                            </div>
+                        </div>
+
+                        @if (settings.ProxyServer.UpperProxyUseAuth)
+                        {
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="upperProxyAuthName" class="form-label">Username</label>
+                                    <input type="text" class="form-control" id="upperProxyAuthName"
+                                           @bind="settings.ProxyServer.UpperProxyAuthName" placeholder="username">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="upperProxyAuthPass" class="form-label">Password</label>
+                                    <input type="password" class="form-control" id="upperProxyAuthPass"
+                                           @bind="settings.ProxyServer.UpperProxyAuthPass" placeholder="password">
+                                    <div class="form-text text-warning">⚠️ Warning: Password stored in plaintext</div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (settings.ProxyServer.UseUpperProxy)
+        {
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">🚫 Disable Address List</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        Addresses in this list will bypass the upper proxy and connect directly.
+                    </p>
+
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th style="width: 80%">Address</th>
+                                <th style="width: 20%">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var (entry, index) in settings.ProxyServer.DisableAddressList.Select((e, i) => (e, i)))
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm"
+                                               @bind="entry.Address" placeholder="192.168.1.0/24 or example.com">
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-danger btn-sm" @onclick="() => RemoveDisableAddress(index)">
+                                            <span class="bi bi-trash"></span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <button class="btn btn-success btn-sm" @onclick="AddDisableAddress">
+                        <span class="bi bi-plus-circle me-1"></span> Add Address
+                    </button>
+                </div>
+            </div>
+        }
+
+        <div class="border-top pt-3 mt-4">
+            <button class="btn btn-primary me-2" @onclick="SaveSettings">
+                <span class="bi bi-check-circle me-1"></span> Save Settings
+            </button>
+            <button class="btn btn-secondary" @onclick="ResetToDefault">
+                <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private void AddDisableAddress()
+    {
+        settings.ProxyServer.DisableAddressList.Add(new ProxyDisableAddressEntry());
+    }
+
+    private void RemoveDisableAddress(int index)
+    {
+        settings.ProxyServer.DisableAddressList.RemoveAt(index);
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Settings saved successfully!";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        // Clear message after 3 seconds
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+        settings.ProxyServer = defaults.ProxyServer;
+        saveMessage = "Settings reset to default values. Click Save to apply.";
+        saveSuccess = true;
+    }
+}
