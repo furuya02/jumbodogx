@@ -43,17 +43,41 @@ jdx/
 
 ## Development Status
 
+### Core Infrastructure
 - [x] .NET 9 SDK installation
 - [x] Project structure creation
 - [x] Solution configuration
 - [x] Core implementation (ServerBase, IServer abstraction)
-- [x] HTTP server implementation (basic features)
-- [x] DNS server implementation (basic features)
-- [x] Web UI implementation (Dashboard, Logs, DNS Records management)
-- [ ] SMTP/POP3 server implementation
-- [ ] FTP server implementation
-- [ ] DHCP server implementation
-- [ ] Proxy server implementation
+- [x] Common infrastructure (NetworkHelper, ConnectionLimiter, NetworkExceptionHandler)
+- [x] Server refactoring Phase 1-3 completed (PR #13, #14)
+
+### Server Implementations
+- [x] HTTP/HTTPS server (Range Requests, Keep-Alive, Virtual Host, SSL/TLS structure)
+- [x] DNS server (A, AAAA, CNAME, MX, NS, PTR, SOA records)
+- [x] SMTP server (mail sending with authentication)
+- [x] POP3 server (mail retrieval with authentication)
+- [x] FTP server (file transfer, user management, ACL)
+- [x] DHCP server (IP address assignment, lease management)
+- [x] TFTP server (simple file transfer)
+- [x] Proxy server (HTTP proxy with cache, URL filtering)
+
+### Web UI (Blazor Server)
+- [x] Dashboard (server status monitoring)
+- [x] Logs viewer (real-time log display)
+- [x] Settings pages for all servers (100% coverage)
+  - HTTP/HTTPS: General, Document, CGI, SSI, WebDAV, Alias & MIME, Authentication, Template, ACL, Virtual Hosts, SSL/TLS, Advanced
+  - DNS: General, Records management
+  - SMTP, POP3, FTP, DHCP, TFTP, Proxy: Configuration pages
+
+### Advanced Features
+- [x] Apache Killer protection (DoS attack defense)
+- [x] AttackDb (time-window based attack detection)
+- [x] Range Requests (partial content delivery - RFC 7233)
+- [x] Keep-Alive (HTTP persistent connections)
+- [x] Virtual Host (host header-based routing)
+- [x] SSL/TLS basic structure (certificate management)
+- [ ] SSL/TLS full integration (actual SSL communication)
+- [ ] AttackDb ACL auto-addition
 
 ## Requirements
 
