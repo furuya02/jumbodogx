@@ -74,10 +74,7 @@ public class HttpServer : ServerBase
         _sslManager = new HttpSslManager(settings.CertificateFile, settings.CertificatePassword, Logger);
         if (_sslManager.IsEnabled)
         {
-            Logger.LogInformation("HTTPS/SSL enabled");
-            // TODO: ServerTcpListenerをSSL対応に変更する必要があります
-            // 現在の実装では、HTTPのみサポートしています
-            Logger.LogWarning("SSL/TLS is initialized but not yet fully integrated. HTTP-only mode.");
+            Logger.LogInformation("HTTPS/SSL enabled with certificate: {Subject}", _sslManager.Certificate?.Subject ?? "unknown");
         }
 
         // AttackDb初期化（UseAutoAclが有効な場合）
@@ -305,11 +302,13 @@ public class HttpServer : ServerBase
 
         HttpServerSettings settings;
         HttpAclFilter aclFilter;
+        HttpSslManager? sslManager;
         _settingsLock.EnterReadLock();
         try
         {
             settings = _settingsService.GetSettings().HttpServer;
             aclFilter = _aclFilter!; // Capture component reference inside lock
+            sslManager = _sslManager; // Capture SSL manager reference
         }
         finally
         {
@@ -340,6 +339,29 @@ public class HttpServer : ServerBase
                 clientSocket.Dispose();
             }
 
+            Statistics.TotalErrors++;
+            return;
+        }
+
+        // NetworkStream/SslStreamを作成
+        Stream stream = new NetworkStream(clientSocket, ownsSocket: false);
+        try
+        {
+            // SSL/TLSハンドシェイク（SSL有効時）
+            if (sslManager?.IsEnabled == true)
+            {
+                var sslStream = sslManager.CreateServerStream(stream);
+                await sslManager.AuthenticateAsServerAsync(sslStream, cancellationToken);
+                stream = sslStream;
+                Logger.LogDebug("HTTPS/SSL connection established from {RemoteEndPoint}", remoteEndPoint);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "SSL/TLS handshake failed for {RemoteEndPoint}", remoteEndPoint);
+            stream.Dispose();
+            clientSocket.Close();
+            clientSocket.Dispose();
             Statistics.TotalErrors++;
             return;
         }
@@ -379,7 +401,7 @@ public class HttpServer : ServerBase
                 {
                     // リクエストを読み取る
                     var buffer = new byte[NetworkConstants.Http.MaxLineLength];
-                    var bytesRead = await clientSocket.ReceiveAsync(buffer, SocketFlags.None, linkedCts.Token);
+                    var bytesRead = await stream.ReadAsync(buffer, linkedCts.Token);
 
                     if (bytesRead == 0)
                     {
@@ -410,8 +432,7 @@ public class HttpServer : ServerBase
                                 contentLengthStr, remoteEndPoint);
 
                             var errorResponse = HttpResponseBuilder.BuildErrorResponse(400, "Bad Request", settings);
-                            var errorBytes = errorResponse.ToBytes();
-                            await clientSocket.SendAsync(errorBytes, SocketFlags.None, linkedCts.Token);
+                            await errorResponse.SendAsync(stream, linkedCts.Token);
                             Statistics.TotalErrors++;
                             // 接続を即座にクローズ（不正なリクエストのため）
                             keepAlive = false;
@@ -425,8 +446,7 @@ public class HttpServer : ServerBase
 
                             // 413 Payload Too Large を返す
                             var errorResponse = HttpResponseBuilder.BuildErrorResponse(413, "Payload Too Large", settings);
-                            var errorBytes = errorResponse.ToBytes();
-                            await clientSocket.SendAsync(errorBytes, SocketFlags.None, linkedCts.Token);
+                            await errorResponse.SendAsync(stream, linkedCts.Token);
                             Statistics.TotalErrors++;
                             // 接続を即座にクローズ（巨大なペイロードを読み取らないため）
                             keepAlive = false;
@@ -456,17 +476,8 @@ public class HttpServer : ServerBase
                     }
 
                     // レスポンスを送信（ストリーム対応）
-                    if (response.BodyStream != null)
-                    {
-                        await response.SendAsync(clientSocket, linkedCts.Token);
-                        Statistics.TotalBytesSent += response.ContentLength ?? 0;
-                    }
-                    else
-                    {
-                        var responseBytes = response.ToBytes();
-                        await clientSocket.SendAsync(responseBytes, SocketFlags.None, linkedCts.Token);
-                        Statistics.TotalBytesSent += responseBytes.Length;
-                    }
+                    await response.SendAsync(stream, linkedCts.Token);
+                    Statistics.TotalBytesSent += response.ContentLength ?? response.ToBytes().Length;
 
                     Logger.LogInformation("HTTP {StatusCode} {Method} {Path} - Keep-Alive: {KeepAlive}",
                         response.StatusCode, request.Method, request.Path, keepAlive);
@@ -484,8 +495,7 @@ public class HttpServer : ServerBase
                         try
                         {
                             var timeoutResponse = HttpResponseBuilder.BuildErrorResponse(408, "Request Timeout", settings);
-                            var timeoutBytes = timeoutResponse.ToBytes();
-                            await clientSocket.SendAsync(timeoutBytes, SocketFlags.None, CancellationToken.None);
+                            await timeoutResponse.SendAsync(stream, CancellationToken.None);
                         }
                         catch (Exception ex)
                         {
@@ -513,6 +523,7 @@ public class HttpServer : ServerBase
         }
         finally
         {
+            stream.Dispose();
             clientSocket.Close();
             clientSocket.Dispose();
         }
