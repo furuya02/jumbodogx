@@ -25,8 +25,12 @@ public class ProxyServer : ServerBase
     private ProxyCache? _cache;
     private List<string> _disableAddressList = new();
 
-    // デフォルトタイムアウト（タイムアウト設定が0の場合に使用）
-    private const int DefaultTimeoutSeconds = 60;
+    // 定数定義
+    private const int DefaultTimeoutSeconds = 60; // デフォルトタイムアウト（秒）
+    private const int RelayBufferSize = 8192; // リレーバッファサイズ（バイト）
+    private const int MaxBufferedResponseSize = 1024 * 1024; // 完全バッファリングの上限（1MB）
+    private const int StreamingCheckSize = 8192; // ストリーミング時のチェック単位（バイト）
+    private const int CacheDisposeGracePeriodMs = 100; // キャッシュ破棄時の猶予期間（ミリ秒）
 
     public ProxyServer(ILogger<ProxyServer> logger, ISettingsService settingsService) : base(logger)
     {
@@ -83,18 +87,26 @@ public class ProxyServer : ServerBase
             _cache = newCache;
         }
 
-        // ロック外で古いキャッシュを停止・破棄（ブロッキング操作をロック外で実行）
+        // 古いキャッシュを非同期で破棄（グレースピリオド付き）
+        // 他のスレッドがまだ使用している可能性があるため、猶予期間を設ける
         if (oldCache != null)
         {
-            try
+            _ = Task.Run(async () =>
             {
-                oldCache.Stop();
-                oldCache.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Error disposing old cache");
-            }
+                try
+                {
+                    // グレースピリオド: 進行中のリクエストが完了するのを待つ
+                    await Task.Delay(CacheDisposeGracePeriodMs);
+
+                    oldCache.Stop();
+                    oldCache.Dispose();
+                    Logger.LogDebug("Old cache disposed successfully");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Error disposing old cache");
+                }
+            });
         }
 
         Logger.LogInformation("Proxy server components initialized");
@@ -484,7 +496,7 @@ public class ProxyServer : ServerBase
     {
         try
         {
-            var buffer = new byte[8192];
+            var buffer = new byte[RelayBufferSize];
             int bytesRead;
 
             while ((bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
@@ -493,9 +505,17 @@ public class ProxyServer : ServerBase
                 await destination.FlushAsync(cancellationToken);
             }
         }
+        catch (OperationCanceledException)
+        {
+            Logger.LogDebug("Relay cancelled");
+        }
+        catch (IOException ex) when (ex.InnerException is SocketException)
+        {
+            Logger.LogDebug(ex, "Relay connection closed (network error)");
+        }
         catch (Exception ex)
         {
-            Logger.LogDebug(ex, "Relay connection closed");
+            Logger.LogWarning(ex, "Unexpected relay error");
         }
     }
 
@@ -505,16 +525,14 @@ public class ProxyServer : ServerBase
         ProxyLimitString limitString,
         CancellationToken cancellationToken)
     {
-        const int MaxContentFilterSize = 1024 * 1024; // 1MB（コンテンツフィルタリング対象の最大サイズ）
-
         try
         {
-            var buffer = new byte[8192];
-            var responseBuffer = new List<byte>(); // レスポンス全体（ヘッダー+ボディ）をバッファリング
+            var buffer = new byte[RelayBufferSize];
+            var responseBuffer = new List<byte>();
             var headerEndPosition = -1;
-            var totalBytesRead = 0;
+            var headersSent = false;
 
-            // レスポンス全体をバッファリング（サイズ制限内）
+            // レスポンスをバッファリング（サイズ制限まで）
             while (true)
             {
                 var bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
@@ -522,7 +540,6 @@ public class ProxyServer : ServerBase
                     break;
 
                 responseBuffer.AddRange(buffer.Take(bytesRead));
-                totalBytesRead += bytesRead;
 
                 // ヘッダー終了位置を検出（一度だけ）
                 if (headerEndPosition == -1)
@@ -538,39 +555,88 @@ public class ProxyServer : ServerBase
                     }
                 }
 
-                // サイズ制限チェック
-                if (responseBuffer.Count > MaxContentFilterSize)
+                // サイズ制限チェック - バッファリング上限を超えた場合
+                if (responseBuffer.Count > MaxBufferedResponseSize)
                 {
-                    Logger.LogInformation("Response too large for content filtering ({Size} bytes), streaming without filter", responseBuffer.Count);
+                    Logger.LogWarning("Response size ({Size} bytes) exceeds buffer limit, switching to streaming filter mode", responseBuffer.Count);
 
-                    // バッファリング済みのデータをそのまま転送
+                    // ここまでのデータをチェック
+                    if (headerEndPosition > 0)
+                    {
+                        var bufferedBody = responseBuffer.Skip(headerEndPosition).ToArray();
+                        if (limitString.Contains(bufferedBody))
+                        {
+                            Logger.LogWarning("Content blocked by filter in buffered portion");
+                            // ヘッダー未送信なら403を返せる
+                            if (!headersSent)
+                            {
+                                await SendErrorResponseAsync(destination, 403, "Forbidden - Content Blocked", cancellationToken);
+                                return;
+                            }
+                            // ヘッダー送信済みなら接続を閉じる
+                            return;
+                        }
+                    }
+
+                    // バッファリング済みデータを送信
                     var bufferedData = responseBuffer.ToArray();
                     await destination.WriteAsync(bufferedData, 0, bufferedData.Length, cancellationToken);
                     await destination.FlushAsync(cancellationToken);
+                    headersSent = true;
+                    responseBuffer.Clear();
 
-                    // 残りのデータを通常転送
+                    // 残りはストリーミングモードでフィルタリング
+                    var streamBuffer = new List<byte>();
                     while ((bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
                     {
-                        await destination.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+                        streamBuffer.AddRange(buffer.Take(bytesRead));
+
+                        // 定期的にフィルタリングチェック
+                        if (streamBuffer.Count >= StreamingCheckSize || bytesRead == 0)
+                        {
+                            var checkData = streamBuffer.ToArray();
+                            if (limitString.Contains(checkData))
+                            {
+                                Logger.LogWarning("Content blocked by filter in streaming portion, closing connection");
+                                // すでにヘッダー+一部データを送信済みなので、接続を閉じるしかない
+                                return;
+                            }
+
+                            // チェックOKなら送信
+                            await destination.WriteAsync(checkData, 0, checkData.Length, cancellationToken);
+                            await destination.FlushAsync(cancellationToken);
+                            streamBuffer.Clear();
+                        }
+                    }
+
+                    // 最後のバッファをチェック
+                    if (streamBuffer.Count > 0)
+                    {
+                        var checkData = streamBuffer.ToArray();
+                        if (limitString.Contains(checkData))
+                        {
+                            Logger.LogWarning("Content blocked by filter in final portion, closing connection");
+                            return;
+                        }
+                        await destination.WriteAsync(checkData, 0, checkData.Length, cancellationToken);
                         await destination.FlushAsync(cancellationToken);
                     }
                     return;
                 }
             }
 
-            // レスポンス全体をバッファリング完了
+            // レスポンス全体をバッファリング完了（上限内）
             var responseData = responseBuffer.ToArray();
 
-            // ヘッダーとボディを分離
+            // ヘッダーとボディを分離してフィルタリング
             if (headerEndPosition > 0 && headerEndPosition < responseData.Length)
             {
                 var bodyData = responseData.Skip(headerEndPosition).ToArray();
 
-                // コンテンツフィルタリングチェック
                 if (bodyData.Length > 0 && limitString.Contains(bodyData))
                 {
                     Logger.LogWarning("Content blocked by filter (response size: {Size} bytes)", responseData.Length);
-                    // ヘッダーを送信していないので、403エラーを送信可能
+                    // ヘッダー未送信なので403エラーを送信可能
                     await SendErrorResponseAsync(destination, 403, "Forbidden - Content Blocked", cancellationToken);
                     return;
                 }
@@ -583,9 +649,17 @@ public class ProxyServer : ServerBase
                 await destination.FlushAsync(cancellationToken);
             }
         }
+        catch (OperationCanceledException)
+        {
+            Logger.LogDebug("Relay with content filtering cancelled");
+        }
+        catch (IOException ex) when (ex.InnerException is SocketException)
+        {
+            Logger.LogDebug(ex, "Relay with content filtering closed (network error)");
+        }
         catch (Exception ex)
         {
-            Logger.LogDebug(ex, "Relay with content filtering closed");
+            Logger.LogWarning(ex, "Unexpected relay with content filtering error");
         }
     }
 

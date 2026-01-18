@@ -10,6 +10,9 @@ namespace Jdx.Servers.Proxy;
 /// </summary>
 public class ProxyConnection : IDisposable
 {
+    // 定数定義
+    private const int SocketPollTimeoutMicroseconds = 1000; // ソケットPollのタイムアウト（マイクロ秒）
+
     private readonly ILogger _logger;
     private readonly Dictionary<ProxyConnectionSide, TcpClient?> _sockets;
     private readonly Dictionary<ProxyConnectionSide, NetworkStream?> _streams;
@@ -250,7 +253,7 @@ public class ProxyConnection : IDisposable
         {
             // TcpClient.Connectedは信頼できないので、Pollで確認
             var socket = client.Client;
-            bool pollRead = socket.Poll(1000, System.Net.Sockets.SelectMode.SelectRead);
+            bool pollRead = socket.Poll(SocketPollTimeoutMicroseconds, System.Net.Sockets.SelectMode.SelectRead);
             bool dataAvailable = (socket.Available > 0);
 
             // データが読み取り可能だが利用可能なデータがない場合は切断されている

@@ -9,6 +9,10 @@ namespace Jdx.Servers.Proxy;
 /// </summary>
 public class ProxyRequest
 {
+    // 定数定義
+    private const int MaxRequestBodySize = 100 * 1024 * 1024; // 100MB（リクエストボディの最大サイズ）
+    private const int MaxHttpLineLength = 8192; // HTTP行の最大長（DoS対策）
+
     public string HostName { get; private set; } = "";
     public string Uri { get; private set; } = "";
     public string Extension { get; private set; } = "";
@@ -250,8 +254,6 @@ public class ProxyRequest
 
     private async Task ReadBodyAsync(Stream stream, CancellationToken cancellationToken)
     {
-        const int MaxRequestBodySize = 100 * 1024 * 1024; // 100MB（DoS対策）
-
         if (Headers.TryGetValue("Content-Length", out var lengthStr) &&
             int.TryParse(lengthStr, out var length) &&
             length > 0)
@@ -277,7 +279,6 @@ public class ProxyRequest
 
     private async Task<string> ReadLineAsync(Stream stream, CancellationToken cancellationToken)
     {
-        const int MaxLineLength = 8192; // HTTP行の最大長（DoS対策）
         var buffer = new List<byte>();
         var prevByte = (byte)0;
 
@@ -292,9 +293,9 @@ public class ProxyRequest
             buffer.Add(currentByte);
 
             // 行長制限チェック（DoS攻撃防止）
-            if (buffer.Count > MaxLineLength)
+            if (buffer.Count > MaxHttpLineLength)
             {
-                throw new InvalidOperationException($"Request line too long (max {MaxLineLength} bytes)");
+                throw new InvalidOperationException($"Request line too long (max {MaxHttpLineLength} bytes)");
             }
 
             // CRLF検出
