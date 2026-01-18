@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
@@ -55,31 +56,15 @@ public class FtpServer : ServerBase
         Logger.LogInformation("Starting FTP Server on {Address}:{Port}",
             settings.BindAddress, settings.Port);
 
-        IPAddress? bindAddress = null;
-        if (settings.BindAddress != "0.0.0.0")
-        {
-            if (!IPAddress.TryParse(settings.BindAddress, out bindAddress))
-            {
-                Logger.LogWarning("Invalid bind address '{Address}', using any", settings.BindAddress);
-                bindAddress = null;
-            }
-        }
-
-        _listener = new ServerTcpListener(_port, bindAddress, Logger);
-        await _listener.StartAsync(cancellationToken);
+        _listener = await CreateTcpListenerAsync(_port, settings.BindAddress, cancellationToken);
 
         Logger.LogInformation("FTP Server started successfully");
     }
 
-    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override Task StopListeningAsync(CancellationToken cancellationToken)
     {
-        if (_listener != null)
-        {
-            await _listener.StopAsync(cancellationToken);
-            _listener = null;
-        }
-
         Logger.LogInformation("FTP Server stopped");
+        return Task.CompletedTask;
     }
 
     protected override async Task HandleClientAsync(Socket socket, CancellationToken cancellationToken)
@@ -170,17 +155,9 @@ public class FtpServer : ServerBase
                     session.UserName, remoteAddress);
             }
         }
-        catch (OperationCanceledException)
-        {
-            Logger.LogDebug("FTP client cancelled: {RemoteAddress}", remoteAddress);
-        }
-        catch (IOException ex) when (ex.InnerException is SocketException)
-        {
-            Logger.LogDebug(ex, "FTP client connection closed (network error): {RemoteAddress}", remoteAddress);
-        }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Unexpected error handling FTP client: {RemoteAddress}", remoteAddress);
+            NetworkExceptionHandler.LogNetworkException(ex, Logger, "FTP client handling");
         }
         finally
         {
