@@ -23,7 +23,9 @@ public class ConnectionLimiter : IDisposable
         CancellationToken cancellationToken)
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(ConnectionLimiter));
+        }
 
         await _semaphore.WaitAsync(cancellationToken);
         try
@@ -43,7 +45,9 @@ public class ConnectionLimiter : IDisposable
     public async Task<IDisposable> AcquireAsync(CancellationToken cancellationToken)
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(ConnectionLimiter));
+        }
 
         await _semaphore.WaitAsync(cancellationToken);
         return new ReleaseHandle(_semaphore);
@@ -58,7 +62,10 @@ public class ConnectionLimiter : IDisposable
 
         public void Dispose()
         {
-            if (_disposed) return;
+            if (_disposed)
+            {
+                return;
+            }
             _disposed = true;
             _semaphore.Release();
         }
@@ -66,7 +73,10 @@ public class ConnectionLimiter : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
         _disposed = true;
         _semaphore?.Dispose();
     }

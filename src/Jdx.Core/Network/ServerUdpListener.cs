@@ -24,7 +24,9 @@ public class ServerUdpListener : IDisposable
     public ServerUdpListener(int port, IPAddress? bindAddress, ILogger logger)
     {
         if (port <= 0 || port > 65535)
+        {
             throw new ArgumentException("Port must be between 1 and 65535", nameof(port));
+        }
 
         _port = port;
         _bindAddress = bindAddress ?? IPAddress.Any;
@@ -40,7 +42,9 @@ public class ServerUdpListener : IDisposable
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         if (IsListening)
+        {
             throw new InvalidOperationException("Already listening");
+        }
 
         _socket = new Socket(
             _bindAddress.AddressFamily,
@@ -62,7 +66,9 @@ public class ServerUdpListener : IDisposable
     public async Task<(byte[] data, EndPoint remoteEndPoint)> ReceiveAsync(CancellationToken cancellationToken)
     {
         if (!IsListening || _socket == null)
+        {
             throw new InvalidOperationException("Not listening");
+        }
 
         var buffer = new byte[65535]; // UDPの最大サイズ
         EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
@@ -83,7 +89,9 @@ public class ServerUdpListener : IDisposable
     public async Task SendAsync(byte[] data, EndPoint remoteEndPoint, CancellationToken cancellationToken)
     {
         if (!IsListening || _socket == null)
+        {
             throw new InvalidOperationException("Not listening");
+        }
 
         var bytesSent = await _socket.SendToAsync(data, SocketFlags.None, remoteEndPoint, cancellationToken);
 
@@ -96,7 +104,9 @@ public class ServerUdpListener : IDisposable
     public Task StopAsync(CancellationToken cancellationToken)
     {
         if (!IsListening)
+        {
             return Task.CompletedTask;
+        }
 
         IsListening = false;
         _socket?.Close();
@@ -112,7 +122,9 @@ public class ServerUdpListener : IDisposable
     public void Dispose()
     {
         if (_disposed)
+        {
             return;
+        }
 
         StopAsync(CancellationToken.None).GetAwaiter().GetResult();
         _disposed = true;
