@@ -1,6 +1,7 @@
 using System.Net.Sockets;
 using System.Text;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Constants;
 using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
@@ -14,9 +15,6 @@ namespace Jdx.Servers.Pop3;
 /// </summary>
 public class Pop3Server : ServerBase
 {
-    // 定数定義
-    private const int MaxCommandLineLength = 512; // POP3コマンドラインの最大長（DoS対策）
-
     private readonly Pop3ServerSettings _settings;
     private readonly ConnectionLimiter _connectionLimiter;
 
@@ -89,11 +87,12 @@ public class Pop3Server : ServerBase
                     if (string.IsNullOrEmpty(line))
                         break;
 
-                    // コマンドライン長制限チェック（DoS対策）
-                    if (line.Length > MaxCommandLineLength)
+                    // コマンドライン長制限チェック（DoS対策、RFC 1939準拠）
+                    if (line.Length > NetworkConstants.Pop3.MaxCommandLineLength)
                     {
                         await writer.WriteLineAsync("-ERR Command line too long");
-                        Logger.LogWarning("POP3 command line too long: {Length} bytes", line.Length);
+                        Logger.LogWarning("POP3 command line too long: {Length} bytes (max: {Max})",
+                            line.Length, NetworkConstants.Pop3.MaxCommandLineLength);
                         break;
                     }
 

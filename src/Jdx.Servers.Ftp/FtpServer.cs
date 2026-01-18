@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Constants;
 using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
@@ -18,9 +19,6 @@ namespace Jdx.Servers.Ftp;
 /// </summary>
 public class FtpServer : ServerBase
 {
-    // 定数定義
-    private const int MaxCommandLineLength = 512; // FTPコマンドラインの最大長（DoS対策）
-
     private readonly ISettingsService _settingsService;
     private FtpUserManager? _userManager;
     private FtpMountManager? _mountManager;
@@ -132,12 +130,12 @@ public class FtpServer : ServerBase
                     break;
                 }
 
-                // コマンドライン長制限チェック（DoS対策）
-                if (line.Length > MaxCommandLineLength)
+                // コマンドライン長制限チェック（DoS対策、RFC 959準拠）
+                if (line.Length > NetworkConstants.Ftp.MaxCommandLineLength)
                 {
                     await session.SendResponseAsync("500 Command line too long");
-                    Logger.LogWarning("FTP command line too long from {RemoteAddress}: {Length} bytes",
-                        remoteAddress, line.Length);
+                    Logger.LogWarning("FTP command line too long from {RemoteAddress}: {Length} bytes (max: {Max})",
+                        remoteAddress, line.Length, NetworkConstants.Ftp.MaxCommandLineLength);
                     break;
                 }
 

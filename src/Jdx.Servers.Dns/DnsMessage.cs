@@ -111,9 +111,26 @@ public class DnsMessage
         var ipParts = ipAddress.Split('.');
         if (ipParts.Length == 4)
         {
-            foreach (var part in ipParts)
+            // byte.Parse()をTryParse()に置き換え（DoS対策）
+            var validParts = true;
+            var bytes = new byte[4];
+            for (int i = 0; i < 4; i++)
             {
-                response.Add(byte.Parse(part));
+                if (!byte.TryParse(ipParts[i], out bytes[i]))
+                {
+                    validParts = false;
+                    break;
+                }
+            }
+
+            if (validParts)
+            {
+                response.AddRange(bytes);
+            }
+            else
+            {
+                // 無効なIPアドレス - デフォルトIP
+                response.AddRange(new byte[] { 127, 0, 0, 1 });
             }
         }
         else

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Constants;
 using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
@@ -14,10 +15,6 @@ namespace Jdx.Servers.Tftp;
 /// </summary>
 public class TftpServer : ServerBase
 {
-    // 定数定義
-    private const int BlockSize = 512; // RFC 1350: TFTP標準ブロックサイズ
-    private const int MaxFileSize = 100 * 1024 * 1024; // 最大ファイルサイズ: 100MB（DoS対策）
-
     private readonly TftpServerSettings _settings;
     private readonly ConnectionLimiter _connectionLimiter;
 
@@ -196,12 +193,12 @@ public class TftpServer : ServerBase
         {
             await using var fileStream = File.OpenRead(filePath);
             ushort blockNumber = 1;
-            var buffer = new byte[BlockSize];
+            var buffer = new byte[NetworkConstants.Tftp.BlockSize];
 
             while (true)
             {
                 // Read block from file
-                var bytesRead = await fileStream.ReadAsync(buffer.AsMemory(0, BlockSize), cancellationToken);
+                var bytesRead = await fileStream.ReadAsync(buffer.AsMemory(0, NetworkConstants.Tftp.BlockSize), cancellationToken);
                 var blockData = buffer[0..bytesRead];
 
                 // Send DATA packet
@@ -230,7 +227,7 @@ public class TftpServer : ServerBase
                 }
 
                 // Last block
-                if (bytesRead < BlockSize)
+                if (bytesRead < NetworkConstants.Tftp.BlockSize)
                 {
                     Logger.LogInformation("File sent successfully: {FilePath} ({Blocks} blocks)", filePath, blockNumber);
                     break;
@@ -289,9 +286,9 @@ public class TftpServer : ServerBase
 
                 // ファイルサイズ制限チェック（DoS対策）
                 totalBytesReceived += blockData.Length;
-                if (totalBytesReceived > MaxFileSize)
+                if (totalBytesReceived > NetworkConstants.Tftp.DefaultMaxFileSize)
                 {
-                    Logger.LogWarning("File size exceeds limit: {Size} bytes (max {MaxSize})", totalBytesReceived, MaxFileSize);
+                    Logger.LogWarning("File size exceeds limit: {Size} bytes (max {MaxSize})", totalBytesReceived, NetworkConstants.Tftp.DefaultMaxFileSize);
                     await SendErrorAsync(remoteEndPoint, TftpErrorCode.DiskFull, "File too large", cancellationToken);
                     throw new InvalidOperationException("File size exceeds limit");
                 }
@@ -303,7 +300,7 @@ public class TftpServer : ServerBase
                 await udpClient.SendAsync(ackPacket, cancellationToken);
 
                 // Last block
-                if (blockData.Length < BlockSize)
+                if (blockData.Length < NetworkConstants.Tftp.BlockSize)
                 {
                     Logger.LogInformation("File received successfully: {FilePath} ({Blocks} blocks)", filePath, expectedBlock);
                     break;
@@ -350,8 +347,8 @@ public class TftpServer : ServerBase
             if (string.IsNullOrWhiteSpace(filename))
                 return null;
 
-            // ファイル名長制限チェック
-            if (filename.Length > 255)
+            // ファイル名長制限チェック（RFC 1350準拠）
+            if (filename.Length > NetworkConstants.Tftp.MaxFilenameLength)
                 return null;
 
             // パストラバーサル対策: Path.GetFileName()でファイル名部分のみを抽出
