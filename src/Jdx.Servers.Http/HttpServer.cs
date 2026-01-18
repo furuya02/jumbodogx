@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Constants;
 using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
@@ -15,6 +16,7 @@ namespace Jdx.Servers.Http;
 public class HttpServer : ServerBase
 {
     private readonly ISettingsService _settingsService;
+    private readonly ReaderWriterLockSlim _settingsLock = new ReaderWriterLockSlim();
     private int _port;
     private ServerTcpListener? _listener;
     private HttpTarget? _target;
@@ -112,23 +114,40 @@ public class HttpServer : ServerBase
 
     private void OnSettingsChanged(object? sender, ApplicationSettings settings)
     {
-        var httpSettings = settings.HttpServer;
-
-        // ポート変更があればサーバーを再起動
-        if (_port != httpSettings.Port)
+        _settingsLock.EnterWriteLock();
+        try
         {
-            _port = httpSettings.Port;
-            Logger.LogInformation("HTTP Server port changed to {Port}", _port);
-        }
+            var httpSettings = settings.HttpServer;
 
-        // コンポーネントを再初期化
-        InitializeComponents(httpSettings);
-        Logger.LogInformation("HTTP Server settings updated");
+            // ポート変更があればサーバーを再起動
+            if (_port != httpSettings.Port)
+            {
+                _port = httpSettings.Port;
+                Logger.LogInformation("HTTP Server port changed to {Port}", _port);
+            }
+
+            // コンポーネントを再初期化
+            InitializeComponents(httpSettings);
+            Logger.LogInformation("HTTP Server settings updated");
+        }
+        finally
+        {
+            _settingsLock.ExitWriteLock();
+        }
     }
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {
-        var settings = _settingsService.GetSettings().HttpServer;
+        HttpServerSettings settings;
+        _settingsLock.EnterReadLock();
+        try
+        {
+            settings = _settingsService.GetSettings().HttpServer;
+        }
+        finally
+        {
+            _settingsLock.ExitReadLock();
+        }
 
         _listener = await CreateTcpListenerAsync(_port, settings.BindAddress, cancellationToken);
 
@@ -150,7 +169,17 @@ public class HttpServer : ServerBase
                     Statistics.TotalConnections++;
 
                     // 最大接続数チェック
-                    var currentSettings = _settingsService.GetSettings().HttpServer;
+                    HttpServerSettings currentSettings;
+                    _settingsLock.EnterReadLock();
+                    try
+                    {
+                        currentSettings = _settingsService.GetSettings().HttpServer;
+                    }
+                    finally
+                    {
+                        _settingsLock.ExitReadLock();
+                    }
+
                     if (currentSettings.MaxConnections > 0 && Statistics.ActiveConnections >= currentSettings.MaxConnections)
                     {
                         Logger.LogWarning("Max connections ({MaxConnections}) reached, rejecting connection from {RemoteEndPoint}",
@@ -216,11 +245,22 @@ public class HttpServer : ServerBase
         var remoteEndPoint = clientSocket.RemoteEndPoint?.ToString() ?? "unknown";
         Logger.LogInformation("HTTP connection from {RemoteEndPoint}", remoteEndPoint);
 
-        var settings = _settingsService.GetSettings().HttpServer;
+        HttpServerSettings settings;
+        HttpAclFilter aclFilter;
+        _settingsLock.EnterReadLock();
+        try
+        {
+            settings = _settingsService.GetSettings().HttpServer;
+            aclFilter = _aclFilter!; // Capture component reference inside lock
+        }
+        finally
+        {
+            _settingsLock.ExitReadLock();
+        }
 
         // ACLチェック（接続元IPアドレス）
         var remoteIp = clientSocket.RemoteEndPoint?.ToString()?.Split(':')[0] ?? "";
-        if (!string.IsNullOrEmpty(remoteIp) && !_aclFilter!.IsAllowed(remoteIp))
+        if (!string.IsNullOrEmpty(remoteIp) && !aclFilter.IsAllowed(remoteIp))
         {
             Logger.LogWarning("Connection from {RemoteIP} rejected by ACL", remoteIp);
 
@@ -301,6 +341,40 @@ public class HttpServer : ServerBase
                     // リクエスト全体をパース（ヘッダー含む）
                     var request = HttpRequest.ParseFull(lines);
                     Statistics.TotalRequests++;
+
+                    // リクエストボディサイズチェック（DoS対策、RFC 7230準拠）
+                    if (request.Headers.TryGetValue("Content-Length", out var contentLengthStr))
+                    {
+                        if (!long.TryParse(contentLengthStr, out var contentLength) || contentLength < 0)
+                        {
+                            // 無効または負のContent-Lengthヘッダー
+                            Logger.LogWarning("Invalid Content-Length header '{ContentLength}' from {RemoteEndPoint}",
+                                contentLengthStr, remoteEndPoint);
+
+                            var errorResponse = HttpResponseBuilder.BuildErrorResponse(400, "Bad Request", settings);
+                            var errorBytes = errorResponse.ToBytes();
+                            await clientSocket.SendAsync(errorBytes, SocketFlags.None, linkedCts.Token);
+                            Statistics.TotalErrors++;
+                            // 接続を即座にクローズ（不正なリクエストのため）
+                            keepAlive = false;
+                            break;
+                        }
+
+                        if (contentLength > NetworkConstants.Http.MaxRequestBodySize)
+                        {
+                            Logger.LogWarning("Request body size {Size} exceeds limit {Max} from {RemoteEndPoint}",
+                                contentLength, NetworkConstants.Http.MaxRequestBodySize, remoteEndPoint);
+
+                            // 413 Payload Too Large を返す
+                            var errorResponse = HttpResponseBuilder.BuildErrorResponse(413, "Payload Too Large", settings);
+                            var errorBytes = errorResponse.ToBytes();
+                            await clientSocket.SendAsync(errorBytes, SocketFlags.None, linkedCts.Token);
+                            Statistics.TotalErrors++;
+                            // 接続を即座にクローズ（巨大なペイロードを読み取らないため）
+                            keepAlive = false;
+                            break;
+                        }
+                    }
 
                     Logger.LogInformation("HTTP {Method} {Path} from {RemoteEndPoint} (request #{Count})",
                         request.Method, request.Path, remoteEndPoint, requestCount);
@@ -417,17 +491,39 @@ public class HttpServer : ServerBase
 
     private async Task<HttpResponse> GenerateResponseAsync(HttpRequest request, CancellationToken cancellationToken, string? remoteIp = null)
     {
-        var settings = _settingsService.GetSettings().HttpServer;
+        HttpServerSettings settings;
+        HttpVirtualHostManager? virtualHostManager;
+        HttpAuthenticator authenticator;
+        HttpWebDavHandler webDavHandler;
+        HttpCgiHandler cgiHandler;
+        HttpTarget target;
+        HttpFileHandler fileHandler;
+        _settingsLock.EnterReadLock();
+        try
+        {
+            settings = _settingsService.GetSettings().HttpServer;
+            // Capture all component references inside lock to ensure thread-safe access
+            virtualHostManager = _virtualHostManager;
+            authenticator = _authenticator!;
+            webDavHandler = _webDavHandler!;
+            cgiHandler = _cgiHandler!;
+            target = _target!;
+            fileHandler = _fileHandler!;
+        }
+        finally
+        {
+            _settingsLock.ExitReadLock();
+        }
 
         // Virtual Host解決
         string? documentRoot = null;
-        if (_virtualHostManager != null && request.Headers.TryGetValue("Host", out var hostHeader))
+        if (virtualHostManager != null && request.Headers.TryGetValue("Host", out var hostHeader))
         {
             // ローカルアドレス・ポートの取得（TODO: 実際の値を取得）
             var localAddress = settings.BindAddress;
             var localPort = _port;
 
-            documentRoot = _virtualHostManager.ResolveDocumentRoot(hostHeader, localAddress, localPort);
+            documentRoot = virtualHostManager.ResolveDocumentRoot(hostHeader, localAddress, localPort);
             if (documentRoot != settings.DocumentRoot)
             {
                 Logger.LogDebug("Virtual host resolved: {Host} -> {DocumentRoot}", hostHeader, documentRoot);
@@ -441,7 +537,7 @@ public class HttpServer : ServerBase
         }
 
         // 認証チェック
-        var authResult = _authenticator!.Authenticate(request.Path, request);
+        var authResult = authenticator.Authenticate(request.Path, request);
 
         if (authResult.IsUnauthorized)
         {
@@ -468,19 +564,19 @@ public class HttpServer : ServerBase
         }
 
         // WebDAVチェック
-        if (_webDavHandler!.IsWebDavRequest(request.Path, request.Method, out var webDavPhysicalPath, out var allowWrite))
+        if (webDavHandler.IsWebDavRequest(request.Path, request.Method, out var webDavPhysicalPath, out var allowWrite))
         {
-            return await _webDavHandler.HandleWebDavAsync(request.Method, request.Path, webDavPhysicalPath, allowWrite, request, cancellationToken);
+            return await webDavHandler.HandleWebDavAsync(request.Method, request.Path, webDavPhysicalPath, allowWrite, request, cancellationToken);
         }
 
         // CGIチェック
-        if (_cgiHandler!.IsCgiRequest(request.Path, out var scriptPath, out var interpreter))
+        if (cgiHandler.IsCgiRequest(request.Path, out var scriptPath, out var interpreter))
         {
-            return await _cgiHandler.ExecuteCgiAsync(scriptPath, interpreter, request, remoteIp ?? "127.0.0.1", cancellationToken);
+            return await cgiHandler.ExecuteCgiAsync(scriptPath, interpreter, request, remoteIp ?? "127.0.0.1", cancellationToken);
         }
 
         // ターゲット解決（Virtual Host対応）
-        var targetInfo = _target!.ResolveTarget(request.Path, documentRoot);
+        var targetInfo = target.ResolveTarget(request.Path, documentRoot);
 
         if (!targetInfo.IsValid)
         {
@@ -496,7 +592,7 @@ public class HttpServer : ServerBase
         // ファイルハンドラで処理
         if (targetInfo.Type == TargetType.StaticFile || targetInfo.Type == TargetType.Directory)
         {
-            return await _fileHandler!.HandleFileAsync(targetInfo, request, settings, cancellationToken, remoteIp);
+            return await fileHandler.HandleFileAsync(targetInfo, request, settings, cancellationToken, remoteIp);
         }
 
         // その他（本来ここには来ないはず）
@@ -542,5 +638,16 @@ public class HttpServer : ServerBase
         var assembly = System.Reflection.Assembly.GetExecutingAssembly();
         var version = assembly.GetName().Version;
         return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "9.0.0";
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            // Unsubscribe from settings changes before disposing the lock to prevent race conditions
+            _settingsService.SettingsChanged -= OnSettingsChanged;
+            _settingsLock?.Dispose();
+        }
+        base.Dispose(disposing);
     }
 }
