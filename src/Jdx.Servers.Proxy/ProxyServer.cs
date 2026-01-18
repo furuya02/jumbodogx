@@ -143,6 +143,10 @@ public class ProxyServer : ServerBase
         );
 
         // クライアント接続を待機
+        // 注: ServerBase.RunTcpAcceptLoopAsync()は使用していません。
+        // 理由: StartListeningAsync()内でループを実装することで、
+        // 設定変更時のリスナー再起動処理との整合性を保つため。
+        // また、Proxyサーバー特有のキャッシュ管理ロジックと連携しやすくするため。
         while (!cancellationToken.IsCancellationRequested)
         {
             try

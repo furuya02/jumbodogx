@@ -136,6 +136,10 @@ public class HttpServer : ServerBase
         Logger.LogInformation("HTTP Server listening on http://{Address}:{Port}", displayAddress, _port);
 
         // クライアント接続を受け入れるループ
+        // 注: ServerBase.RunTcpAcceptLoopAsync()は使用していません。
+        // 理由: 最大接続数到達時に503 Service Unavailableレスポンスを送信する必要があるため。
+        // ConnectionLimiterではレスポンス送信前に接続を拒否してしまうため、
+        // カスタムループで接続受け入れ後に503を返す実装が必要です。
         _ = Task.Run(async () =>
         {
             while (!StopCts.Token.IsCancellationRequested)
