@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using Jdx.Core.Constants;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
 
@@ -462,10 +463,11 @@ public class FtpCommandHandler
             var ip = $"{bytes[0]}.{bytes[1]}.{bytes[2]}.{bytes[3]}";
             var port = bytes[4] * 256 + bytes[5];
 
-            // ポート番号の範囲チェック（1-65535）
-            if (port < 1 || port > 65535)
+            // ポート番号の範囲チェック（1024-65535、ウェルノウンポート除外）
+            if (port < NetworkConstants.Ftp.MinPort || port > NetworkConstants.Ftp.MaxPort)
             {
-                _logger.LogWarning("Invalid PORT port number: {Port}", port);
+                _logger.LogWarning("Invalid PORT port number: {Port} (allowed: {Min}-{Max})",
+                    port, NetworkConstants.Ftp.MinPort, NetworkConstants.Ftp.MaxPort);
                 await session.SendResponseAsync("500 Invalid port number.");
                 return true;
             }
@@ -475,6 +477,16 @@ public class FtpCommandHandler
             {
                 _logger.LogWarning("Invalid PORT IP address: {IP}", ip);
                 await session.SendResponseAsync("500 Invalid IP address.");
+                return true;
+            }
+
+            // FTPバウンス攻撃防止: クライアントの送信元IPアドレスと一致するか確認
+            var clientIp = session.RemoteAddress?.Split(':')[0];
+            if (clientIp != null && clientIp != ip)
+            {
+                _logger.LogWarning("FTP bounce attack attempt: client {ClientIP} tried to connect to {TargetIP}",
+                    clientIp, ip);
+                await session.SendResponseAsync("500 PORT command rejected (security).");
                 return true;
             }
 
