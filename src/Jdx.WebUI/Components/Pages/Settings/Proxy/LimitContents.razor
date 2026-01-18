@@ -1,0 +1,149 @@
+@page "/settings/proxy/limitcontents"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>Proxy Content Limit Settings - JumboDogX</PageTitle>
+
+<h1>Proxy - Content Limit Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🔍 Content Filter Strings</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Content containing any of these strings will be blocked by the proxy.
+                    This is useful for filtering inappropriate content or blocking specific keywords.
+                </p>
+
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th style="width: 80%">String</th>
+                            <th style="width: 20%">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (settings.ProxyServer.LimitStringList.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="2" class="text-center text-muted">
+                                    No content filter strings configured. Click "Add String" to add one.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var (entry, index) in settings.ProxyServer.LimitStringList.Select((e, i) => (e, i)))
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm"
+                                               @bind="entry.String" placeholder="Enter text to filter">
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-danger btn-sm" @onclick="() => RemoveLimitString(index)">
+                                            <span class="bi bi-trash"></span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+
+                <button class="btn btn-success btn-sm" @onclick="AddLimitString">
+                    <span class="bi bi-plus-circle me-1"></span> Add String
+                </button>
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            <strong>ℹ️ How Content Filtering Works:</strong>
+            <ul class="mb-0 mt-2">
+                <li>The proxy scans response content for the specified strings</li>
+                <li>If a match is found, the content is blocked and an error is returned to the client</li>
+                <li>This is a simple text-based filter - it does not support regular expressions</li>
+                <li>Use this feature carefully as it may block legitimate content</li>
+            </ul>
+        </div>
+
+        <div class="alert alert-warning">
+            <strong>⚠️ Performance Warning:</strong><br>
+            Content filtering requires the proxy to read and scan all response bodies, which may impact performance.
+            Use this feature judiciously and only when necessary.
+        </div>
+
+        <div class="border-top pt-3 mt-4">
+            <button class="btn btn-primary me-2" @onclick="SaveSettings">
+                <span class="bi bi-check-circle me-1"></span> Save Settings
+            </button>
+            <button class="btn btn-secondary" @onclick="ResetToDefault">
+                <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private void AddLimitString()
+    {
+        settings.ProxyServer.LimitStringList.Add(new ProxyLimitStringEntry());
+    }
+
+    private void RemoveLimitString(int index)
+    {
+        settings.ProxyServer.LimitStringList.RemoveAt(index);
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Settings saved successfully!";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        // Clear message after 3 seconds
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+        settings.ProxyServer = defaults.ProxyServer;
+        saveMessage = "Settings reset to default values. Click Save to apply.";
+        saveSuccess = true;
+    }
+}

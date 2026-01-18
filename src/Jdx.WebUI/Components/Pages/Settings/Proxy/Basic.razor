@@ -1,0 +1,203 @@
+@page "/settings/proxy/basic"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>Proxy Basic Settings - JumboDogX</PageTitle>
+
+<h1>Proxy - Basic Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">🌐 Proxy Server - Basic Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="proxyEnabled"
+                                   @bind="settings.ProxyServer.Enabled">
+                            <label class="form-check-label" for="proxyEnabled">
+                                <strong>Enabled</strong>
+                            </label>
+                        </div>
+                        <div class="form-text">Enable Proxy server</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="proxyPort" class="form-label">Port</label>
+                        <input type="number" class="form-control" id="proxyPort"
+                               @bind="settings.ProxyServer.Port" min="1" max="65535">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="proxyMaxConn" class="form-label">Max Connections</label>
+                        <input type="number" class="form-control" id="proxyMaxConn"
+                               @bind="settings.ProxyServer.MaxConnections" min="1" max="10000">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="proxyTimeout" class="form-label">Timeout (seconds)</label>
+                        <input type="number" class="form-control" id="proxyTimeout"
+                               @bind="settings.ProxyServer.TimeOut" min="1" max="300">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="proxyBindAddr" class="form-label">Bind Address</label>
+                        <input type="text" class="form-control" id="proxyBindAddr"
+                               @bind="settings.ProxyServer.BindAddress" placeholder="0.0.0.0">
+                        <div class="form-text">IP address to bind (0.0.0.0 for all interfaces)</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch mt-4">
+                            <input class="form-check-input" type="checkbox" id="useRequestLog"
+                                   @bind="settings.ProxyServer.UseRequestLog">
+                            <label class="form-check-label" for="useRequestLog">
+                                Use Request Log
+                            </label>
+                        </div>
+                        <div class="form-text">Enable detailed request logging</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Anonymous FTP Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="anonymousAddress" class="form-label">Anonymous Address</label>
+                        <input type="text" class="form-control" id="anonymousAddress"
+                               @bind="settings.ProxyServer.AnonymousAddress" placeholder="BlackJumboDog@">
+                        <div class="form-text">Email address for anonymous FTP</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="serverHeader" class="form-label">Server Header</label>
+                        <input type="text" class="form-control" id="serverHeader"
+                               @bind="settings.ProxyServer.ServerHeader" placeholder="BlackJumboDog Version $v">
+                        <div class="form-text">Server identification header ($v = version)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Header Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="useBrowserHeader"
+                                   @bind="settings.ProxyServer.UseBrowserHeader">
+                            <label class="form-check-label" for="useBrowserHeader">
+                                Use Browser Header
+                            </label>
+                        </div>
+                        <div class="form-text">Use browser's original headers</div>
+                    </div>
+                </div>
+
+                @if (!settings.ProxyServer.UseBrowserHeader)
+                {
+                    <div class="border-top pt-3">
+                        <h6>Add Headers (enabled when "Use Browser Header" is disabled)</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="addHeaderRemoteHost"
+                                           @bind="settings.ProxyServer.AddHeaderRemoteHost">
+                                    <label class="form-check-label" for="addHeaderRemoteHost">
+                                        Remote-Host:
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="addHeaderXForwardedFor"
+                                           @bind="settings.ProxyServer.AddHeaderXForwardedFor">
+                                    <label class="form-check-label" for="addHeaderXForwardedFor">
+                                        X-Forwarded-For:
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="addHeaderForwarded"
+                                           @bind="settings.ProxyServer.AddHeaderForwarded">
+                                    <label class="form-check-label" for="addHeaderForwarded">
+                                        Forwarded:
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="border-top pt-3 mt-4">
+            <button class="btn btn-primary me-2" @onclick="SaveSettings">
+                <span class="bi bi-check-circle me-1"></span> Save Settings
+            </button>
+            <button class="btn btn-secondary" @onclick="ResetToDefault">
+                <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationSettings settings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Settings saved successfully!";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        // Clear message after 3 seconds
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        var defaults = SettingsService.GetDefaultSettings();
+        settings.ProxyServer = defaults.ProxyServer;
+        saveMessage = "Settings reset to default values. Click Save to apply.";
+        saveSuccess = true;
+    }
+}
