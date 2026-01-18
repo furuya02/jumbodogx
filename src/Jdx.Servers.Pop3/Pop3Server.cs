@@ -98,13 +98,6 @@ public class Pop3Server : ServerBase
 
                     Logger.LogDebug("POP3 << {Command}", line);
 
-                    // Split操作前のサイズチェック（DoS対策）
-                    if (line.Length > NetworkConstants.Pop3.MaxCommandLineLength)
-                    {
-                        await writer.WriteLineAsync("-ERR Command too long");
-                        break;
-                    }
-
                     var parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
                     if (parts.Length == 0)
                         continue;
