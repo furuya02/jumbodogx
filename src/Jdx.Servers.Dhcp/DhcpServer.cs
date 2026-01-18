@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Constants;
 using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
@@ -123,13 +124,10 @@ public class DhcpServer : ServerBase
         {
             // DHCPパケットサイズ検証（DoS対策）
             // RFC 2131: 最小300バイト、標準最大576バイト
-            const int MinSize = 300;
-            const int MaxSize = 576;
-
-            if (data.Length < MinSize || data.Length > MaxSize)
+            if (data.Length < NetworkConstants.Dhcp.MinPacketSize || data.Length > NetworkConstants.Dhcp.MaxPacketSize)
             {
                 Logger.LogWarning("Invalid DHCP packet size from {RemoteEndPoint}: {Size} bytes (min={Min}, max={Max})",
-                    ipEndPoint, data.Length, MinSize, MaxSize);
+                    ipEndPoint, data.Length, NetworkConstants.Dhcp.MinPacketSize, NetworkConstants.Dhcp.MaxPacketSize);
                 return;
             }
 
