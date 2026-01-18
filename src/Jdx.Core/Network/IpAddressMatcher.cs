@@ -134,12 +134,27 @@ public static class IpAddressMatcher
             return false;
         }
 
-        // Extract IP from endpoint format (IP:port)
-        var parts = endpoint.Split(':');
-        var ipStr = parts[0];
+        string ipStr;
 
-        // Remove IPv6 brackets
-        ipStr = ipStr.Trim('[', ']');
+        // Handle IPv6 endpoint format: [::1]:8080
+        if (endpoint.StartsWith('['))
+        {
+            var endBracket = endpoint.IndexOf(']');
+            if (endBracket > 0)
+            {
+                ipStr = endpoint.Substring(1, endBracket - 1);
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            // Handle IPv4 endpoint format: 192.168.1.1:8080
+            var parts = endpoint.Split(':');
+            ipStr = parts[0];
+        }
 
         return IPAddress.TryParse(ipStr, out ipAddress);
     }

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 
 namespace Jdx.Core.Metrics;
@@ -89,11 +91,32 @@ public class ServerMetrics
     }
 
     /// <summary>
-    /// Increment a custom counter
+    /// Increment a custom counter (thread-safe)
     /// </summary>
     public void IncrementCustomCounter(string name)
     {
-        _customCounters.AddOrUpdate(name, 1, (_, count) => count + 1);
+        // Use a loop to ensure atomic increment
+        while (true)
+        {
+            if (_customCounters.TryGetValue(name, out var currentValue))
+            {
+                var newValue = currentValue + 1;
+                if (_customCounters.TryUpdate(name, newValue, currentValue))
+                {
+                    break;
+                }
+                // If TryUpdate fails, another thread modified it, retry
+            }
+            else
+            {
+                // Counter doesn't exist, try to add it
+                if (_customCounters.TryAdd(name, 1))
+                {
+                    break;
+                }
+                // If TryAdd fails, another thread added it, retry with TryGetValue
+            }
+        }
     }
 
     /// <summary>
@@ -105,11 +128,11 @@ public class ServerMetrics
     }
 
     /// <summary>
-    /// Get all custom counters
+    /// Get all custom counters as a read-only snapshot
     /// </summary>
-    public ConcurrentDictionary<string, long> GetAllCustomCounters()
+    public IReadOnlyDictionary<string, long> GetAllCustomCounters()
     {
-        return _customCounters;
+        return _customCounters.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
     }
 
     /// <summary>
