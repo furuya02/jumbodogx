@@ -100,6 +100,27 @@ public class DnsMessageTests
     }
 
     [Fact]
+    public void CreateResponse_WithNullIp_UsesDefaultIp()
+    {
+        // Arrange
+        var query = CreateDnsQuery("test.com", 1);
+        var message = DnsMessage.ParseQuery(query);
+
+        // Act
+#pragma warning disable CS8600, CS8625 // Intentionally testing null behavior
+        var response = message.CreateResponse((string)null);
+#pragma warning restore CS8600, CS8625
+
+        // Assert - should create response with 127.0.0.1
+        Assert.NotNull(response);
+        var rdataStart = response.Length - 4;
+        Assert.Equal(127, response[rdataStart]);
+        Assert.Equal(0, response[rdataStart + 1]);
+        Assert.Equal(0, response[rdataStart + 2]);
+        Assert.Equal(1, response[rdataStart + 3]);
+    }
+
+    [Fact]
     public void ParseQuery_ExtractsTransactionId()
     {
         // Arrange
@@ -114,13 +135,18 @@ public class DnsMessageTests
 
     private byte[] CreateDnsQuery(string domainName, ushort queryType, ushort transactionId = 0x0001)
     {
+        // DNS Header Flags (RFC 1035)
+        const byte DNS_FLAGS_QR_QUERY = 0x00;  // QR=0 (bit 7): this is a query
+        const byte DNS_FLAGS_RD = 0x01;        // RD=1 (bit 0): recursion desired
+        const byte DNS_FLAGS_RA = 0x00;        // RA=0 (bit 7 of byte 3): recursion available
+
         var query = new List<byte>();
 
         // Header (12 bytes)
         query.Add((byte)(transactionId >> 8));
         query.Add((byte)(transactionId & 0xFF));
-        query.Add(0x01); // QR=0 (query), RD=1
-        query.Add(0x00); // RA=0
+        query.Add(DNS_FLAGS_QR_QUERY | DNS_FLAGS_RD); // Byte 2: |QR|Opcode(4)|AA|TC|RD| = 00000001
+        query.Add(DNS_FLAGS_RA); // Byte 3: |RA|Z(3)|RCODE(4)| = 00000000
         query.Add(0x00); // QDCOUNT high
         query.Add(0x01); // QDCOUNT low (1 question)
         query.Add(0x00); // ANCOUNT high

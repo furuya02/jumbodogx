@@ -108,6 +108,13 @@ public class DnsMessage
         response.Add(0x04); // RDLENGTH low (4 bytes for IPv4)
 
         // IP アドレス
+        if (string.IsNullOrEmpty(ipAddress))
+        {
+            // Null or empty - use default IP
+            response.AddRange(new byte[] { 127, 0, 0, 1 });
+            return response.ToArray();
+        }
+
         var ipParts = ipAddress.Split('.');
         if (ipParts.Length == 4)
         {

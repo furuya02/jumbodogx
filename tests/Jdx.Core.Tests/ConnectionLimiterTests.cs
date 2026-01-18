@@ -46,12 +46,19 @@ public class ConnectionLimiterTests
         {
             await limiter.ExecuteWithLimitAsync(async ct =>
             {
-                Interlocked.Increment(ref concurrentCount);
-                var current = concurrentCount;
-                if (current > maxConcurrent)
+                var current = Interlocked.Increment(ref concurrentCount);
+
+                // Atomically update maxConcurrent using CompareExchange
+                int currentMax;
+                do
                 {
-                    maxConcurrent = current;
-                }
+                    currentMax = maxConcurrent;
+                    if (current <= currentMax)
+                    {
+                        break;
+                    }
+                } while (Interlocked.CompareExchange(ref maxConcurrent, current, currentMax) != currentMax);
+
                 await Task.Delay(50, ct);
                 Interlocked.Decrement(ref concurrentCount);
             }, CancellationToken.None);
