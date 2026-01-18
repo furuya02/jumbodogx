@@ -92,16 +92,29 @@ public class ProxyConnection : IDisposable
     {
         Protocol = protocol;
 
-        // 既に同じホストに接続している場合は再利用
+        // 既に同じホストに接続している場合は再利用（ヘルスチェック付き）
         if (_sockets[ProxyConnectionSide.Server] != null)
         {
             if (host == HostName && port == Port)
             {
-                return true;
+                // 接続がまだ有効かチェック
+                var socket = _sockets[ProxyConnectionSide.Server];
+                if (socket != null && socket.Connected && IsSocketConnected(socket))
+                {
+                    _logger.LogDebug("Reusing existing connection to {Host}:{Port}", host, port);
+                    return true;
+                }
+                else
+                {
+                    _logger.LogDebug("Existing connection to {Host}:{Port} is no longer valid, reconnecting", host, port);
+                    CloseServerConnection();
+                }
             }
-
-            // 異なるホストの場合は既存の接続を閉じる
-            CloseServerConnection();
+            else
+            {
+                // 異なるホストの場合は既存の接続を閉じる
+                CloseServerConnection();
+            }
         }
 
         // 上位プロキシのチェック
@@ -175,7 +188,9 @@ public class ProxyConnection : IDisposable
             {
                 serverSocket = new TcpClient();
                 var connectTask = serverSocket.ConnectAsync(address, targetPort, cancellationToken).AsTask();
-                var timeoutTask = Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
+                // OptionTimeoutを使用（0の場合はデフォルト3秒）
+                var timeoutSeconds = OptionTimeout > 0 ? OptionTimeout : 3;
+                var timeoutTask = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), cancellationToken);
 
                 var completedTask = await Task.WhenAny(connectTask, timeoutTask);
                 if (completedTask == connectTask && serverSocket.Connected)
@@ -223,6 +238,32 @@ public class ProxyConnection : IDisposable
         {
             _sockets[ProxyConnectionSide.Server]?.Close();
             _sockets[ProxyConnectionSide.Server] = null;
+        }
+    }
+
+    /// <summary>
+    /// ソケットが実際に接続されているかチェック
+    /// </summary>
+    private bool IsSocketConnected(TcpClient client)
+    {
+        try
+        {
+            // TcpClient.Connectedは信頼できないので、Pollで確認
+            var socket = client.Client;
+            bool pollRead = socket.Poll(1000, System.Net.Sockets.SelectMode.SelectRead);
+            bool dataAvailable = (socket.Available > 0);
+
+            // データが読み取り可能だが利用可能なデータがない場合は切断されている
+            if (pollRead && !dataAvailable)
+            {
+                return false;
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 

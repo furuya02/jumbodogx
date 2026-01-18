@@ -49,45 +49,55 @@ public class ProxyServer : ServerBase
 
     private void InitializeComponents(ProxyServerSettings settings)
     {
+        // 新しいコンポーネントを作成（ロック外で）
+        var newDisableAddressList = settings.DisableAddressList
+            .Select(e => e.Address)
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .ToList();
+
+        var newLimitUrl = new ProxyLimitUrl(settings.LimitUrlAllowList, settings.LimitUrlDenyList, Logger);
+
+        ProxyLimitString? newLimitString = null;
+        if (settings.LimitStringList != null && settings.LimitStringList.Count > 0)
+        {
+            newLimitString = new ProxyLimitString(settings.LimitStringList, Logger);
+        }
+
+        ProxyCache? newCache = null;
+        if (settings.UseCache)
+        {
+            newCache = new ProxyCache(settings, Logger);
+            newCache.Start();
+            Logger.LogInformation("Proxy cache enabled: Dir={CacheDir}", settings.CacheDir);
+        }
+
+        // ロック内で参照を入れ替え、古いキャッシュを取得
+        ProxyCache? oldCache;
         lock (_componentsLock)
         {
-            // 上位プロキシを経由しないサーバのリスト
-            _disableAddressList = settings.DisableAddressList
-                .Select(e => e.Address)
-                .Where(a => !string.IsNullOrWhiteSpace(a))
-                .ToList();
+            _disableAddressList = newDisableAddressList;
+            _limitUrl = newLimitUrl;
+            _limitString = newLimitString;
 
-            // URL制限
-            _limitUrl = new ProxyLimitUrl(settings.LimitUrlAllowList, settings.LimitUrlDenyList, Logger);
-
-            // コンテンツ制限
-            if (settings.LimitStringList != null && settings.LimitStringList.Count > 0)
-            {
-                _limitString = new ProxyLimitString(settings.LimitStringList, Logger);
-            }
-            else
-            {
-                _limitString = null;
-            }
-
-            // キャッシュ
-            // 既存のキャッシュを停止
-            if (_cache != null)
-            {
-                _cache.Stop();
-                _cache.Dispose();
-                _cache = null;
-            }
-
-            if (settings.UseCache)
-            {
-                _cache = new ProxyCache(settings, Logger);
-                _cache.Start(); // キャッシュを開始
-                Logger.LogInformation("Proxy cache enabled: Dir={CacheDir}", settings.CacheDir);
-            }
-
-            Logger.LogInformation("Proxy server components initialized");
+            oldCache = _cache;
+            _cache = newCache;
         }
+
+        // ロック外で古いキャッシュを停止・破棄（ブロッキング操作をロック外で実行）
+        if (oldCache != null)
+        {
+            try
+            {
+                oldCache.Stop();
+                oldCache.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Error disposing old cache");
+            }
+        }
+
+        Logger.LogInformation("Proxy server components initialized");
     }
 
     private void OnSettingsChanged(object? sender, ApplicationSettings settings)
@@ -500,76 +510,76 @@ public class ProxyServer : ServerBase
         try
         {
             var buffer = new byte[8192];
-            var contentBuffer = new List<byte>();
-            var headerComplete = false;
-            var contentLength = 0;
+            var responseBuffer = new List<byte>(); // レスポンス全体（ヘッダー+ボディ）をバッファリング
+            var headerEndPosition = -1;
+            var totalBytesRead = 0;
 
+            // レスポンス全体をバッファリング（サイズ制限内）
             while (true)
             {
                 var bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
                 if (bytesRead == 0)
                     break;
 
-                if (!headerComplete)
-                {
-                    // ヘッダー部分を先に転送
-                    await destination.WriteAsync(buffer, 0, bytesRead, cancellationToken);
-                    await destination.FlushAsync(cancellationToken);
+                responseBuffer.AddRange(buffer.Take(bytesRead));
+                totalBytesRead += bytesRead;
 
-                    // ヘッダー終了（\r\n\r\n）を検出
-                    for (int i = 0; i < bytesRead - 3; i++)
+                // ヘッダー終了位置を検出（一度だけ）
+                if (headerEndPosition == -1)
+                {
+                    for (int i = 0; i < responseBuffer.Count - 3; i++)
                     {
-                        if (buffer[i] == '\r' && buffer[i + 1] == '\n' &&
-                            buffer[i + 2] == '\r' && buffer[i + 3] == '\n')
+                        if (responseBuffer[i] == '\r' && responseBuffer[i + 1] == '\n' &&
+                            responseBuffer[i + 2] == '\r' && responseBuffer[i + 3] == '\n')
                         {
-                            headerComplete = true;
-                            // ヘッダー後のボディ部分をバッファに追加
-                            var bodyStart = i + 4;
-                            if (bodyStart < bytesRead)
-                            {
-                                contentBuffer.AddRange(buffer.Skip(bodyStart).Take(bytesRead - bodyStart));
-                            }
+                            headerEndPosition = i + 4;
                             break;
                         }
                     }
                 }
-                else
+
+                // サイズ制限チェック
+                if (responseBuffer.Count > MaxContentFilterSize)
                 {
-                    // ボディ部分を蓄積
-                    contentBuffer.AddRange(buffer.Take(bytesRead));
+                    Logger.LogInformation("Response too large for content filtering ({Size} bytes), streaming without filter", responseBuffer.Count);
 
-                    // サイズ制限チェック
-                    if (contentBuffer.Count > MaxContentFilterSize)
+                    // バッファリング済みのデータをそのまま転送
+                    var bufferedData = responseBuffer.ToArray();
+                    await destination.WriteAsync(bufferedData, 0, bufferedData.Length, cancellationToken);
+                    await destination.FlushAsync(cancellationToken);
+
+                    // 残りのデータを通常転送
+                    while ((bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
                     {
-                        // サイズ超過の場合は残りを通常転送
-                        await destination.WriteAsync(contentBuffer.ToArray(), 0, contentBuffer.Count, cancellationToken);
+                        await destination.WriteAsync(buffer, 0, bytesRead, cancellationToken);
                         await destination.FlushAsync(cancellationToken);
-                        contentBuffer.Clear();
-
-                        // 残りのデータを通常転送
-                        while ((bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
-                        {
-                            await destination.WriteAsync(buffer, 0, bytesRead, cancellationToken);
-                            await destination.FlushAsync(cancellationToken);
-                        }
-                        return;
                     }
+                    return;
                 }
             }
 
-            // コンテンツフィルタリングチェック
-            if (contentBuffer.Count > 0)
+            // レスポンス全体をバッファリング完了
+            var responseData = responseBuffer.ToArray();
+
+            // ヘッダーとボディを分離
+            if (headerEndPosition > 0 && headerEndPosition < responseData.Length)
             {
-                var contentBytes = contentBuffer.ToArray();
-                if (limitString.Contains(contentBytes))
+                var bodyData = responseData.Skip(headerEndPosition).ToArray();
+
+                // コンテンツフィルタリングチェック
+                if (bodyData.Length > 0 && limitString.Contains(bodyData))
                 {
-                    Logger.LogWarning("Content blocked by filter");
+                    Logger.LogWarning("Content blocked by filter (response size: {Size} bytes)", responseData.Length);
+                    // ヘッダーを送信していないので、403エラーを送信可能
                     await SendErrorResponseAsync(destination, 403, "Forbidden - Content Blocked", cancellationToken);
                     return;
                 }
+            }
 
-                // フィルタリングOKの場合は転送
-                await destination.WriteAsync(contentBytes, 0, contentBytes.Length, cancellationToken);
+            // フィルタリングOK - レスポンス全体を転送
+            if (responseData.Length > 0)
+            {
+                await destination.WriteAsync(responseData, 0, responseData.Length, cancellationToken);
                 await destination.FlushAsync(cancellationToken);
             }
         }
@@ -583,10 +593,11 @@ public class ProxyServer : ServerBase
     {
         if (settings.AclList == null || settings.AclList.Count == 0)
         {
-            // ACLが設定されていない場合
-            // Allow Mode (0): すべて拒否
-            // Deny Mode (1): すべて許可
-            return settings.EnableAcl == 1;
+            // ACLが設定されていない場合（fail-safe: すべて拒否）
+            // Allow Mode (0): リストが空ならすべて拒否（明示的な許可がないため）
+            // Deny Mode (1): リストが空ならすべて拒否（セキュリティ優先）
+            Logger.LogDebug("ACL list is empty, denying access for {RemoteIp}", remoteIp);
+            return false;
         }
 
         // IPアドレスがACLリストに含まれているかチェック
