@@ -143,7 +143,7 @@ public class DnsServer : ServerBase
 
             var queryType = DnsUtil.Short2DnsType((short)query.QueryType);
 
-            Logger.LogInformation("DNS query for {QueryName} (type={QueryType}/{TypeName}) from {RemoteAddress}",
+            Logger.LogDebug("DNS query for {QueryName} (type={QueryType}/{TypeName}) from {RemoteAddress}",
                 query.QueryName, query.QueryType, queryType, remoteAddress);
 
             // Find matching cache (using pre-sorted domain list)
@@ -184,14 +184,14 @@ public class DnsServer : ServerBase
                     Statistics.TotalBytesSent += response.Length;
 
                     var responseData = GetRecordDataString(firstRecord);
-                    Logger.LogInformation("DNS response sent: {QueryName} (type={QueryType}) -> {Data}",
+                    Logger.LogDebug("DNS response sent: {QueryName} (type={QueryType}) -> {Data}",
                         query.QueryName, queryType, responseData);
                 }
             }
             else
             {
                 // Not found - return NXDOMAIN
-                Logger.LogInformation("DNS record not found for {QueryName} (type={QueryType}), returning NXDOMAIN",
+                Logger.LogDebug("DNS record not found for {QueryName} (type={QueryType}), returning NXDOMAIN",
                     query.QueryName, queryType);
 
                 var response = query.CreateNXDomainResponse();

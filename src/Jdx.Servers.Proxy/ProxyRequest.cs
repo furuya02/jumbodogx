@@ -61,14 +61,18 @@ public class ProxyRequest
             // リクエストラインを読み込み
             var line = await ReadLineAsync(stream, cancellationToken);
             if (string.IsNullOrWhiteSpace(line))
+            {
                 return false;
+            }
 
             RequestLine = line.Trim();
 
             // リクエストラインをパース: "GET http://hostname:port/path HTTP/1.1"
             var parts = RequestLine.Split(' ');
             if (parts.Length < 3)
+            {
                 return false;
+            }
 
             // HTTPメソッドをパース
             if (!Enum.TryParse<ProxyHttpMethod>(parts[0], true, out var method))
@@ -98,7 +102,9 @@ public class ProxyRequest
 
             // URIをパース
             if (!ParseUri(uriPart, logger))
+            {
                 return false;
+            }
 
             // ヘッダーを読み込み
             await ReadHeadersAsync(stream, cancellationToken);
@@ -240,7 +246,9 @@ public class ProxyRequest
         {
             var line = await ReadLineAsync(stream, cancellationToken);
             if (string.IsNullOrWhiteSpace(line))
+            {
                 break; // 空行でヘッダー終了
+            }
 
             var colonIndex = line.IndexOf(':');
             if (colonIndex > 0)
@@ -270,7 +278,9 @@ public class ProxyRequest
             {
                 var read = await stream.ReadAsync(buffer, totalRead, length - totalRead, cancellationToken);
                 if (read == 0)
+                {
                     break;
+                }
                 totalRead += read;
             }
             Body = buffer;
@@ -287,7 +297,9 @@ public class ProxyRequest
             var byteBuffer = new byte[1];
             var read = await stream.ReadAsync(byteBuffer, 0, 1, cancellationToken);
             if (read == 0)
+            {
                 break;
+            }
 
             var currentByte = byteBuffer[0];
             buffer.Add(currentByte);

@@ -68,7 +68,7 @@ public class FtpServer : ServerBase
     protected override async Task HandleClientAsync(Socket socket, CancellationToken cancellationToken)
     {
         var remoteAddress = socket.RemoteEndPoint?.ToString() ?? "unknown";
-        Logger.LogInformation("FTP client connected: {RemoteAddress}", remoteAddress);
+        Logger.LogDebug("FTP client connected: {RemoteAddress}", remoteAddress);
 
         var settings = _settingsService.GetSettings().FtpServer;
 
@@ -126,7 +126,7 @@ public class FtpServer : ServerBase
                 if (line == null)
                 {
                     // Client disconnected
-                    Logger.LogInformation("Client disconnected: {RemoteAddress}", remoteAddress);
+                    Logger.LogDebug("Client disconnected: {RemoteAddress}", remoteAddress);
                     break;
                 }
 

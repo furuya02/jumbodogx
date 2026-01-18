@@ -75,7 +75,7 @@ public class Pop3Server : ServerBase
                     .Replace("$v", "1.0");
                 await writer.WriteLineAsync($"+OK {banner}");
 
-                Logger.LogInformation("POP3 client connected from {RemoteEndPoint}", client.Client.RemoteEndPoint);
+                Logger.LogDebug("POP3 client connected from {RemoteEndPoint}", client.Client.RemoteEndPoint);
 
                 // Main command loop
                 var authenticated = false;
@@ -85,7 +85,9 @@ public class Pop3Server : ServerBase
                 {
                     var line = await reader.ReadLineAsync(cancellationToken);
                     if (string.IsNullOrEmpty(line))
+                    {
                         break;
+                    }
 
                     // コマンドライン長制限チェック（DoS対策、RFC 1939準拠）
                     if (line.Length > NetworkConstants.Pop3.MaxCommandLineLength)
@@ -100,7 +102,9 @@ public class Pop3Server : ServerBase
 
                     var parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
                     if (parts.Length == 0)
+                    {
                         continue;
+                    }
 
                     var command = parts[0].ToUpper();
                     var args = parts.Length > 1 ? parts[1] : "";

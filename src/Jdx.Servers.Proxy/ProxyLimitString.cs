@@ -37,7 +37,9 @@ public class ProxyLimitString
     public bool Contains(string content)
     {
         if (string.IsNullOrEmpty(content))
+        {
             return false;
+        }
 
         foreach (var limitString in _limitStrings)
         {
@@ -59,7 +61,9 @@ public class ProxyLimitString
     public bool Contains(byte[] data)
     {
         if (data == null || data.Length == 0)
+        {
             return false;
+        }
 
         // バイトデータを文字列に変換してチェック
         // 複数のエンコーディングを試す
@@ -75,7 +79,9 @@ public class ProxyLimitString
             {
                 var content = encoding.GetString(data);
                 if (Contains(content))
+                {
                     return true;
+                }
             }
             catch (Exception ex)
             {

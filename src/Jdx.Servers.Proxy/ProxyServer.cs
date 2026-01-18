@@ -239,7 +239,7 @@ public class ProxyServer : ServerBase
                     return;
                 }
 
-                Logger.LogInformation("Proxy request: {Method} {Host}:{Port}{Uri}",
+                Logger.LogDebug("Proxy request: {Method} {Host}:{Port}{Uri}",
                     request.HttpMethod, request.HostName, request.Port, request.Uri);
 
                 // 3. URL制限チェック（スレッドセーフ）
@@ -491,7 +491,9 @@ public class ProxyServer : ServerBase
             {
                 var bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
                 if (bytesRead == 0)
+                {
                     break;
+                }
 
                 responseBuffer.AddRange(buffer.Take(bytesRead));
 
@@ -638,31 +640,45 @@ public class ProxyServer : ServerBase
     private bool MatchIpAddress(string remoteIp, string pattern)
     {
         if (string.IsNullOrWhiteSpace(pattern))
+        {
             return false;
+        }
 
         // 完全一致
         if (remoteIp == pattern)
+        {
             return true;
+        }
 
         // CIDR表記のサポート（192.168.1.0/24 形式）
         if (pattern.Contains('/'))
         {
             var parts = pattern.Split('/');
             if (parts.Length != 2)
+            {
                 return false;
+            }
 
             if (!IPAddress.TryParse(parts[0], out var networkAddress))
+            {
                 return false;
+            }
 
             if (!int.TryParse(parts[1], out var prefixLength))
+            {
                 return false;
+            }
 
             if (!IPAddress.TryParse(remoteIp, out var remoteAddress))
+            {
                 return false;
+            }
 
             // IPv4とIPv6の両方をサポート
             if (networkAddress.AddressFamily != remoteAddress.AddressFamily)
+            {
                 return false;
+            }
 
             var networkBytes = networkAddress.GetAddressBytes();
             var remoteBytes = remoteAddress.GetAddressBytes();
@@ -670,7 +686,9 @@ public class ProxyServer : ServerBase
             // プレフィックス長の妥当性チェック
             var maxPrefixLength = networkBytes.Length * 8;
             if (prefixLength < 0 || prefixLength > maxPrefixLength)
+            {
                 return false;
+            }
 
             // ネットワーク部分を比較
             var fullBytes = prefixLength / 8;
@@ -680,7 +698,9 @@ public class ProxyServer : ServerBase
             for (int i = 0; i < fullBytes; i++)
             {
                 if (networkBytes[i] != remoteBytes[i])
+                {
                     return false;
+                }
             }
 
             // 残りのビットの比較
@@ -688,7 +708,9 @@ public class ProxyServer : ServerBase
             {
                 var mask = (byte)(0xFF << (8 - remainingBits));
                 if ((networkBytes[fullBytes] & mask) != (remoteBytes[fullBytes] & mask))
+                {
                     return false;
+                }
             }
 
             return true;

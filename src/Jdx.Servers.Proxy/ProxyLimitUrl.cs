@@ -55,7 +55,9 @@ public class ProxyLimitUrl
     public bool IsAllowed(string url)
     {
         if (string.IsNullOrWhiteSpace(url))
+        {
             return false;
+        }
 
         // 拒否リストにマッチする場合は拒否
         if (MatchesList(url, _denyList))
@@ -66,7 +68,9 @@ public class ProxyLimitUrl
 
         // 許可リストが空の場合は全て許可
         if (_allowList.Count == 0)
+        {
             return true;
+        }
 
         // 許可リストにマッチする場合のみ許可
         var allowed = MatchesList(url, _allowList);
@@ -83,7 +87,9 @@ public class ProxyLimitUrl
         foreach (var entry in list)
         {
             if (string.IsNullOrWhiteSpace(entry.Url))
+            {
                 continue;
+            }
 
             try
             {
@@ -97,7 +103,9 @@ public class ProxyLimitUrl
                 };
 
                 if (matches)
+                {
                     return true;
+                }
             }
             catch (Exception ex)
             {

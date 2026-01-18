@@ -128,7 +128,9 @@ public class ProxyConnection : IDisposable
             foreach (var address in UpperProxy.DisableAddressList)
             {
                 if (string.IsNullOrWhiteSpace(address))
+                {
                     continue;
+                }
 
                 if (protocol == ProxyProtocol.Ssl)
                 {

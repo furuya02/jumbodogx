@@ -42,7 +42,9 @@ public class ProxyCache : IDisposable
     public void Start()
     {
         if (_isRunning)
+        {
             return;
+        }
 
         _isRunning = true;
         _logger.LogInformation("Proxy cache started");
@@ -53,7 +55,9 @@ public class ProxyCache : IDisposable
     public void Stop()
     {
         if (!_isRunning)
+        {
             return;
+        }
 
         _isRunning = false;
         _logger.LogInformation("Proxy cache stopped");
@@ -77,7 +81,9 @@ public class ProxyCache : IDisposable
     public bool HasCache(string url)
     {
         if (!IsEnabled())
+        {
             return false;
+        }
 
         // TODO: キャッシュの存在チェックロジックを実装
         // - URLからキャッシュキーを生成
@@ -95,7 +101,9 @@ public class ProxyCache : IDisposable
     public byte[]? GetCache(string url)
     {
         if (!IsEnabled())
+        {
             return null;
+        }
 
         // TODO: キャッシュ取得ロジックを実装
         // - メモリキャッシュから取得を試みる
@@ -114,7 +122,9 @@ public class ProxyCache : IDisposable
     public bool SetCache(string url, byte[] data)
     {
         if (!IsEnabled() || data == null || data.Length == 0)
+        {
             return false;
+        }
 
         // サイズ制限チェック
         if (data.Length > _settings.MaxSize * 1024)
@@ -145,7 +155,9 @@ public class ProxyCache : IDisposable
     private bool ShouldCache(string url)
     {
         if (string.IsNullOrWhiteSpace(url))
+        {
             return false;
+        }
 
         try
         {
@@ -155,32 +167,42 @@ public class ProxyCache : IDisposable
             if (_settings.EnableHost == 1) // 指定したホストのみ
             {
                 if (_settings.CacheHostList == null || _settings.CacheHostList.Count == 0)
+                {
                     return false;
+                }
 
                 var hostMatch = _settings.CacheHostList.Any(h =>
                     !string.IsNullOrWhiteSpace(h.Host) &&
                     uri.Host.Equals(h.Host, StringComparison.OrdinalIgnoreCase));
 
                 if (!hostMatch)
+                {
                     return false;
+                }
             }
 
             // 拡張子フィルタリング
             if (_settings.EnableExt == 1) // 指定した拡張子のみ
             {
                 if (_settings.CacheExtList == null || _settings.CacheExtList.Count == 0)
+                {
                     return false;
+                }
 
                 var ext = Path.GetExtension(uri.AbsolutePath).TrimStart('.');
                 if (string.IsNullOrWhiteSpace(ext))
+                {
                     return false;
+                }
 
                 var extMatch = _settings.CacheExtList.Any(e =>
                     !string.IsNullOrWhiteSpace(e.Ext) &&
                     ext.Equals(e.Ext, StringComparison.OrdinalIgnoreCase));
 
                 if (!extMatch)
+                {
                     return false;
+                }
             }
 
             return true;
@@ -195,7 +217,9 @@ public class ProxyCache : IDisposable
     public void Dispose()
     {
         if (_disposed)
+        {
             return;
+        }
 
         Stop();
         _disposed = true;

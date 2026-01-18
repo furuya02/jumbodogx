@@ -49,7 +49,9 @@ public class DhcpPacket
     public bool Parse(byte[] buffer)
     {
         if (buffer.Length < MinPacketSize)
+        {
             return false;
+        }
 
         try
         {
@@ -80,7 +82,9 @@ public class DhcpPacket
             // Magic cookie
             var cookie = ReadUInt32BigEndian(reader);
             if (cookie != MagicCookie)
+            {
                 return false;
+            }
 
             // Parse options
             ParseOptions(reader);
@@ -132,16 +136,26 @@ public class DhcpPacket
         WriteOption(writer, 53, new[] { (byte)messageType }); // Message Type
 
         if (subnetMask != null)
+        {
             WriteOption(writer, 1, subnetMask.GetAddressBytes()); // Subnet Mask
+        }
 
         if (router != null)
+        {
             WriteOption(writer, 3, router.GetAddressBytes()); // Router
+        }
 
         if (dnsServer1 != null || dnsServer2 != null)
         {
             var dnsBytes = new List<byte>();
-            if (dnsServer1 != null) dnsBytes.AddRange(dnsServer1.GetAddressBytes());
-            if (dnsServer2 != null) dnsBytes.AddRange(dnsServer2.GetAddressBytes());
+            if (dnsServer1 != null)
+            {
+                dnsBytes.AddRange(dnsServer1.GetAddressBytes());
+            }
+            if (dnsServer2 != null)
+            {
+                dnsBytes.AddRange(dnsServer2.GetAddressBytes());
+            }
             WriteOption(writer, 6, dnsBytes.ToArray()); // DNS
         }
 
@@ -155,7 +169,9 @@ public class DhcpPacket
         WriteOption(writer, 59, BitConverter.GetBytes(rebindingTime).Reverse().ToArray()); // Rebinding Time (T2)
 
         if (!string.IsNullOrEmpty(wpadUrl))
+        {
             WriteOption(writer, 252, Encoding.ASCII.GetBytes(wpadUrl)); // WPAD
+        }
 
         writer.Write((byte)255); // End option
 
@@ -169,10 +185,14 @@ public class DhcpPacket
             var code = reader.ReadByte();
 
             if (code == 255) // End
+            {
                 break;
+            }
 
             if (code == 0) // Pad
+            {
                 continue;
+            }
 
             var length = reader.ReadByte();
             var data = reader.ReadBytes(length);
@@ -184,17 +204,23 @@ public class DhcpPacket
             {
                 case 53: // Message Type
                     if (data.Length > 0)
+                    {
                         MessageType = (DhcpMessageType)data[0];
+                    }
                     break;
 
                 case 50: // Requested IP Address
                     if (data.Length == 4)
+                    {
                         RequestedIp = new IPAddress(data);
+                    }
                     break;
 
                 case 54: // Server Identifier
                     if (data.Length == 4)
+                    {
                         ServerIdentifier = new IPAddress(data);
+                    }
                     break;
             }
         }
