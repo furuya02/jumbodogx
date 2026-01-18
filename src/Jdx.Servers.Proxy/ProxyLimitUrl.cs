@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Jdx.Core.Constants;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
 
@@ -91,7 +92,7 @@ public class ProxyLimitUrl
                     0 => url.StartsWith(entry.Url, StringComparison.OrdinalIgnoreCase), // 前方一致
                     1 => url.EndsWith(entry.Url, StringComparison.OrdinalIgnoreCase),   // 後方一致
                     2 => url.Contains(entry.Url, StringComparison.OrdinalIgnoreCase),   // 部分一致
-                    3 => Regex.IsMatch(url, entry.Url, RegexOptions.None, TimeSpan.FromMilliseconds(100)),  // 正規表現（ReDoS対策）
+                    3 => Regex.IsMatch(url, entry.Url, RegexOptions.None, TimeSpan.FromMilliseconds(NetworkConstants.Timeouts.RegexTimeoutMilliseconds)),  // 正規表現（ReDoS対策）
                     _ => false
                 };
 
