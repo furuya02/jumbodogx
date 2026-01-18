@@ -195,13 +195,27 @@ public abstract class ServerBase : IServer
         {
             Logger.LogWarning("Listener stop timed out (5s), forcing disposal");
             // タイムアウト時も Dispose を試みる
-            try { listener.Dispose(); } catch { }
+            try
+            {
+                listener.Dispose();
+            }
+            catch (Exception disposeEx)
+            {
+                Logger.LogDebug(disposeEx, "Error disposing listener after stop timeout");
+            }
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Error stopping existing listener");
             // エラー時も Dispose を試みる
-            try { listener.Dispose(); } catch { }
+            try
+            {
+                listener.Dispose();
+            }
+            catch (Exception disposeEx)
+            {
+                Logger.LogDebug(disposeEx, "Error disposing listener after stop failure");
+            }
         }
     }
 
