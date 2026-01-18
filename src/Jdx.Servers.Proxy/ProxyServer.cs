@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
@@ -130,53 +131,22 @@ public class ProxyServer : ServerBase
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {
-        // 既存のリスナーがあれば停止
-        if (_listener != null)
-        {
-            try
-            {
-                await _listener.StopAsync(CancellationToken.None);
-                _listener.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Error stopping existing listener");
-            }
-        }
-
         var settings = _settingsService.GetSettings().ProxyServer;
 
-        // BindAddressをIPAddressに変換
-        IPAddress? bindAddress = null;
-        if (!string.IsNullOrWhiteSpace(settings.BindAddress))
-        {
-            if (IPAddress.TryParse(settings.BindAddress, out var parsedAddress))
-            {
-                bindAddress = parsedAddress;
-            }
-            else
-            {
-                Logger.LogWarning("Invalid bind address '{BindAddress}', using default (0.0.0.0)", settings.BindAddress);
-                bindAddress = IPAddress.Any;
-            }
-        }
-        else
-        {
-            bindAddress = IPAddress.Any;
-        }
+        _listener = await CreateTcpListenerAsync(_port, settings.BindAddress, cancellationToken);
 
-        // リスナーを作成して開始
-        _listener = new ServerTcpListener(_port, bindAddress, Logger);
-
-        await _listener.StartAsync(cancellationToken);
-
+        var displayAddress = settings.BindAddress ?? "0.0.0.0";
         Logger.LogInformation(
             "Proxy Server started: {BindAddress}:{Port}",
-            bindAddress,
+            displayAddress,
             _port
         );
 
         // クライアント接続を待機
+        // 注: ServerBase.RunTcpAcceptLoopAsync()は使用していません。
+        // 理由: StartListeningAsync()内でループを実装することで、
+        // 設定変更時のリスナー再起動処理との整合性を保つため。
+        // また、Proxyサーバー特有のキャッシュ管理ロジックと連携しやすくするため。
         while (!cancellationToken.IsCancellationRequested)
         {
             try
@@ -195,7 +165,7 @@ public class ProxyServer : ServerBase
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "Error accepting client connection");
+                NetworkExceptionHandler.LogNetworkException(ex, Logger, "Proxy client accept");
             }
         }
     }
@@ -209,14 +179,7 @@ public class ProxyServer : ServerBase
             _cache = null;
         }
 
-        // リスナーを停止
-        if (_listener != null)
-        {
-            _listener.StopAsync(cancellationToken).Wait();
-            _listener.Dispose();
-            _listener = null;
-        }
-
+        Logger.LogInformation("Proxy Server stopped");
         return Task.CompletedTask;
     }
 
@@ -505,17 +468,9 @@ public class ProxyServer : ServerBase
                 await destination.FlushAsync(cancellationToken);
             }
         }
-        catch (OperationCanceledException)
-        {
-            Logger.LogDebug("Relay cancelled");
-        }
-        catch (IOException ex) when (ex.InnerException is SocketException)
-        {
-            Logger.LogDebug(ex, "Relay connection closed (network error)");
-        }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Unexpected relay error");
+            NetworkExceptionHandler.LogNetworkException(ex, Logger, "Proxy relay");
         }
     }
 
@@ -649,17 +604,9 @@ public class ProxyServer : ServerBase
                 await destination.FlushAsync(cancellationToken);
             }
         }
-        catch (OperationCanceledException)
-        {
-            Logger.LogDebug("Relay with content filtering cancelled");
-        }
-        catch (IOException ex) when (ex.InnerException is SocketException)
-        {
-            Logger.LogDebug(ex, "Relay with content filtering closed (network error)");
-        }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Unexpected relay with content filtering error");
+            NetworkExceptionHandler.LogNetworkException(ex, Logger, "Proxy relay with filtering");
         }
     }
 

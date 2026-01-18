@@ -24,7 +24,9 @@ public class ServerTcpListener : IDisposable
     public ServerTcpListener(int port, IPAddress? bindAddress, ILogger logger)
     {
         if (port <= 0 || port > 65535)
+        {
             throw new ArgumentException("Port must be between 1 and 65535", nameof(port));
+        }
 
         _port = port;
         _bindAddress = bindAddress ?? IPAddress.Any;
@@ -40,7 +42,9 @@ public class ServerTcpListener : IDisposable
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         if (IsListening)
+        {
             throw new InvalidOperationException("Already listening");
+        }
 
         _listenerSocket = new Socket(
             _bindAddress.AddressFamily,
@@ -63,7 +67,9 @@ public class ServerTcpListener : IDisposable
     public async Task<Socket> AcceptAsync(CancellationToken cancellationToken)
     {
         if (!IsListening || _listenerSocket == null)
+        {
             throw new InvalidOperationException("Not listening");
+        }
 
         var clientSocket = await _listenerSocket.AcceptAsync(cancellationToken);
         _logger.LogDebug("Accepted TCP connection from {RemoteEndPoint}", clientSocket.RemoteEndPoint);
@@ -77,7 +83,9 @@ public class ServerTcpListener : IDisposable
     public Task StopAsync(CancellationToken cancellationToken)
     {
         if (!IsListening)
+        {
             return Task.CompletedTask;
+        }
 
         IsListening = false;
         _listenerSocket?.Close();
@@ -93,7 +101,9 @@ public class ServerTcpListener : IDisposable
     public void Dispose()
     {
         if (_disposed)
+        {
             return;
+        }
 
         StopAsync(CancellationToken.None).GetAwaiter().GetResult();
         _disposed = true;

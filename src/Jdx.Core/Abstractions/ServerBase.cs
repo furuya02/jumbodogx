@@ -177,7 +177,10 @@ public abstract class ServerBase : IServer
     /// </summary>
     private async Task StopExistingListenerAsync(IDisposable? listener)
     {
-        if (listener == null) return;
+        if (listener == null)
+        {
+            return;
+        }
 
         try
         {
@@ -185,9 +188,13 @@ public abstract class ServerBase : IServer
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
             if (listener is ServerTcpListener tcp)
+            {
                 await tcp.StopAsync(cts.Token);
+            }
             else if (listener is ServerUdpListener udp)
+            {
                 await udp.StopAsync(cts.Token);
+            }
 
             listener.Dispose();
         }
@@ -338,7 +345,9 @@ public abstract class ServerBase : IServer
     protected virtual void Dispose(bool disposing)
     {
         if (_disposed)
+        {
             return;
+        }
 
         if (disposing)
         {

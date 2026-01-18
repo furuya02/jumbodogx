@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Jdx.Core.Abstractions;
+using Jdx.Core.Helpers;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
@@ -127,43 +128,18 @@ public class HttpServer : ServerBase
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {
-        // 既存のリスナーがあれば停止
-        if (_listener != null)
-        {
-            try
-            {
-                await _listener.StopAsync(CancellationToken.None);
-                _listener.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Error stopping existing listener");
-            }
-        }
-
         var settings = _settingsService.GetSettings().HttpServer;
 
-        // BindAddressをIPAddressに変換
-        IPAddress? bindAddress = null;
-        if (!string.IsNullOrWhiteSpace(settings.BindAddress))
-        {
-            if (IPAddress.TryParse(settings.BindAddress, out var parsedAddress))
-            {
-                bindAddress = parsedAddress;
-            }
-            else
-            {
-                Logger.LogWarning("Invalid BindAddress: {BindAddress}, using default (Any)", settings.BindAddress);
-            }
-        }
+        _listener = await CreateTcpListenerAsync(_port, settings.BindAddress, cancellationToken);
 
-        _listener = new ServerTcpListener(_port, bindAddress, Logger);
-        await _listener.StartAsync(cancellationToken);
-
-        var displayAddress = bindAddress?.ToString() ?? "0.0.0.0";
+        var displayAddress = settings.BindAddress ?? "0.0.0.0";
         Logger.LogInformation("HTTP Server listening on http://{Address}:{Port}", displayAddress, _port);
 
         // クライアント接続を受け入れるループ
+        // 注: ServerBase.RunTcpAcceptLoopAsync()は使用していません。
+        // 理由: 最大接続数到達時に503 Service Unavailableレスポンスを送信する必要があるため。
+        // ConnectionLimiterではレスポンス送信前に接続を拒否してしまうため、
+        // カスタムループで接続受け入れ後に503を返す実装が必要です。
         _ = Task.Run(async () =>
         {
             while (!StopCts.Token.IsCancellationRequested)
@@ -223,20 +199,16 @@ public class HttpServer : ServerBase
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex, "Error accepting client connection");
+                    NetworkExceptionHandler.LogNetworkException(ex, Logger, "HTTP client accept");
                 }
             }
         }, StopCts.Token);
     }
 
-    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override Task StopListeningAsync(CancellationToken cancellationToken)
     {
-        if (_listener != null)
-        {
-            await _listener.StopAsync(cancellationToken);
-            _listener.Dispose();
-            _listener = null;
-        }
+        Logger.LogInformation("HTTP Server stopped");
+        return Task.CompletedTask;
     }
 
     protected override async Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
@@ -398,7 +370,7 @@ public class HttpServer : ServerBase
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex, "Error handling HTTP request from {RemoteEndPoint}", remoteEndPoint);
+                    NetworkExceptionHandler.LogNetworkException(ex, Logger, "HTTP request handling");
                     Statistics.TotalErrors++;
                     break;
                 }
