@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Runtime.ExceptionServices;
 using Microsoft.Extensions.Logging;
 
 namespace Jdx.Core.Helpers;
@@ -55,7 +56,7 @@ public static class NetworkExceptionHandler
         // キャンセル例外は再スロー（上位でループ中断される）
         if (IsTerminalException(ex))
         {
-            throw ex;
+            ExceptionDispatchInfo.Capture(ex).Throw();
         }
 
         // その他の例外はログに記録のみ
