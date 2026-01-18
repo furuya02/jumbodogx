@@ -29,6 +29,9 @@ public enum ServerType
     /// <summary>SIPサーバー</summary>
     Sip,
 
+    /// <summary>Proxyサーバー</summary>
+    Proxy,
+
     /// <summary>HTTPプロキシ</summary>
     ProxyHttp,
 
