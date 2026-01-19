@@ -79,6 +79,7 @@ jdx/
 - [x] SSL/TLS full integration (actual SSL communication - PR #20)
 - [x] AttackDb ACL auto-addition (PR #18)
 - [x] Metrics collection (Prometheus format export)
+- [x] Structured logging with Serilog (JSON format, log rotation)
 
 ## Requirements
 
@@ -161,6 +162,65 @@ Metrics can be visualized using Grafana by:
    - `jumbodogx_http_total_connections`
    - `jumbodogx_http_active_connections`
    - `rate(jumbodogx_http_total_requests[5m])`
+
+## Logging
+
+JumboDogX uses structured logging with Serilog to provide machine-readable, searchable logs.
+
+### Log Format
+
+All logs are output in **Compact JSON format**, making them easy to parse and analyze with log aggregation tools.
+
+### Log Outputs
+
+Logs are written to two destinations:
+
+1. **Console**: Real-time log output in JSON format
+2. **File**: Persistent log files with automatic rotation
+
+### Log Files
+
+- **Host Application**: `logs/jumbodogx-host-YYYYMMDD.log`
+- **WebUI Application**: `logs/jumbodogx-webui-YYYYMMDD.log`
+
+### Log Rotation
+
+Log files are automatically rotated based on:
+
+- **Daily rotation**: New log file created each day
+- **Size-based rotation**: When a file exceeds 10MB
+- **Retention**: Last 30 days of logs are kept
+
+### Log Structure
+
+Each log entry contains:
+
+```json
+{
+  "@t": "2026-01-19T10:30:45.123Z",
+  "@mt": "HTTP request received",
+  "@l": "Information",
+  "Application": "JumboDogX.Host",
+  "SourceContext": "Jdx.Servers.Http.HttpServer",
+  "Method": "GET",
+  "Path": "/index.html"
+}
+```
+
+### Analyzing Logs
+
+Use tools like `jq` to analyze JSON logs:
+
+```bash
+# View all error logs
+cat logs/jumbodogx-host-*.log | jq 'select(.["@l"] == "Error")'
+
+# Count requests by method
+cat logs/jumbodogx-host-*.log | jq -r '.Method' | sort | uniq -c
+
+# Extract timestamps and messages
+cat logs/jumbodogx-host-*.log | jq -r '"\(.["@t"]) - \(.["@mt"])"'
+```
 
 ## Testing
 
