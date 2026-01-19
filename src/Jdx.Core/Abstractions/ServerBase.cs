@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using Jdx.Core.Helpers;
+using Jdx.Core.Metrics;
 using Jdx.Core.Network;
 using Microsoft.Extensions.Logging;
 
@@ -15,6 +16,7 @@ public abstract class ServerBase : IServer
     protected readonly ILogger Logger;
     protected CancellationTokenSource StopCts;
     protected readonly ServerStatistics Statistics;
+    protected readonly ServerMetrics Metrics;
 
     private ServerStatus _status;
     private bool _disposed;
@@ -30,6 +32,7 @@ public abstract class ServerBase : IServer
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         StopCts = new CancellationTokenSource();
         Statistics = new ServerStatistics();
+        Metrics = new ServerMetrics(Name, Type.ToString());
         _status = ServerStatus.Stopped;
     }
 
@@ -68,6 +71,10 @@ public abstract class ServerBase : IServer
 
             await StartListeningAsync(cancellationToken);
             Statistics.StartTime = DateTime.UtcNow;
+
+            // Register metrics with global collector
+            MetricsCollector.Instance.RegisterServer(Metrics);
+
             _status = ServerStatus.Running;
             Logger.LogInformation("Server {ServerName} started successfully", Name);
         }
@@ -95,6 +102,10 @@ public abstract class ServerBase : IServer
         {
             StopCts.Cancel();
             await StopListeningAsync(cancellationToken);
+
+            // Unregister metrics from global collector
+            MetricsCollector.Instance.UnregisterServer(Name);
+
             _status = ServerStatus.Stopped;
             Logger.LogInformation("Server {ServerName} stopped successfully", Name);
         }
@@ -351,6 +362,9 @@ public abstract class ServerBase : IServer
 
         if (disposing)
         {
+            // Unregister metrics from global collector
+            MetricsCollector.Instance.UnregisterServer(Name);
+
             StopCts?.Dispose();
         }
 

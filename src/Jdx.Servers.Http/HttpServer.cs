@@ -5,6 +5,7 @@ using System.Text;
 using Jdx.Core.Abstractions;
 using Jdx.Core.Constants;
 using Jdx.Core.Helpers;
+using Jdx.Core.Metrics;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
@@ -259,10 +260,13 @@ public class HttpServer : ServerBase
                         }
 
                         Statistics.TotalErrors++;
+                        Metrics.IncrementErrors();
                         continue;
                     }
 
+                    // 接続を受け入れる（最大接続数チェック後）
                     Statistics.ActiveConnections++;
+                    Metrics.IncrementConnections();
 
                     // クライアント処理を非同期で実行
                     _ = Task.Run(async () =>
@@ -274,6 +278,7 @@ public class HttpServer : ServerBase
                         finally
                         {
                             Statistics.ActiveConnections--;
+                            Metrics.DecrementActiveConnections();
                         }
                     }, StopCts.Token);
                 }
@@ -340,6 +345,7 @@ public class HttpServer : ServerBase
             }
 
             Statistics.TotalErrors++;
+            Metrics.IncrementErrors();
             return;
         }
 
@@ -367,6 +373,7 @@ public class HttpServer : ServerBase
             networkStream?.Dispose();
             clientSocket.Dispose();
             Statistics.TotalErrors++;
+            Metrics.IncrementErrors();
             return;
         }
 
@@ -425,6 +432,8 @@ public class HttpServer : ServerBase
                     // リクエスト全体をパース（ヘッダー含む）
                     var request = HttpRequest.ParseFull(lines);
                     Statistics.TotalRequests++;
+                    Metrics.IncrementRequests();
+                    Metrics.AddBytesReceived(bytesRead);
 
                     // リクエストボディサイズチェック（DoS対策、RFC 7230準拠）
                     if (request.Headers.TryGetValue("Content-Length", out var contentLengthStr))
@@ -438,6 +447,7 @@ public class HttpServer : ServerBase
                             var errorResponse = HttpResponseBuilder.BuildErrorResponse(400, "Bad Request", settings);
                             await errorResponse.SendAsync(stream, linkedCts.Token);
                             Statistics.TotalErrors++;
+                            Metrics.IncrementErrors();
                             // 接続を即座にクローズ（不正なリクエストのため）
                             keepAlive = false;
                             break;
@@ -452,6 +462,7 @@ public class HttpServer : ServerBase
                             var errorResponse = HttpResponseBuilder.BuildErrorResponse(413, "Payload Too Large", settings);
                             await errorResponse.SendAsync(stream, linkedCts.Token);
                             Statistics.TotalErrors++;
+                            Metrics.IncrementErrors();
                             // 接続を即座にクローズ（巨大なペイロードを読み取らないため）
                             keepAlive = false;
                             break;
@@ -481,7 +492,9 @@ public class HttpServer : ServerBase
 
                     // レスポンスを送信（ストリーム対応）
                     await response.SendAsync(stream, linkedCts.Token);
-                    Statistics.TotalBytesSent += response.ContentLength ?? response.ToBytes().Length;
+                    var bytesSent = response.ContentLength ?? response.ToBytes().Length;
+                    Statistics.TotalBytesSent += bytesSent;
+                    Metrics.AddBytesSent(bytesSent);
 
                     Logger.LogDebug("HTTP {StatusCode} {Method} {Path} - Keep-Alive: {KeepAlive}",
                         response.StatusCode, request.Method, request.Path, keepAlive);
@@ -494,6 +507,7 @@ public class HttpServer : ServerBase
                         Logger.LogWarning("HTTP request from {RemoteEndPoint} timed out after {TimeOut} seconds",
                             remoteEndPoint, timeout);
                         Statistics.TotalErrors++;
+                        Metrics.IncrementErrors();
 
                         // タイムアウトエラーレスポンスを送信（ベストエフォート、短いタイムアウト）
                         try
@@ -519,6 +533,7 @@ public class HttpServer : ServerBase
                 {
                     NetworkExceptionHandler.LogNetworkException(ex, Logger, "HTTP request handling");
                     Statistics.TotalErrors++;
+                    Metrics.IncrementErrors();
                     break;
                 }
             }
@@ -564,6 +579,22 @@ public class HttpServer : ServerBase
 
     private async Task<HttpResponse> GenerateResponseAsync(HttpRequest request, CancellationToken cancellationToken, string? remoteIp = null)
     {
+        // /metrics エンドポイント（Prometheus形式のメトリクス）
+        if (request.Path.Equals("/metrics", StringComparison.OrdinalIgnoreCase))
+        {
+            var metricsText = MetricsCollector.Instance.ToPrometheusFormat();
+
+            var response = new HttpResponse
+            {
+                StatusCode = 200,
+                StatusText = "OK",
+                Body = metricsText
+            };
+            response.Headers["Content-Type"] = "text/plain; version=0.0.4; charset=utf-8";
+
+            return response;
+        }
+
         HttpServerSettings settings;
         HttpVirtualHostManager? virtualHostManager;
         HttpAuthenticator authenticator;
