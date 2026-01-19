@@ -172,6 +172,43 @@ public class SettingsService : ISettingsService
         return settings;
     }
 
+    public async Task<string> ExportSettingsAsync()
+    {
+        var settings = GetSettings();
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = null
+        };
+        return await Task.FromResult(JsonSerializer.Serialize(settings, options));
+    }
+
+    public async Task ImportSettingsAsync(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            throw new ArgumentException("JSON文字列が空です", nameof(json));
+        }
+
+        ApplicationSettings? settings;
+        try
+        {
+            settings = JsonSerializer.Deserialize<ApplicationSettings>(json);
+        }
+        catch (JsonException ex)
+        {
+            throw new ArgumentException("無効なJSON形式です", nameof(json), ex);
+        }
+
+        if (settings == null)
+        {
+            throw new ArgumentException("設定のデシリアライズに失敗しました", nameof(json));
+        }
+
+        // インポートした設定を保存
+        await SaveSettingsAsync(settings);
+    }
+
     protected virtual void OnSettingsChanged(ApplicationSettings settings)
     {
         SettingsChanged?.Invoke(this, settings);

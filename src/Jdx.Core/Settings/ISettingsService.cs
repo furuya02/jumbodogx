@@ -21,6 +21,18 @@ public interface ISettingsService
     ApplicationSettings GetDefaultSettings();
 
     /// <summary>
+    /// 設定をJSON形式でエクスポートする
+    /// </summary>
+    /// <returns>JSON形式の設定文字列</returns>
+    Task<string> ExportSettingsAsync();
+
+    /// <summary>
+    /// JSON形式の設定をインポートする
+    /// </summary>
+    /// <param name="json">インポートする設定のJSON文字列</param>
+    Task ImportSettingsAsync(string json);
+
+    /// <summary>
     /// 設定が変更されたときに発生するイベント
     /// </summary>
     event EventHandler<ApplicationSettings>? SettingsChanged;

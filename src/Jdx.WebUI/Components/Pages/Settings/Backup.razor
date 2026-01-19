@@ -1,0 +1,160 @@
+@page "/settings/backup"
+@using Jdx.Core.Settings
+@rendermode InteractiveServer
+@inject ISettingsService SettingsService
+@inject IJSRuntime JS
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">設定のバックアップ・復元</h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        現在の設定をJSON形式でエクスポートして保存したり、以前にエクスポートした設定ファイルをインポートして復元できます。
+                    </p>
+
+                    <!-- エクスポートセクション -->
+                    <div class="mb-4">
+                        <h5>設定のエクスポート</h5>
+                        <p class="text-sm text-muted">現在の設定をJSON形式でダウンロードします。</p>
+                        <button class="btn btn-primary" @onclick="ExportSettings" disabled="@isProcessing">
+                            <span class="bi bi-download me-2"></span>
+                            設定をエクスポート
+                        </button>
+                    </div>
+
+                    <hr />
+
+                    <!-- インポートセクション -->
+                    <div class="mb-4">
+                        <h5>設定のインポート</h5>
+                        <p class="text-sm text-muted">以前にエクスポートした設定ファイルを選択してアップロードします。</p>
+                        <div class="mb-3">
+                            <InputFile OnChange="OnFileSelected" class="form-control" accept=".json" disabled="@isProcessing" />
+                        </div>
+                        <button class="btn btn-success" @onclick="ImportSettings" disabled="@(selectedFile == null || isProcessing)">
+                            <span class="bi bi-upload me-2"></span>
+                            設定をインポート
+                        </button>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(message))
+                    {
+                        <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show mt-3" role="alert">
+                            @message
+                            <button type="button" class="btn-close" @onclick="ClearMessage"></button>
+                        </div>
+                    }
+
+                    @if (isProcessing)
+                    {
+                        <div class="text-center mt-3">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">処理中...</span>
+                            </div>
+                            <p class="mt-2">処理中...</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IBrowserFile? selectedFile;
+    private string? message;
+    private bool isError;
+    private bool isProcessing;
+
+    private async Task ExportSettings()
+    {
+        try
+        {
+            isProcessing = true;
+            message = null;
+            StateHasChanged();
+
+            var json = await SettingsService.ExportSettingsAsync();
+            var fileName = $"jumbodogx-settings-{DateTime.Now:yyyyMMdd-HHmmss}.json";
+
+            // JavaScriptを使用してファイルをダウンロード
+            await JS.InvokeVoidAsync("downloadFile", fileName, json);
+
+            message = "設定のエクスポートが完了しました。";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            message = $"エクスポートエラー: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        message = null;
+    }
+
+    private async Task ImportSettings()
+    {
+        if (selectedFile == null)
+        {
+            return;
+        }
+
+        try
+        {
+            isProcessing = true;
+            message = null;
+            StateHasChanged();
+
+            // ファイルサイズチェック (10MB以下)
+            if (selectedFile.Size > 10 * 1024 * 1024)
+            {
+                message = "ファイルサイズが大きすぎます (最大10MB)。";
+                isError = true;
+                return;
+            }
+
+            // ファイルの内容を読み取る
+            using var stream = selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync();
+
+            // 設定をインポート
+            await SettingsService.ImportSettingsAsync(json);
+
+            message = "設定のインポートが完了しました。変更を反映するためにアプリケーションを再起動してください。";
+            isError = false;
+            selectedFile = null;
+        }
+        catch (ArgumentException ex)
+        {
+            message = $"インポートエラー: {ex.Message}";
+            isError = true;
+        }
+        catch (Exception ex)
+        {
+            message = $"予期しないエラー: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void ClearMessage()
+    {
+        message = null;
+    }
+}
