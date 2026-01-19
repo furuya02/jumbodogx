@@ -215,13 +215,13 @@ Use tools like `jq` to analyze JSON logs:
 
 ```bash
 # View all error logs
-cat logs/jumbodogx-host-*.log | jq 'select(.["@l"] == "Error")'
+cat logs/jumbodogx-host*.log | jq 'select(.["@l"] == "Error")'
 
 # Count requests by method
-cat logs/jumbodogx-host-*.log | jq -r '.Method' | sort | uniq -c
+cat logs/jumbodogx-host*.log | jq -r '.Method' | sort | uniq -c
 
 # Extract timestamps and messages
-cat logs/jumbodogx-host-*.log | jq -r '"\(.["@t"]) - \(.["@mt"])"'
+cat logs/jumbodogx-host*.log | jq -r '"\(.["@t"]) - \(.["@mt"])"'
 ```
 
 ## Testing
