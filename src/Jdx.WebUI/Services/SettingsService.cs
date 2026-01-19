@@ -161,6 +161,48 @@ public class SettingsService : ISettingsService
                 dnsSection.Bind(settings.DnsServer);
             }
 
+            // FtpServer
+            var ftpSection = jdxSection.GetSection("FtpServer");
+            if (ftpSection.Exists())
+            {
+                ftpSection.Bind(settings.FtpServer);
+            }
+
+            // TftpServer
+            var tftpSection = jdxSection.GetSection("TftpServer");
+            if (tftpSection.Exists())
+            {
+                tftpSection.Bind(settings.TftpServer);
+            }
+
+            // DhcpServer
+            var dhcpSection = jdxSection.GetSection("DhcpServer");
+            if (dhcpSection.Exists())
+            {
+                dhcpSection.Bind(settings.DhcpServer);
+            }
+
+            // Pop3Server
+            var pop3Section = jdxSection.GetSection("Pop3Server");
+            if (pop3Section.Exists())
+            {
+                pop3Section.Bind(settings.Pop3Server);
+            }
+
+            // SmtpServer
+            var smtpSection = jdxSection.GetSection("SmtpServer");
+            if (smtpSection.Exists())
+            {
+                smtpSection.Bind(settings.SmtpServer);
+            }
+
+            // ProxyServer
+            var proxySection = jdxSection.GetSection("ProxyServer");
+            if (proxySection.Exists())
+            {
+                proxySection.Bind(settings.ProxyServer);
+            }
+
             // Logging
             var loggingSection = jdxSection.GetSection("Logging");
             if (loggingSection.Exists())
