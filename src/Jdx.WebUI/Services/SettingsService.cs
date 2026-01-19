@@ -48,11 +48,17 @@ public class SettingsService : ISettingsService
             }
         }
 
-        // Jdxセクションを更新
+        // Jdxセクションを更新（全サーバー設定を含む）
         updatedJson["Jdx"] = new
         {
-            HttpServer = settings.HttpServer,  // オブジェクト全体をシリアライズ
+            HttpServer = settings.HttpServer,
             DnsServer = settings.DnsServer,
+            FtpServer = settings.FtpServer,
+            TftpServer = settings.TftpServer,
+            DhcpServer = settings.DhcpServer,
+            Pop3Server = settings.Pop3Server,
+            SmtpServer = settings.SmtpServer,
+            ProxyServer = settings.ProxyServer,
             Logging = settings.Logging
         };
 
@@ -155,6 +161,48 @@ public class SettingsService : ISettingsService
                 dnsSection.Bind(settings.DnsServer);
             }
 
+            // FtpServer
+            var ftpSection = jdxSection.GetSection("FtpServer");
+            if (ftpSection.Exists())
+            {
+                ftpSection.Bind(settings.FtpServer);
+            }
+
+            // TftpServer
+            var tftpSection = jdxSection.GetSection("TftpServer");
+            if (tftpSection.Exists())
+            {
+                tftpSection.Bind(settings.TftpServer);
+            }
+
+            // DhcpServer
+            var dhcpSection = jdxSection.GetSection("DhcpServer");
+            if (dhcpSection.Exists())
+            {
+                dhcpSection.Bind(settings.DhcpServer);
+            }
+
+            // Pop3Server
+            var pop3Section = jdxSection.GetSection("Pop3Server");
+            if (pop3Section.Exists())
+            {
+                pop3Section.Bind(settings.Pop3Server);
+            }
+
+            // SmtpServer
+            var smtpSection = jdxSection.GetSection("SmtpServer");
+            if (smtpSection.Exists())
+            {
+                smtpSection.Bind(settings.SmtpServer);
+            }
+
+            // ProxyServer
+            var proxySection = jdxSection.GetSection("ProxyServer");
+            if (proxySection.Exists())
+            {
+                proxySection.Bind(settings.ProxyServer);
+            }
+
             // Logging
             var loggingSection = jdxSection.GetSection("Logging");
             if (loggingSection.Exists())
@@ -170,6 +218,43 @@ public class SettingsService : ISettingsService
         }
 
         return settings;
+    }
+
+    public async Task<string> ExportSettingsAsync()
+    {
+        var settings = GetSettings();
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = null
+        };
+        return await Task.FromResult(JsonSerializer.Serialize(settings, options));
+    }
+
+    public async Task ImportSettingsAsync(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            throw new ArgumentException("JSON文字列が空です", nameof(json));
+        }
+
+        ApplicationSettings? settings;
+        try
+        {
+            settings = JsonSerializer.Deserialize<ApplicationSettings>(json);
+        }
+        catch (JsonException ex)
+        {
+            throw new ArgumentException("無効なJSON形式です", nameof(json), ex);
+        }
+
+        if (settings == null)
+        {
+            throw new ArgumentException("設定のデシリアライズに失敗しました", nameof(json));
+        }
+
+        // インポートした設定を保存
+        await SaveSettingsAsync(settings);
     }
 
     protected virtual void OnSettingsChanged(ApplicationSettings settings)

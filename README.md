@@ -263,6 +263,36 @@ For more details, see [benchmarks/Jdx.Benchmarks/README.md](benchmarks/Jdx.Bench
 
 For detailed configuration examples, see [docs/configuration-guide.md](docs/configuration-guide.md).
 
+### Settings Backup & Restore
+
+JumboDogX provides settings import/export functionality for easy backup and migration.
+
+#### Exporting Settings
+
+1. Access the Web UI at `http://localhost:5001`
+2. Navigate to **Settings** → **Backup & Restore**
+3. Click **Export Settings** button
+4. Save the downloaded JSON file (e.g., `jumbodogx-settings-20260119-120000.json`)
+
+The exported file contains all server configurations including HTTP, DNS, FTP, SMTP, POP3, DHCP, TFTP, and Proxy settings.
+
+#### Importing Settings
+
+1. Access the Web UI at `http://localhost:5001`
+2. Navigate to **Settings** → **Backup & Restore**
+3. Select a previously exported JSON file
+4. Click **Import Settings** button
+5. Restart the application to apply the imported settings
+
+**Note**: After importing settings, you must restart the application for changes to take effect.
+
+#### Use Cases
+
+- **Backup**: Save current settings before making changes
+- **Migration**: Move settings between different instances
+- **Template**: Share configuration across development team
+- **Recovery**: Restore previous working configuration
+
 ## Design Documents
 
 Detailed design documents are stored in the `docs/` directory:
