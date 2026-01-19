@@ -48,11 +48,17 @@ public class SettingsService : ISettingsService
             }
         }
 
-        // Jdxセクションを更新
+        // Jdxセクションを更新（全サーバー設定を含む）
         updatedJson["Jdx"] = new
         {
-            HttpServer = settings.HttpServer,  // オブジェクト全体をシリアライズ
+            HttpServer = settings.HttpServer,
             DnsServer = settings.DnsServer,
+            FtpServer = settings.FtpServer,
+            TftpServer = settings.TftpServer,
+            DhcpServer = settings.DhcpServer,
+            Pop3Server = settings.Pop3Server,
+            SmtpServer = settings.SmtpServer,
+            ProxyServer = settings.ProxyServer,
             Logging = settings.Logging
         };
 

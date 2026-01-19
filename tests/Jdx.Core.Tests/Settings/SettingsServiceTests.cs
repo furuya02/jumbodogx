@@ -123,11 +123,23 @@ public class SettingsServiceTests
             await service.ImportSettingsAsync(exported);
             var imported = service.GetSettings();
 
-            // Assert
+            // Assert - 全サーバーセクションが保存されることを確認
             Assert.Equal(original.HttpServer.Port, imported.HttpServer.Port);
             Assert.Equal(original.HttpServer.Enabled, imported.HttpServer.Enabled);
             Assert.Equal(original.DnsServer.Port, imported.DnsServer.Port);
             Assert.Equal(original.DnsServer.Enabled, imported.DnsServer.Enabled);
+            Assert.Equal(original.FtpServer.Port, imported.FtpServer.Port);
+            Assert.Equal(original.FtpServer.Enabled, imported.FtpServer.Enabled);
+            Assert.Equal(original.TftpServer.Port, imported.TftpServer.Port);
+            Assert.Equal(original.TftpServer.Enabled, imported.TftpServer.Enabled);
+            Assert.Equal(original.DhcpServer.Port, imported.DhcpServer.Port);
+            Assert.Equal(original.DhcpServer.Enabled, imported.DhcpServer.Enabled);
+            Assert.Equal(original.Pop3Server.Port, imported.Pop3Server.Port);
+            Assert.Equal(original.Pop3Server.Enabled, imported.Pop3Server.Enabled);
+            Assert.Equal(original.SmtpServer.Port, imported.SmtpServer.Port);
+            Assert.Equal(original.SmtpServer.Enabled, imported.SmtpServer.Enabled);
+            Assert.Equal(original.ProxyServer.Port, imported.ProxyServer.Port);
+            Assert.Equal(original.ProxyServer.Enabled, imported.ProxyServer.Enabled);
             Assert.Equal(original.Logging.LogLevel, imported.Logging.LogLevel);
         }
         finally
@@ -148,6 +160,12 @@ public class SettingsServiceTests
                 {
                     HttpServer = new { Enabled = true, Port = 8080 },
                     DnsServer = new { Enabled = true, Port = 5300 },
+                    FtpServer = new { Enabled = true, Port = 2100 },
+                    TftpServer = new { Enabled = true, Port = 6900 },
+                    DhcpServer = new { Enabled = true, Port = 6700 },
+                    Pop3Server = new { Enabled = true, Port = 11000 },
+                    SmtpServer = new { Enabled = true, Port = 2500 },
+                    ProxyServer = new { Enabled = true, Port = 8081 },
                     Logging = new { LogLevel = "Information" }
                 }
             };
@@ -161,6 +179,18 @@ public class SettingsServiceTests
                 ["Jdx:HttpServer:Port"] = "8080",
                 ["Jdx:DnsServer:Enabled"] = "true",
                 ["Jdx:DnsServer:Port"] = "5300",
+                ["Jdx:FtpServer:Enabled"] = "true",
+                ["Jdx:FtpServer:Port"] = "2100",
+                ["Jdx:TftpServer:Enabled"] = "true",
+                ["Jdx:TftpServer:Port"] = "6900",
+                ["Jdx:DhcpServer:Enabled"] = "true",
+                ["Jdx:DhcpServer:Port"] = "6700",
+                ["Jdx:Pop3Server:Enabled"] = "true",
+                ["Jdx:Pop3Server:Port"] = "11000",
+                ["Jdx:SmtpServer:Enabled"] = "true",
+                ["Jdx:SmtpServer:Port"] = "2500",
+                ["Jdx:ProxyServer:Enabled"] = "true",
+                ["Jdx:ProxyServer:Port"] = "8081",
                 ["Jdx:Logging:LogLevel"] = "Information"
             })
             .Build();
