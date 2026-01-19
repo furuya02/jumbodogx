@@ -484,126 +484,24 @@ public class ProxyServer : ServerBase
             var buffer = new byte[NetworkConstants.Http.MaxLineLength];
             var responseBuffer = new List<byte>();
             var headerEndPosition = -1;
-            var headersSent = false;
 
-            // レスポンスをバッファリング（サイズ制限まで）
-            while (true)
+            // Phase 1: Buffer response until size limit
+            var bufferingResult = await BufferResponseAsync(source, buffer, responseBuffer, cancellationToken);
+            headerEndPosition = bufferingResult.HeaderEndPosition;
+
+            // Phase 2: Handle buffering overflow (streaming mode)
+            if (bufferingResult.SizeExceeded)
             {
-                var bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
-                if (bytesRead == 0)
-                {
-                    break;
-                }
-
-                responseBuffer.AddRange(buffer.Take(bytesRead));
-
-                // ヘッダー終了位置を検出（一度だけ）
-                if (headerEndPosition == -1)
-                {
-                    for (int i = 0; i < responseBuffer.Count - 3; i++)
-                    {
-                        if (responseBuffer[i] == '\r' && responseBuffer[i + 1] == '\n' &&
-                            responseBuffer[i + 2] == '\r' && responseBuffer[i + 3] == '\n')
-                        {
-                            headerEndPosition = i + 4;
-                            break;
-                        }
-                    }
-                }
-
-                // サイズ制限チェック - バッファリング上限を超えた場合
-                if (responseBuffer.Count > MaxBufferedResponseSize)
-                {
-                    Logger.LogWarning("Response size ({Size} bytes) exceeds buffer limit, switching to streaming filter mode", responseBuffer.Count);
-
-                    // ここまでのデータをチェック
-                    if (headerEndPosition > 0)
-                    {
-                        var bufferedBody = responseBuffer.Skip(headerEndPosition).ToArray();
-                        if (limitString.Contains(bufferedBody))
-                        {
-                            Logger.LogWarning("Content blocked by filter in buffered portion");
-                            // ヘッダー未送信なら403を返せる
-                            if (!headersSent)
-                            {
-                                await SendErrorResponseAsync(destination, 403, "Forbidden - Content Blocked", cancellationToken);
-                                return;
-                            }
-                            // ヘッダー送信済みなら接続を閉じる
-                            return;
-                        }
-                    }
-
-                    // バッファリング済みデータを送信
-                    var bufferedData = responseBuffer.ToArray();
-                    await destination.WriteAsync(bufferedData, 0, bufferedData.Length, cancellationToken);
-                    await destination.FlushAsync(cancellationToken);
-                    headersSent = true;
-                    responseBuffer.Clear();
-
-                    // 残りはストリーミングモードでフィルタリング
-                    var streamBuffer = new List<byte>();
-                    while ((bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
-                    {
-                        streamBuffer.AddRange(buffer.Take(bytesRead));
-
-                        // 定期的にフィルタリングチェック
-                        if (streamBuffer.Count >= NetworkConstants.Http.MaxLineLength || bytesRead == 0)
-                        {
-                            var checkData = streamBuffer.ToArray();
-                            if (limitString.Contains(checkData))
-                            {
-                                Logger.LogWarning("Content blocked by filter in streaming portion, closing connection");
-                                // すでにヘッダー+一部データを送信済みなので、接続を閉じるしかない
-                                return;
-                            }
-
-                            // チェックOKなら送信
-                            await destination.WriteAsync(checkData, 0, checkData.Length, cancellationToken);
-                            await destination.FlushAsync(cancellationToken);
-                            streamBuffer.Clear();
-                        }
-                    }
-
-                    // 最後のバッファをチェック
-                    if (streamBuffer.Count > 0)
-                    {
-                        var checkData = streamBuffer.ToArray();
-                        if (limitString.Contains(checkData))
-                        {
-                            Logger.LogWarning("Content blocked by filter in final portion, closing connection");
-                            return;
-                        }
-                        await destination.WriteAsync(checkData, 0, checkData.Length, cancellationToken);
-                        await destination.FlushAsync(cancellationToken);
-                    }
-                    return;
-                }
+                await HandleBufferingOverflowAsync(
+                    source, destination, buffer, responseBuffer,
+                    headerEndPosition, limitString, cancellationToken);
+                return;
             }
 
-            // レスポンス全体をバッファリング完了（上限内）
-            var responseData = responseBuffer.ToArray();
-
-            // ヘッダーとボディを分離してフィルタリング
-            if (headerEndPosition > 0 && headerEndPosition < responseData.Length)
-            {
-                var bodyData = responseData.Skip(headerEndPosition).ToArray();
-
-                if (bodyData.Length > 0 && limitString.Contains(bodyData))
-                {
-                    Logger.LogWarning("Content blocked by filter (response size: {Size} bytes)", responseData.Length);
-                    // ヘッダー未送信なので403エラーを送信可能
-                    await SendErrorResponseAsync(destination, 403, "Forbidden - Content Blocked", cancellationToken);
-                    return;
-                }
-            }
-
-            // フィルタリングOK - レスポンス全体を転送
-            if (responseData.Length > 0)
-            {
-                await destination.WriteAsync(responseData, 0, responseData.Length, cancellationToken);
-                await destination.FlushAsync(cancellationToken);
-            }
+            // Phase 3: Filter and send buffered response
+            await FilterAndSendBufferedResponseAsync(
+                destination, responseBuffer.ToArray(),
+                headerEndPosition, limitString, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -611,15 +509,168 @@ public class ProxyServer : ServerBase
         }
     }
 
+    private async Task<(int HeaderEndPosition, bool SizeExceeded)> BufferResponseAsync(
+        NetworkStream source,
+        byte[] buffer,
+        List<byte> responseBuffer,
+        CancellationToken cancellationToken)
+    {
+        var headerEndPosition = -1;
+
+        while (true)
+        {
+            var bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            responseBuffer.AddRange(buffer.Take(bytesRead));
+
+            // Detect header end position (once)
+            if (headerEndPosition == -1)
+            {
+                headerEndPosition = FindHeaderEndPosition(responseBuffer);
+            }
+
+            // Check size limit
+            if (responseBuffer.Count > MaxBufferedResponseSize)
+            {
+                Logger.LogWarning("Response size ({Size} bytes) exceeds buffer limit, switching to streaming filter mode", responseBuffer.Count);
+                return (headerEndPosition, true);
+            }
+        }
+
+        return (headerEndPosition, false);
+    }
+
+    private int FindHeaderEndPosition(List<byte> buffer)
+    {
+        for (int i = 0; i < buffer.Count - 3; i++)
+        {
+            if (buffer[i] == '\r' && buffer[i + 1] == '\n' &&
+                buffer[i + 2] == '\r' && buffer[i + 3] == '\n')
+            {
+                return i + 4;
+            }
+        }
+        return -1;
+    }
+
+    private async Task HandleBufferingOverflowAsync(
+        NetworkStream source,
+        NetworkStream destination,
+        byte[] buffer,
+        List<byte> responseBuffer,
+        int headerEndPosition,
+        ProxyLimitString limitString,
+        CancellationToken cancellationToken)
+    {
+        // Check buffered data
+        if (headerEndPosition > 0)
+        {
+            var bufferedBody = responseBuffer.Skip(headerEndPosition).ToArray();
+            if (limitString.Contains(bufferedBody))
+            {
+                Logger.LogWarning("Content blocked by filter in buffered portion");
+                await SendErrorResponseAsync(destination, 403, "Forbidden - Content Blocked", cancellationToken);
+                return;
+            }
+        }
+
+        // Send buffered data
+        var bufferedData = responseBuffer.ToArray();
+        await destination.WriteAsync(bufferedData, 0, bufferedData.Length, cancellationToken);
+        await destination.FlushAsync(cancellationToken);
+
+        // Continue with streaming mode
+        await RelayStreamingWithFilterAsync(source, destination, buffer, limitString, cancellationToken);
+    }
+
+    private async Task RelayStreamingWithFilterAsync(
+        NetworkStream source,
+        NetworkStream destination,
+        byte[] buffer,
+        ProxyLimitString limitString,
+        CancellationToken cancellationToken)
+    {
+        var streamBuffer = new List<byte>();
+        int bytesRead;
+
+        while ((bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+        {
+            streamBuffer.AddRange(buffer.Take(bytesRead));
+
+            // Periodic filtering check
+            if (streamBuffer.Count >= NetworkConstants.Http.MaxLineLength || bytesRead == 0)
+            {
+                var checkData = streamBuffer.ToArray();
+                if (limitString.Contains(checkData))
+                {
+                    Logger.LogWarning("Content blocked by filter in streaming portion, closing connection");
+                    return;
+                }
+
+                // Send checked data
+                await destination.WriteAsync(checkData, 0, checkData.Length, cancellationToken);
+                await destination.FlushAsync(cancellationToken);
+                streamBuffer.Clear();
+            }
+        }
+
+        // Check final buffer
+        if (streamBuffer.Count > 0)
+        {
+            var checkData = streamBuffer.ToArray();
+            if (limitString.Contains(checkData))
+            {
+                Logger.LogWarning("Content blocked by filter in final portion, closing connection");
+                return;
+            }
+            await destination.WriteAsync(checkData, 0, checkData.Length, cancellationToken);
+            await destination.FlushAsync(cancellationToken);
+        }
+    }
+
+    private async Task FilterAndSendBufferedResponseAsync(
+        NetworkStream destination,
+        byte[] responseData,
+        int headerEndPosition,
+        ProxyLimitString limitString,
+        CancellationToken cancellationToken)
+    {
+        // Filter body content
+        if (headerEndPosition > 0 && headerEndPosition < responseData.Length)
+        {
+            var bodyData = responseData.Skip(headerEndPosition).ToArray();
+
+            if (bodyData.Length > 0 && limitString.Contains(bodyData))
+            {
+                Logger.LogWarning("Content blocked by filter (response size: {Size} bytes)", responseData.Length);
+                await SendErrorResponseAsync(destination, 403, "Forbidden - Content Blocked", cancellationToken);
+                return;
+            }
+        }
+
+        // Send entire response
+        if (responseData.Length > 0)
+        {
+            await destination.WriteAsync(responseData, 0, responseData.Length, cancellationToken);
+            await destination.FlushAsync(cancellationToken);
+        }
+    }
+
     private bool CheckAcl(string remoteIp, ProxyServerSettings settings)
     {
         if (settings.AclList == null || settings.AclList.Count == 0)
         {
-            // ACLが設定されていない場合（fail-safe: すべて拒否）
-            // Allow Mode (0): リストが空ならすべて拒否（明示的な許可がないため）
-            // Deny Mode (1): リストが空ならすべて拒否（セキュリティ優先）
-            Logger.LogDebug("ACL list is empty, denying access for {RemoteIp}", remoteIp);
-            return false;
+            // EnableAcl: 0=Allow list, 1=Deny list
+            // Allow list + empty → deny all (fail-secure)
+            // Deny list + empty → allow all (no one is denied)
+            var result = settings.EnableAcl != 0;
+            Logger.LogDebug("ACL list is empty, {Action} access for {RemoteIp} (EnableAcl={Mode})",
+                result ? "allowing" : "denying", remoteIp, settings.EnableAcl);
+            return result;
         }
 
         // IPアドレスがACLリストに含まれているかチェック
@@ -644,88 +695,24 @@ public class ProxyServer : ServerBase
             return false;
         }
 
-        // 完全一致
-        if (remoteIp == pattern)
-        {
-            return true;
-        }
-
-        // CIDR表記のサポート（192.168.1.0/24 形式）
-        if (pattern.Contains('/'))
-        {
-            var parts = pattern.Split('/');
-            if (parts.Length != 2)
-            {
-                return false;
-            }
-
-            if (!IPAddress.TryParse(parts[0], out var networkAddress))
-            {
-                return false;
-            }
-
-            if (!int.TryParse(parts[1], out var prefixLength))
-            {
-                return false;
-            }
-
-            if (!IPAddress.TryParse(remoteIp, out var remoteAddress))
-            {
-                return false;
-            }
-
-            // IPv4とIPv6の両方をサポート
-            if (networkAddress.AddressFamily != remoteAddress.AddressFamily)
-            {
-                return false;
-            }
-
-            var networkBytes = networkAddress.GetAddressBytes();
-            var remoteBytes = remoteAddress.GetAddressBytes();
-
-            // プレフィックス長の妥当性チェック
-            var maxPrefixLength = networkBytes.Length * 8;
-            if (prefixLength < 0 || prefixLength > maxPrefixLength)
-            {
-                return false;
-            }
-
-            // ネットワーク部分を比較
-            var fullBytes = prefixLength / 8;
-            var remainingBits = prefixLength % 8;
-
-            // 完全バイトの比較
-            for (int i = 0; i < fullBytes; i++)
-            {
-                if (networkBytes[i] != remoteBytes[i])
-                {
-                    return false;
-                }
-            }
-
-            // 残りのビットの比較
-            if (remainingBits > 0)
-            {
-                var mask = (byte)(0xFF << (8 - remainingBits));
-                if ((networkBytes[fullBytes] & mask) != (remoteBytes[fullBytes] & mask))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
         // ワイルドカード表記のサポート（簡易版）
         if (pattern.Contains('*'))
         {
             var regex = new System.Text.RegularExpressions.Regex(
-                "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$"
+                "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$",
+                System.Text.RegularExpressions.RegexOptions.None,
+                TimeSpan.FromMilliseconds(100) // ReDoS protection
             );
             return regex.IsMatch(remoteIp);
         }
 
-        return false;
+        // CIDR表記または単一IPアドレスのマッチング（IpAddressMatcherを使用）
+        if (!IPAddress.TryParse(remoteIp, out var ipAddress))
+        {
+            return false;
+        }
+
+        return IpAddressMatcher.Matches(ipAddress, pattern);
     }
 
     protected override void Dispose(bool disposing)

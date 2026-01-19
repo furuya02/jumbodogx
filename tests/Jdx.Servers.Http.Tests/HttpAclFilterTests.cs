@@ -9,12 +9,12 @@ namespace Jdx.Servers.Http.Tests;
 public class HttpAclFilterTests
 {
     [Fact]
-    public void IsAllowed_WithNoAcl_ReturnsTrue()
+    public void IsAllowed_WithDisabledAcl_ReturnsTrue()
     {
         // Arrange
         var settings = new HttpServerSettings
         {
-            EnableAcl = 0,
+            EnableAcl = 0,  // ACL disabled
             AclList = new List<AclEntry>()
         };
         var mockLogger = new Mock<ILogger>();
@@ -23,12 +23,12 @@ public class HttpAclFilterTests
         // Act
         var result = filter.IsAllowed("192.168.1.1");
 
-        // Assert
+        // Assert - ACL disabled: allow all regardless of list content
         Assert.True(result);
     }
 
     [Fact]
-    public void IsAllowed_WithNullAclList_ReturnsTrue()
+    public void IsAllowed_WithNullAclList_ReturnsFalse_FailSecure()
     {
         // Arrange
         var settings = new HttpServerSettings
@@ -42,8 +42,8 @@ public class HttpAclFilterTests
         // Act
         var result = filter.IsAllowed("192.168.1.1");
 
-        // Assert
-        Assert.True(result);
+        // Assert - Fail-secure: deny all when ACL list is null
+        Assert.False(result);
     }
 
     [Fact]

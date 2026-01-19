@@ -688,6 +688,12 @@ public class FtpCommandHandler
             return true;
         }
 
+        if (session.DataStream == null)
+        {
+            await session.SendResponseAsync(FtpResponseCodes.DataConnectionFailed);
+            return true;
+        }
+
         await session.SendResponseAsync(FtpResponseCodes.FileStatusOk);
 
         try
@@ -734,6 +740,12 @@ public class FtpCommandHandler
         if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath))
         {
             await session.SendResponseAsync(FtpResponseCodes.FileActionFailed);
+            return true;
+        }
+
+        if (session.DataStream == null)
+        {
+            await session.SendResponseAsync(FtpResponseCodes.DataConnectionFailed);
             return true;
         }
 

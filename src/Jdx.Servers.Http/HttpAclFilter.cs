@@ -1,6 +1,6 @@
-using System;
 using System.Linq;
 using System.Net;
+using Jdx.Core.Network;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
 
@@ -25,10 +25,18 @@ public class HttpAclFilter
     /// </summary>
     public bool IsAllowed(string remoteAddress)
     {
-        // ACLが無効の場合は全て許可
-        if (_settings.AclList == null || _settings.AclList.Count == 0)
+        // EnableAcl: 0=無効, 1=許可リスト, 2=拒否リスト
+        // ACL無効の場合は全て許可
+        if (_settings.EnableAcl == 0)
         {
             return true;
+        }
+
+        // ACL有効だがリストが空/null: fail-secure (deny all)
+        if (_settings.AclList == null || _settings.AclList.Count == 0)
+        {
+            _logger.LogDebug("ACL enabled but list is empty, denying all connections (fail-secure default)");
+            return false;
         }
 
         // IPアドレスをパース
@@ -38,16 +46,10 @@ public class HttpAclFilter
             return false;
         }
 
-        // EnableAcl: 0=無効, 1=許可リスト, 2=拒否リスト
-        if (_settings.EnableAcl == 0)
-        {
-            return true;
-        }
-
         bool isInList = false;
         foreach (var aclEntry in _settings.AclList)
         {
-            if (IsIpInRange(ipAddress, aclEntry.Address))
+            if (IpAddressMatcher.Matches(ipAddress, aclEntry.Address))
             {
                 isInList = true;
                 _logger.LogDebug("IP {IP} matched ACL entry: {Name} ({Address})",
@@ -77,85 +79,5 @@ public class HttpAclFilter
         }
 
         return true;
-    }
-
-    /// <summary>
-    /// IPアドレスが指定範囲に含まれるかチェック
-    /// </summary>
-    private bool IsIpInRange(IPAddress ipAddress, string range)
-    {
-        // CIDR notation (例: 192.168.1.0/24)
-        if (range.Contains('/'))
-        {
-            return IsIpInCidrRange(ipAddress, range);
-        }
-
-        // 単一IPアドレス
-        if (IPAddress.TryParse(range, out var rangeIp))
-        {
-            return ipAddress.Equals(rangeIp);
-        }
-
-        _logger.LogWarning("Invalid ACL address format: {Range}", range);
-        return false;
-    }
-
-    /// <summary>
-    /// CIDR範囲チェック
-    /// </summary>
-    private bool IsIpInCidrRange(IPAddress ipAddress, string cidr)
-    {
-        try
-        {
-            var parts = cidr.Split('/');
-            if (parts.Length != 2)
-            {
-                return false;
-            }
-
-            if (!IPAddress.TryParse(parts[0], out var networkAddress))
-            {
-                return false;
-            }
-
-            if (!int.TryParse(parts[1], out var prefixLength))
-            {
-                return false;
-            }
-
-            // IPv4のみサポート
-            if (ipAddress.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork ||
-                networkAddress.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
-            {
-                return false;
-            }
-
-            var ipBytes = ipAddress.GetAddressBytes();
-            var networkBytes = networkAddress.GetAddressBytes();
-
-            // プレフィックス長からサブネットマスクを計算
-            uint mask = 0xFFFFFFFF << (32 - prefixLength);
-            var maskBytes = BitConverter.GetBytes(mask);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(maskBytes);
-            }
-
-            // ネットワークアドレスを計算して比較
-            for (int i = 0; i < 4; i++)
-            {
-                if ((ipBytes[i] & maskBytes[i]) != (networkBytes[i] & maskBytes[i]))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking CIDR range: {CIDR}", cidr);
-            return false;
-        }
     }
 }
