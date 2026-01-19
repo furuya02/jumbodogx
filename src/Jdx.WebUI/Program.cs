@@ -4,6 +4,9 @@ using Jdx.WebUI.Services;
 using Serilog;
 using Serilog.Formatting.Compact;
 
+// Ensure logs directory exists
+Directory.CreateDirectory("logs");
+
 // Configure Serilog with structured logging
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -12,7 +15,7 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(new CompactJsonFormatter())
     .WriteTo.File(
         new CompactJsonFormatter(),
-        "logs/jumbodogx-webui-.log",
+        "logs/jumbodogx-webui.log",
         rollingInterval: RollingInterval.Day,
         rollOnFileSizeLimit: true,
         fileSizeLimitBytes: 10_485_760, // 10MB

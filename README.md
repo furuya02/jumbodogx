@@ -180,8 +180,10 @@ Logs are written to two destinations:
 
 ### Log Files
 
-- **Host Application**: `logs/jumbodogx-host-YYYYMMDD.log`
-- **WebUI Application**: `logs/jumbodogx-webui-YYYYMMDD.log`
+- **Host Application**: `logs/jumbodogx-host20260119.log`
+- **WebUI Application**: `logs/jumbodogx-webui20260119.log`
+
+Note: Serilog automatically appends the date (YYYYMMDD) between the filename and extension when daily rotation is enabled.
 
 ### Log Rotation
 

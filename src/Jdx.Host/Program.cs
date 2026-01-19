@@ -12,6 +12,9 @@ Console.WriteLine("Note: For full server management with HTTP, use the WebUI:");
 Console.WriteLine("  dotnet run --project src/Jdx.WebUI --urls \"http://localhost:5000\"");
 Console.WriteLine();
 
+// Ensure logs directory exists
+Directory.CreateDirectory("logs");
+
 // Configure Serilog with structured logging
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -20,7 +23,7 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(new CompactJsonFormatter())
     .WriteTo.File(
         new CompactJsonFormatter(),
-        "logs/jumbodogx-host-.log",
+        "logs/jumbodogx-host.log",
         rollingInterval: RollingInterval.Day,
         rollOnFileSizeLimit: true,
         fileSizeLimitBytes: 10_485_760, // 10MB
