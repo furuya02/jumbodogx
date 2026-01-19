@@ -223,7 +223,6 @@ public class HttpServer : ServerBase
                 {
                     var clientSocket = await _listener.AcceptAsync(StopCts.Token);
                     Statistics.TotalConnections++;
-                    Metrics.IncrementConnections();
 
                     // 最大接続数チェック
                     HttpServerSettings currentSettings;
@@ -265,7 +264,9 @@ public class HttpServer : ServerBase
                         continue;
                     }
 
+                    // 接続を受け入れる（最大接続数チェック後）
                     Statistics.ActiveConnections++;
+                    Metrics.IncrementConnections();
 
                     // クライアント処理を非同期で実行
                     _ = Task.Run(async () =>
