@@ -78,6 +78,7 @@ jdx/
 - [x] SSL/TLS basic structure (certificate management)
 - [x] SSL/TLS full integration (actual SSL communication - PR #20)
 - [x] AttackDb ACL auto-addition (PR #18)
+- [x] Metrics collection (Prometheus format export)
 
 ## Requirements
 
@@ -119,6 +120,47 @@ dotnet run
 Then, open http://localhost:5001 in your browser.
 
 For detailed instructions, see [startup.md](startup.md).
+
+## Metrics
+
+JumboDogX provides Prometheus-compatible metrics for monitoring server performance.
+
+### Accessing Metrics
+
+Metrics are available via the HTTP server's `/metrics` endpoint:
+
+```bash
+curl http://localhost:2001/metrics
+```
+
+### Metrics Available
+
+- **Total Connections**: Number of connections received
+- **Active Connections**: Currently active connections
+- **Total Requests**: Number of requests processed
+- **Total Errors**: Number of errors encountered
+- **Bytes Received/Sent**: Network traffic statistics
+- **Server Uptime**: How long each server has been running
+
+### Integration with Prometheus
+
+Add the following to your Prometheus configuration (`prometheus.yml`):
+
+```yaml
+scrape_configs:
+  - job_name: 'jumbodogx'
+    static_configs:
+      - targets: ['localhost:2001']
+```
+
+### Grafana Dashboard
+
+Metrics can be visualized using Grafana by:
+1. Adding Prometheus as a data source
+2. Creating a dashboard with queries like:
+   - `jumbodogx_http_total_connections`
+   - `jumbodogx_http_active_connections`
+   - `rate(jumbodogx_http_total_requests[5m])`
 
 ## Testing
 
