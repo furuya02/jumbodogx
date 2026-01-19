@@ -2,6 +2,8 @@ using System.Net;
 using Jdx.Core.Settings;
 using Jdx.Servers.Dns;
 using Microsoft.Extensions.Logging;
+using Serilog;
+using Serilog.Formatting.Compact;
 
 Console.WriteLine("JumboDogX - Multi-Server Application (CLI)");
 Console.WriteLine("=====================================");
@@ -10,12 +12,30 @@ Console.WriteLine("Note: For full server management with HTTP, use the WebUI:");
 Console.WriteLine("  dotnet run --project src/Jdx.WebUI --urls \"http://localhost:5000\"");
 Console.WriteLine();
 
-// Create logger factory with console output
+// Ensure logs directory exists
+Directory.CreateDirectory("logs");
+
+// Configure Serilog with structured logging
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "JumboDogX.Host")
+    .WriteTo.Console(new CompactJsonFormatter())
+    .WriteTo.File(
+        new CompactJsonFormatter(),
+        "logs/jumbodogx-host.log",
+        rollingInterval: RollingInterval.Day,
+        rollOnFileSizeLimit: true,
+        fileSizeLimitBytes: 10_485_760, // 10MB
+        retainedFileCountLimit: 30)
+    .CreateLogger();
+
+// Create logger factory with Serilog
 using var loggerFactory = LoggerFactory.Create(builder =>
 {
     builder
         .SetMinimumLevel(LogLevel.Information)
-        .AddConsole();
+        .AddSerilog(dispose: true);
 });
 
 var dnsLogger = loggerFactory.CreateLogger<DnsServer>();
@@ -94,6 +114,9 @@ finally
     await dnsServer.StopAsync(CancellationToken.None);
     dnsServer.Dispose();
     Console.WriteLine("DNS Server stopped.");
+
+    // Flush and close Serilog
+    await Log.CloseAndFlushAsync();
 }
 
 return 0;
