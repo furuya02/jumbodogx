@@ -1,4 +1,4 @@
-@page "/settings/http/document"
+@page "/settings/http/{vhostId?}/document"
 @rendermode InteractiveServer
 @using Jdx.Core.Settings
 @using Jdx.WebUI.Services
@@ -6,7 +6,7 @@
 
 <PageTitle>HTTP Document Settings - JumboDogX</PageTitle>
 
-<h1>HTTP/HTTPS - Document Settings</h1>
+<h1>HTTP/HTTPS - Document Settings@(isVirtualHost ? $" ({virtualHostName})" : "")</h1>
 
 @if (saveMessage != null)
 {
@@ -27,13 +27,13 @@
                     <div class="col-md-6">
                         <label for="welcomeFile" class="form-label">Welcome File</label>
                         <input type="text" class="form-control" id="welcomeFile"
-                               @bind="settings.HttpServer.WelcomeFileName" placeholder="index.html">
+                               @bind="WelcomeFileName" placeholder="index.html">
                         <div class="form-text">Default file name for directories</div>
                     </div>
                     <div class="col-md-6">
                         <label for="serverHeader" class="form-label">Server Header</label>
                         <input type="text" class="form-control" id="serverHeader"
-                               @bind="settings.HttpServer.ServerHeader" placeholder="JumboDogX">
+                               @bind="ServerHeader" placeholder="JumboDogX">
                         <div class="form-text">Server identification header</div>
                     </div>
                 </div>
@@ -42,7 +42,7 @@
                     <div class="col-md-6">
                         <label for="serverAdmin" class="form-label">Server Administrator</label>
                         <input type="email" class="form-control" id="serverAdmin"
-                               @bind="settings.HttpServer.ServerAdmin" placeholder="admin@example.com">
+                               @bind="ServerAdmin" placeholder="admin@example.com">
                         <div class="form-text">Administrator email displayed in error pages</div>
                     </div>
                 </div>
@@ -51,7 +51,7 @@
                     <div class="col-md-4">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="useHidden"
-                                   @bind="settings.HttpServer.UseHidden">
+                                   @bind="UseHidden">
                             <label class="form-check-label" for="useHidden">
                                 Use Hidden Files
                             </label>
@@ -61,7 +61,7 @@
                     <div class="col-md-4">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="useDot"
-                                   @bind="settings.HttpServer.UseDot">
+                                   @bind="UseDot">
                             <label class="form-check-label" for="useDot">
                                 Use Dot Files
                             </label>
@@ -71,7 +71,7 @@
                     <div class="col-md-4">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="useDirEnum"
-                                   @bind="settings.HttpServer.UseDirectoryEnum">
+                                   @bind="UseDirectoryEnum">
                             <label class="form-check-label" for="useDirEnum">
                                 Enable Directory Listing
                             </label>
@@ -84,7 +84,7 @@
                     <div class="col-md-4">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="useEtag"
-                                   @bind="settings.HttpServer.UseEtag">
+                                   @bind="UseEtag">
                             <label class="form-check-label" for="useEtag">
                                 Use ETag
                             </label>
@@ -107,19 +107,126 @@
 </div>
 
 @code {
+    [Parameter]
+    public string? VhostId { get; set; }
+
     private ApplicationSettings settings = new();
+    private VirtualHostSettings currentVHostSettings = new();
     private string? saveMessage;
     private bool saveSuccess;
+    private bool isVirtualHost => !string.IsNullOrEmpty(VhostId);
+    private string virtualHostName = "";
+
+    private string WelcomeFileName
+    {
+        get => isVirtualHost ? currentVHostSettings.WelcomeFileName : settings.HttpServer.WelcomeFileName;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.WelcomeFileName = value;
+            else
+                settings.HttpServer.WelcomeFileName = value;
+        }
+    }
+
+    private string ServerHeader
+    {
+        get => isVirtualHost ? currentVHostSettings.ServerHeader : settings.HttpServer.ServerHeader;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.ServerHeader = value;
+            else
+                settings.HttpServer.ServerHeader = value;
+        }
+    }
+
+    private string ServerAdmin
+    {
+        get => isVirtualHost ? currentVHostSettings.ServerAdmin : settings.HttpServer.ServerAdmin;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.ServerAdmin = value;
+            else
+                settings.HttpServer.ServerAdmin = value;
+        }
+    }
+
+    private bool UseHidden
+    {
+        get => isVirtualHost ? currentVHostSettings.UseHidden : settings.HttpServer.UseHidden;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.UseHidden = value;
+            else
+                settings.HttpServer.UseHidden = value;
+        }
+    }
+
+    private bool UseDot
+    {
+        get => isVirtualHost ? currentVHostSettings.UseDot : settings.HttpServer.UseDot;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.UseDot = value;
+            else
+                settings.HttpServer.UseDot = value;
+        }
+    }
+
+    private bool UseDirectoryEnum
+    {
+        get => isVirtualHost ? currentVHostSettings.UseDirectoryEnum : settings.HttpServer.UseDirectoryEnum;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.UseDirectoryEnum = value;
+            else
+                settings.HttpServer.UseDirectoryEnum = value;
+        }
+    }
+
+    private bool UseEtag
+    {
+        get => isVirtualHost ? currentVHostSettings.UseEtag : settings.HttpServer.UseEtag;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.UseEtag = value;
+            else
+                settings.HttpServer.UseEtag = value;
+        }
+    }
 
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
+
+        if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+        {
+            if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+            {
+                currentVHostSettings = settings.HttpServer.VirtualHosts[vhostIndex].Settings;
+                virtualHostName = settings.HttpServer.VirtualHosts[vhostIndex].Host;
+            }
+        }
     }
 
     private async Task SaveSettings()
     {
         try
         {
+            if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+            {
+                if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+                {
+                    settings.HttpServer.VirtualHosts[vhostIndex].Settings = currentVHostSettings;
+                }
+            }
+
             await SettingsService.SaveSettingsAsync(settings);
             saveMessage = "Settings saved successfully!";
             saveSuccess = true;
@@ -139,9 +246,17 @@
 
     private void ResetToDefault()
     {
-        var defaults = SettingsService.GetDefaultSettings();
-        settings.HttpServer = defaults.HttpServer;
-        saveMessage = "Settings reset to default values. Click Save to apply.";
+        if (isVirtualHost)
+        {
+            currentVHostSettings = SettingsService.GetDefaultVirtualHostSettings();
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
+        else
+        {
+            var defaults = SettingsService.GetDefaultSettings();
+            settings.HttpServer = defaults.HttpServer;
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
         saveSuccess = true;
     }
 }

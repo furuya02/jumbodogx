@@ -1,4 +1,4 @@
-@page "/settings/http/alias-mime"
+@page "/settings/http/{vhostId?}/alias-mime"
 @rendermode InteractiveServer
 @using Jdx.Core.Settings
 @using Jdx.WebUI.Services
@@ -6,7 +6,7 @@
 
 <PageTitle>HTTP Alias & MIME Settings - JumboDogX</PageTitle>
 
-<h1>HTTP/HTTPS - Alias & MIME Settings</h1>
+<h1>HTTP/HTTPS - Alias & MIME Settings@(isVirtualHost ? $" ({virtualHostName})" : "")</h1>
 
 @if (saveMessage != null)
 {
@@ -29,7 +29,7 @@
                     Advanced configuration UI will be added in future updates.
                 </div>
                 <p class="text-muted mb-4">
-                    Current: @settings.HttpServer.Aliases.Count alias(es) configured
+                    Current: @(isVirtualHost ? currentVHostSettings.Aliases.Count : settings.HttpServer.Aliases.Count) alias(es) configured
                 </p>
 
                 <h6>MIME Types</h6>
@@ -38,7 +38,7 @@
                     Advanced configuration UI will be added in future updates.
                 </div>
                 <p class="text-muted">
-                    Current: @settings.HttpServer.MimeTypes.Count MIME type(s) configured
+                    Current: @(isVirtualHost ? currentVHostSettings.MimeTypes.Count : settings.HttpServer.MimeTypes.Count) MIME type(s) configured
                 </p>
 
                 <div class="border-top pt-3 mt-4">
@@ -55,19 +55,42 @@
 </div>
 
 @code {
+    [Parameter]
+    public string? VhostId { get; set; }
+
     private ApplicationSettings settings = new();
+    private VirtualHostSettings currentVHostSettings = new();
     private string? saveMessage;
     private bool saveSuccess;
+    private bool isVirtualHost => !string.IsNullOrEmpty(VhostId);
+    private string virtualHostName = "";
 
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
+
+        if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+        {
+            if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+            {
+                currentVHostSettings = settings.HttpServer.VirtualHosts[vhostIndex].Settings;
+                virtualHostName = settings.HttpServer.VirtualHosts[vhostIndex].Host;
+            }
+        }
     }
 
     private async Task SaveSettings()
     {
         try
         {
+            if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+            {
+                if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+                {
+                    settings.HttpServer.VirtualHosts[vhostIndex].Settings = currentVHostSettings;
+                }
+            }
+
             await SettingsService.SaveSettingsAsync(settings);
             saveMessage = "Settings saved successfully!";
             saveSuccess = true;
@@ -87,9 +110,17 @@
 
     private void ResetToDefault()
     {
-        var defaults = SettingsService.GetDefaultSettings();
-        settings.HttpServer = defaults.HttpServer;
-        saveMessage = "Settings reset to default values. Click Save to apply.";
+        if (isVirtualHost)
+        {
+            currentVHostSettings = SettingsService.GetDefaultVirtualHostSettings();
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
+        else
+        {
+            var defaults = SettingsService.GetDefaultSettings();
+            settings.HttpServer = defaults.HttpServer;
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
         saveSuccess = true;
     }
 }

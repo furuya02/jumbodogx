@@ -1,4 +1,4 @@
-@page "/settings/http/ssi"
+@page "/settings/http/{vhostId?}/ssi"
 @rendermode InteractiveServer
 @using Jdx.Core.Settings
 @using Jdx.WebUI.Services
@@ -6,7 +6,7 @@
 
 <PageTitle>HTTP SSI Settings - JumboDogX</PageTitle>
 
-<h1>HTTP/HTTPS - SSI Settings</h1>
+<h1>HTTP/HTTPS - SSI Settings@(isVirtualHost ? $" ({virtualHostName})" : "")</h1>
 
 @if (saveMessage != null)
 {
@@ -27,7 +27,7 @@
                     <div class="col-md-4">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="useSsi"
-                                   @bind="settings.HttpServer.UseSsi">
+                                   @bind="UseSsi">
                             <label class="form-check-label" for="useSsi">
                                 <strong>Enable SSI</strong>
                             </label>
@@ -37,7 +37,7 @@
                     <div class="col-md-4">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="useExec"
-                                   @bind="settings.HttpServer.UseExec">
+                                   @bind="UseExec">
                             <label class="form-check-label" for="useExec">
                                 Allow SSI exec
                             </label>
@@ -50,7 +50,7 @@
                     <div class="col-md-6">
                         <label for="ssiExt" class="form-label">SSI Extensions</label>
                         <input type="text" class="form-control" id="ssiExt"
-                               @bind="settings.HttpServer.SsiExt" placeholder="html,htm,shtml">
+                               @bind="SsiExt" placeholder="html,htm,shtml">
                         <div class="form-text">Comma-separated list of file extensions to process</div>
                     </div>
                 </div>
@@ -69,19 +69,78 @@
 </div>
 
 @code {
+    [Parameter]
+    public string? VhostId { get; set; }
+
     private ApplicationSettings settings = new();
+    private VirtualHostSettings currentVHostSettings = new();
     private string? saveMessage;
     private bool saveSuccess;
+    private bool isVirtualHost => !string.IsNullOrEmpty(VhostId);
+    private string virtualHostName = "";
+
+    private bool UseSsi
+    {
+        get => isVirtualHost ? currentVHostSettings.UseSsi : settings.HttpServer.UseSsi;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.UseSsi = value;
+            else
+                settings.HttpServer.UseSsi = value;
+        }
+    }
+
+    private bool UseExec
+    {
+        get => isVirtualHost ? currentVHostSettings.UseExec : settings.HttpServer.UseExec;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.UseExec = value;
+            else
+                settings.HttpServer.UseExec = value;
+        }
+    }
+
+    private string SsiExt
+    {
+        get => isVirtualHost ? currentVHostSettings.SsiExt : settings.HttpServer.SsiExt;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.SsiExt = value;
+            else
+                settings.HttpServer.SsiExt = value;
+        }
+    }
 
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
+
+        if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+        {
+            if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+            {
+                currentVHostSettings = settings.HttpServer.VirtualHosts[vhostIndex].Settings;
+                virtualHostName = settings.HttpServer.VirtualHosts[vhostIndex].Host;
+            }
+        }
     }
 
     private async Task SaveSettings()
     {
         try
         {
+            if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+            {
+                if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+                {
+                    settings.HttpServer.VirtualHosts[vhostIndex].Settings = currentVHostSettings;
+                }
+            }
+
             await SettingsService.SaveSettingsAsync(settings);
             saveMessage = "Settings saved successfully!";
             saveSuccess = true;
@@ -101,9 +160,17 @@
 
     private void ResetToDefault()
     {
-        var defaults = SettingsService.GetDefaultSettings();
-        settings.HttpServer = defaults.HttpServer;
-        saveMessage = "Settings reset to default values. Click Save to apply.";
+        if (isVirtualHost)
+        {
+            currentVHostSettings = SettingsService.GetDefaultVirtualHostSettings();
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
+        else
+        {
+            var defaults = SettingsService.GetDefaultSettings();
+            settings.HttpServer = defaults.HttpServer;
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
         saveSuccess = true;
     }
 }

@@ -1,4 +1,4 @@
-@page "/settings/http/ssl"
+@page "/settings/http/{vhostId?}/ssl"
 @rendermode InteractiveServer
 @using Jdx.Core.Settings
 @using Jdx.WebUI.Services
@@ -6,7 +6,7 @@
 
 <PageTitle>HTTP SSL/TLS Settings - JumboDogX</PageTitle>
 
-<h1>HTTP/HTTPS - SSL/TLS</h1>
+<h1>HTTP/HTTPS - SSL/TLS@(isVirtualHost ? $" ({virtualHostName})" : "")</h1>
 
 @if (saveMessage != null)
 {
@@ -38,13 +38,13 @@
                     <div class="col-md-6">
                         <label for="certificateFile" class="form-label">Certificate File</label>
                         <input type="text" class="form-control" id="certificateFile"
-                               @bind="settings.HttpServer.CertificateFile" placeholder="/path/to/certificate.pfx">
+                               @bind="CertificateFile" placeholder="/path/to/certificate.pfx">
                         <div class="form-text">Path to SSL certificate file (PFX format)</div>
                     </div>
                     <div class="col-md-6">
                         <label for="certificatePassword" class="form-label">Certificate Password</label>
                         <input type="password" class="form-control" id="certificatePassword"
-                               @bind="settings.HttpServer.CertificatePassword" placeholder="Enter password">
+                               @bind="CertificatePassword" placeholder="Enter password">
                         <div class="form-text">Password for the certificate file</div>
                     </div>
                 </div>
@@ -66,21 +66,68 @@
 </div>
 
 @code {
+    [Parameter]
+    public string? VhostId { get; set; }
+
     private ApplicationSettings settings = new();
+    private VirtualHostSettings currentVHostSettings = new();
     private string? saveMessage;
     private bool saveSuccess;
+    private bool isVirtualHost => !string.IsNullOrEmpty(VhostId);
+    private string virtualHostName = "";
+
+    private string CertificateFile
+    {
+        get => isVirtualHost ? currentVHostSettings.CertificateFile : settings.HttpServer.CertificateFile;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.CertificateFile = value;
+            else
+                settings.HttpServer.CertificateFile = value;
+        }
+    }
+
+    private string CertificatePassword
+    {
+        get => isVirtualHost ? currentVHostSettings.CertificatePassword : settings.HttpServer.CertificatePassword;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.CertificatePassword = value;
+            else
+                settings.HttpServer.CertificatePassword = value;
+        }
+    }
 
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
+
+        if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+        {
+            if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+            {
+                currentVHostSettings = settings.HttpServer.VirtualHosts[vhostIndex].Settings;
+                virtualHostName = settings.HttpServer.VirtualHosts[vhostIndex].Host;
+            }
+        }
     }
 
     private async Task SaveSettings()
     {
         try
         {
+            if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+            {
+                if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+                {
+                    settings.HttpServer.VirtualHosts[vhostIndex].Settings = currentVHostSettings;
+                }
+            }
+
             await SettingsService.SaveSettingsAsync(settings);
-            saveMessage = "SSL/TLS settings saved successfully! Restart the server to apply changes.";
+            saveMessage = "Settings saved successfully!";
             saveSuccess = true;
         }
         catch (Exception ex)
@@ -89,8 +136,7 @@
             saveSuccess = false;
         }
 
-        // Clear message after 5 seconds
-        _ = Task.Delay(5000).ContinueWith(_ =>
+        _ = Task.Delay(3000).ContinueWith(_ =>
         {
             saveMessage = null;
             InvokeAsync(StateHasChanged);
@@ -99,13 +145,17 @@
 
     private void ResetToDefault()
     {
-        var defaults = SettingsService.GetDefaultSettings();
-
-        // Reset SSL/TLS settings to defaults
-        settings.HttpServer.CertificateFile = defaults.HttpServer.CertificateFile;
-        settings.HttpServer.CertificatePassword = defaults.HttpServer.CertificatePassword;
-
-        saveMessage = "SSL/TLS settings reset to default values. Click 'Save Settings' to apply.";
+        if (isVirtualHost)
+        {
+            currentVHostSettings = SettingsService.GetDefaultVirtualHostSettings();
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
+        else
+        {
+            var defaults = SettingsService.GetDefaultSettings();
+            settings.HttpServer = defaults.HttpServer;
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
         saveSuccess = true;
     }
 }

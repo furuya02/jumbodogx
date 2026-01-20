@@ -1,4 +1,4 @@
-@page "/settings/http/template"
+@page "/settings/http/{vhostId?}/template"
 @rendermode InteractiveServer
 @using Jdx.Core.Settings
 @using Jdx.WebUI.Services
@@ -6,7 +6,7 @@
 
 <PageTitle>HTTP Template Settings - JumboDogX</PageTitle>
 
-<h1>HTTP/HTTPS - Template Settings</h1>
+<h1>HTTP/HTTPS - Template Settings@(isVirtualHost ? $" ({virtualHostName})" : "")</h1>
 
 @if (saveMessage != null)
 {
@@ -27,7 +27,7 @@
                     <div class="col-md-6">
                         <label for="encode" class="form-label">Character Encoding</label>
                         <input type="text" class="form-control" id="encode"
-                               @bind="settings.HttpServer.Encode" placeholder="UTF-8">
+                               @bind="Encode" placeholder="UTF-8">
                         <div class="form-text">Default character encoding for responses</div>
                     </div>
                 </div>
@@ -36,7 +36,7 @@
                     <div class="col-md-12">
                         <label for="indexDoc" class="form-label">Index Document Template</label>
                         <textarea class="form-control font-monospace" id="indexDoc" rows="4"
-                                  @bind="settings.HttpServer.IndexDocument"></textarea>
+                                  @bind="IndexDocument"></textarea>
                         <div class="form-text">HTML template for directory listings. Variables: $URI, $LIST</div>
                     </div>
                 </div>
@@ -45,7 +45,7 @@
                     <div class="col-md-12">
                         <label for="errorDoc" class="form-label">Error Document Template</label>
                         <textarea class="form-control font-monospace" id="errorDoc" rows="4"
-                                  @bind="settings.HttpServer.ErrorDocument"></textarea>
+                                  @bind="ErrorDocument"></textarea>
                         <div class="form-text">HTML template for error pages. Variables: $CODE, $MSG</div>
                     </div>
                 </div>
@@ -64,19 +64,78 @@
 </div>
 
 @code {
+    [Parameter]
+    public string? VhostId { get; set; }
+
     private ApplicationSettings settings = new();
+    private VirtualHostSettings currentVHostSettings = new();
     private string? saveMessage;
     private bool saveSuccess;
+    private bool isVirtualHost => !string.IsNullOrEmpty(VhostId);
+    private string virtualHostName = "";
+
+    private string Encode
+    {
+        get => isVirtualHost ? currentVHostSettings.Encode : settings.HttpServer.Encode;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.Encode = value;
+            else
+                settings.HttpServer.Encode = value;
+        }
+    }
+
+    private string IndexDocument
+    {
+        get => isVirtualHost ? currentVHostSettings.IndexDocument : settings.HttpServer.IndexDocument;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.IndexDocument = value;
+            else
+                settings.HttpServer.IndexDocument = value;
+        }
+    }
+
+    private string ErrorDocument
+    {
+        get => isVirtualHost ? currentVHostSettings.ErrorDocument : settings.HttpServer.ErrorDocument;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.ErrorDocument = value;
+            else
+                settings.HttpServer.ErrorDocument = value;
+        }
+    }
 
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
+
+        if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+        {
+            if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+            {
+                currentVHostSettings = settings.HttpServer.VirtualHosts[vhostIndex].Settings;
+                virtualHostName = settings.HttpServer.VirtualHosts[vhostIndex].Host;
+            }
+        }
     }
 
     private async Task SaveSettings()
     {
         try
         {
+            if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+            {
+                if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+                {
+                    settings.HttpServer.VirtualHosts[vhostIndex].Settings = currentVHostSettings;
+                }
+            }
+
             await SettingsService.SaveSettingsAsync(settings);
             saveMessage = "Settings saved successfully!";
             saveSuccess = true;
@@ -96,9 +155,17 @@
 
     private void ResetToDefault()
     {
-        var defaults = SettingsService.GetDefaultSettings();
-        settings.HttpServer = defaults.HttpServer;
-        saveMessage = "Settings reset to default values. Click Save to apply.";
+        if (isVirtualHost)
+        {
+            currentVHostSettings = SettingsService.GetDefaultVirtualHostSettings();
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
+        else
+        {
+            var defaults = SettingsService.GetDefaultSettings();
+            settings.HttpServer = defaults.HttpServer;
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
         saveSuccess = true;
     }
 }
