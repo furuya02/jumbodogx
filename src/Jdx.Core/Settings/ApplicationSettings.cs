@@ -37,7 +37,7 @@ public class HttpServerSettings
     public bool UseDot { get; set; } = false;
     public bool UseDirectoryEnum { get; set; } = false;
     public bool UseExpansion { get; set; } = false;  // Proxy拡張機能（RemoteHostヘッダー追加）
-    public string ServerHeader { get; set; } = "BlackJumboDog Version $v";
+    public string ServerHeader { get; set; } = "JumboDogX Version $v";
     public bool UseEtag { get; set; } = false;
     public string ServerAdmin { get; set; } = "";
 
@@ -178,7 +178,7 @@ public class FtpServerSettings
     public int Port { get; set; } = 2121;  // 開発環境用デフォルトポート
     public int TimeOut { get; set; } = 300;  // 秒
     public int MaxConnections { get; set; } = 10;
-    public string BannerMessage { get; set; } = "BlackJumboDog FTP Server Ready";
+    public string BannerMessage { get; set; } = "JumboDogX FTP Server Ready";
     public bool UseSyst { get; set; } = false;  // SYST コマンドへの応答
     public int ReservationTime { get; set; } = 30;  // PASV予約時間（秒）
 
@@ -582,8 +582,8 @@ public class ProxyServerSettings
     public bool UseRequestLog { get; set; } = false;
 
     // 匿名設定
-    public string AnonymousAddress { get; set; } = "BlackJumboDog@";
-    public string ServerHeader { get; set; } = "BlackJumboDog Version $v";
+    public string AnonymousAddress { get; set; } = "JumboDogX@";
+    public string ServerHeader { get; set; } = "JumboDogX Version $v";
 
     // ブラウザヘッダー
     public bool UseBrowserHeader { get; set; } = false;
