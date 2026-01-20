@@ -18,10 +18,14 @@ public class ApplicationSettings
 
 /// <summary>
 /// HTTPサーバー設定
+///
+/// ハイブリッド設計:
+/// - Virtual Hostが設定されていない場合、この設定がデフォルトとして使用される
+/// - Virtual Hostが設定されている場合、各VirtualHostSettingsが優先される
 /// </summary>
 public class HttpServerSettings
 {
-    // 基本設定
+    // サーバー全体の基本設定
     public bool Enabled { get; set; }
     public string Protocol { get; set; } = "HTTP";  // HTTP or HTTPS
     public int Port { get; set; }
@@ -30,13 +34,14 @@ public class HttpServerSettings
     public int TimeOut { get; set; } = 3;
     public int MaxConnections { get; set; }
 
+    // デフォルト設定（Virtual Hostがない場合に使用）
     // ドキュメント設定
     public string DocumentRoot { get; set; } = "";
     public string WelcomeFileName { get; set; } = "index.html";
     public bool UseHidden { get; set; } = false;
     public bool UseDot { get; set; } = false;
     public bool UseDirectoryEnum { get; set; } = false;
-    public bool UseExpansion { get; set; } = false;  // Proxy拡張機能（RemoteHostヘッダー追加）
+    public bool UseExpansion { get; set; } = false;
     public string ServerHeader { get; set; } = "JumboDogX Version $v";
     public bool UseEtag { get; set; } = false;
     public string ServerAdmin { get; set; } = "";
@@ -64,41 +69,33 @@ public class HttpServerSettings
 
     // 認証設定
     public List<AuthEntry> AuthList { get; set; } = new();
-
-    // ユーザ・グループ設定
     public List<UserEntry> UserList { get; set; } = new();
     public List<GroupEntry> GroupList { get; set; } = new();
 
-    // モデル文設定
+    // テンプレート設定
     public string Encode { get; set; } = "UTF-8";
     public string IndexDocument { get; set; } = "";
     public string ErrorDocument { get; set; } = "";
-
-    // 自動ACL設定
-    public bool UseAutoAcl { get; set; } = false;
-    public bool AutoAclApacheKiller { get; set; } = false;
 
     // ACL設定
     public int EnableAcl { get; set; } = 0;  // 0=Allow, 1=Deny
     public List<AclEntry> AclList { get; set; } = new();
 
-    // Keep-Alive設定
+    // Advanced設定
+    public bool UseAutoAcl { get; set; } = false;
+    public bool AutoAclApacheKiller { get; set; } = false;
     public bool UseKeepAlive { get; set; } = true;
-    public int KeepAliveTimeout { get; set; } = 5;  // 秒
+    public int KeepAliveTimeout { get; set; } = 5;
     public int MaxKeepAliveRequests { get; set; } = 100;
-
-    // Range Requests設定
     public bool UseRangeRequests { get; set; } = true;
-    public int MaxRangeCount { get; set; } = 20;  // Apache Killer対策
+    public int MaxRangeCount { get; set; } = 20;
 
     // SSL/TLS設定
     public string CertificateFile { get; set; } = "";
-    // WARNING: Storing passwords in plaintext is insecure.
-    // Consider using environment variables or ASP.NET Core User Secrets in production.
-    // Example: Environment.GetEnvironmentVariable("CERT_PASSWORD")
     public string CertificatePassword { get; set; } = "";
 
     // Virtual Host設定
+    // NOTE: 各Virtual Hostが個別の設定を持つ（上記のデフォルト設定を上書き）
     public List<VirtualHostEntry> VirtualHosts { get; set; } = new();
 }
 
@@ -162,9 +159,73 @@ public class AclEntry
 public class VirtualHostEntry
 {
     public string Host { get; set; } = "";  // ホスト名（例: example.com:8080）
+    public VirtualHostSettings Settings { get; set; } = new();
+}
+
+/// <summary>
+/// Virtual Host個別設定
+/// 各Virtual Hostが持つ独立した設定
+/// </summary>
+public class VirtualHostSettings
+{
+    // ドキュメント設定 (Document)
     public string DocumentRoot { get; set; } = "";
-    public string CertificateFile { get; set; } = "";  // HTTPS用（オプション）
-    public string CertificatePassword { get; set; } = "";  // HTTPS用（オプション）
+    public string WelcomeFileName { get; set; } = "index.html";
+    public bool UseHidden { get; set; } = false;
+    public bool UseDot { get; set; } = false;
+    public bool UseDirectoryEnum { get; set; } = false;
+    public bool UseExpansion { get; set; } = false;
+    public string ServerHeader { get; set; } = "JumboDogX Version $v";
+    public bool UseEtag { get; set; } = false;
+    public string ServerAdmin { get; set; } = "";
+
+    // CGI設定
+    public bool UseCgi { get; set; } = false;
+    public List<CgiCommandEntry> CgiCommands { get; set; } = new();
+    public int CgiTimeout { get; set; } = 10;
+    public List<CgiPathEntry> CgiPaths { get; set; } = new();
+
+    // SSI設定
+    public bool UseSsi { get; set; } = false;
+    public string SsiExt { get; set; } = "html,htm";
+    public bool UseExec { get; set; } = false;
+
+    // WebDAV設定
+    public bool UseWebDav { get; set; } = false;
+    public List<WebDavPathEntry> WebDavPaths { get; set; } = new();
+
+    // Alias設定
+    public List<AliasEntry> Aliases { get; set; } = new();
+
+    // MIME設定
+    public List<MimeEntry> MimeTypes { get; set; } = new();
+
+    // 認証設定 (Authentication)
+    public List<AuthEntry> AuthList { get; set; } = new();
+    public List<UserEntry> UserList { get; set; } = new();
+    public List<GroupEntry> GroupList { get; set; } = new();
+
+    // テンプレート設定 (Template)
+    public string Encode { get; set; } = "UTF-8";
+    public string IndexDocument { get; set; } = "";
+    public string ErrorDocument { get; set; } = "";
+
+    // ACL設定
+    public int EnableAcl { get; set; } = 0;  // 0=Allow, 1=Deny
+    public List<AclEntry> AclList { get; set; } = new();
+
+    // SSL/TLS設定
+    public string CertificateFile { get; set; } = "";
+    public string CertificatePassword { get; set; } = "";
+
+    // Advanced設定
+    public bool UseAutoAcl { get; set; } = false;
+    public bool AutoAclApacheKiller { get; set; } = false;
+    public bool UseKeepAlive { get; set; } = true;
+    public int KeepAliveTimeout { get; set; } = 5;
+    public int MaxKeepAliveRequests { get; set; } = 100;
+    public bool UseRangeRequests { get; set; } = true;
+    public int MaxRangeCount { get; set; } = 20;
 }
 
 /// <summary>

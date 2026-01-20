@@ -21,6 +21,11 @@ public interface ISettingsService
     ApplicationSettings GetDefaultSettings();
 
     /// <summary>
+    /// デフォルトのVirtual Host設定を取得する
+    /// </summary>
+    VirtualHostSettings GetDefaultVirtualHostSettings();
+
+    /// <summary>
     /// 設定をJSON形式でエクスポートする
     /// </summary>
     /// <returns>JSON形式の設定文字列</returns>
