@@ -101,7 +101,12 @@ public class SettingsService : ISettingsService
             Encode = "UTF-8",
             UseAutoAcl = false,
             AutoAclApacheKiller = false,
-            EnableAcl = 0
+            EnableAcl = 0,
+            UseKeepAlive = true,
+            KeepAliveTimeout = 5,
+            MaxKeepAliveRequests = 100,
+            UseRangeRequests = true,
+            MaxRangeCount = 20
         };
 
         // デフォルトMIMEタイプ
@@ -137,6 +142,61 @@ public class SettingsService : ISettingsService
                 MaxEntries = 1000
             }
         };
+    }
+
+    /// <summary>
+    /// デフォルトのVirtual Host設定を取得
+    /// </summary>
+    public VirtualHostSettings GetDefaultVirtualHostSettings()
+    {
+        var settings = new VirtualHostSettings
+        {
+            DocumentRoot = "",
+            WelcomeFileName = "index.html",
+            UseHidden = false,
+            UseDot = false,
+            UseDirectoryEnum = false,
+            UseExpansion = false,
+            ServerHeader = "JumboDogX Version $v",
+            UseEtag = false,
+            ServerAdmin = "",
+            UseCgi = false,
+            CgiTimeout = 10,
+            UseSsi = false,
+            SsiExt = "html,htm",
+            UseExec = false,
+            UseWebDav = false,
+            Encode = "UTF-8",
+            UseAutoAcl = false,
+            AutoAclApacheKiller = false,
+            EnableAcl = 0,
+            UseKeepAlive = true,
+            KeepAliveTimeout = 5,
+            MaxKeepAliveRequests = 100,
+            UseRangeRequests = true,
+            MaxRangeCount = 20
+        };
+
+        // デフォルトMIMEタイプ
+        settings.MimeTypes = new List<MimeEntry>
+        {
+            new() { Extension = "txt", MimeType = "text/plain" },
+            new() { Extension = "html", MimeType = "text/html" },
+            new() { Extension = "htm", MimeType = "text/html" },
+            new() { Extension = "css", MimeType = "text/css" },
+            new() { Extension = "js", MimeType = "text/javascript" },
+            new() { Extension = "json", MimeType = "application/json" },
+            new() { Extension = "xml", MimeType = "text/xml" },
+            new() { Extension = "gif", MimeType = "image/gif" },
+            new() { Extension = "jpg", MimeType = "image/jpeg" },
+            new() { Extension = "jpeg", MimeType = "image/jpeg" },
+            new() { Extension = "png", MimeType = "image/png" },
+            new() { Extension = "svg", MimeType = "image/svg+xml" },
+            new() { Extension = "pdf", MimeType = "application/pdf" },
+            new() { Extension = "zip", MimeType = "application/zip" }
+        };
+
+        return settings;
     }
 
     private ApplicationSettings LoadSettings()
@@ -215,6 +275,15 @@ public class SettingsService : ISettingsService
         if (settings.HttpServer.MimeTypes.Count == 0)
         {
             settings.HttpServer.MimeTypes = GetDefaultSettings().HttpServer.MimeTypes;
+        }
+
+        // Virtual Hostsが存在する場合、各Virtual HostにデフォルトMIMEタイプを設定
+        foreach (var vhost in settings.HttpServer.VirtualHosts)
+        {
+            if (vhost.Settings.MimeTypes.Count == 0)
+            {
+                vhost.Settings.MimeTypes = GetDefaultVirtualHostSettings().MimeTypes;
+            }
         }
 
         return settings;
