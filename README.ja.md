@@ -2,7 +2,8 @@
 
 [English](README.md) | 日本語
 
-**JumboDogX** は、BlackJumboDog (BJD) を.NET 9で完全に書き直した次世代マルチプラットフォーム統合サーバーソフトウェアです。JumboDogXは、日本で愛されてきたBJDの進化版として、最新のクロスプラットフォーム機能を提供します。
+**JumboDogX** は、今まで多くの方にご利用いただいていた[BlackJumboDog (BJD)](https://forest.watch.impress.co.jp/library/software/blackjmbdog/) の次期バージョンとして .NET 9（クロスプラットフォーム）へ移植されたものです。
+（2026.01現在、開発中です）
 
 **⚠️ 重要**: このソフトウェアは**ローカル環境でのテスト用**に設計されています。本番環境や公開サーバーとしての使用は想定していません。開発・テスト環境でのみ使用してください。
 
@@ -116,6 +117,177 @@ dotnet run
 その後、ブラウザで http://localhost:5001 にアクセスしてください。
 
 詳細は [startup.md](startup.md) を参照してください。
+
+## メトリクス
+
+JumboDogXは、サーバーパフォーマンスを監視するためのPrometheus互換メトリクスを提供します。
+
+### メトリクスへのアクセス
+
+メトリクスはHTTPサーバーの `/metrics` エンドポイントから利用できます：
+
+```bash
+curl http://localhost:2001/metrics
+```
+
+### 利用可能なメトリクス
+
+- **Total Connections**: 受信した接続数
+- **Active Connections**: 現在アクティブな接続数
+- **Total Requests**: 処理されたリクエスト数
+- **Total Errors**: 発生したエラー数
+- **Bytes Received/Sent**: ネットワークトラフィック統計
+- **Server Uptime**: 各サーバーの稼働時間
+
+### Prometheusとの統合
+
+Prometheus設定ファイル（`prometheus.yml`）に以下を追加してください：
+
+```yaml
+scrape_configs:
+  - job_name: 'jumbodogx'
+    static_configs:
+      - targets: ['localhost:2001']
+```
+
+### Grafanaダッシュボード
+
+メトリクスは以下の手順でGrafanaで可視化できます：
+1. Prometheusをデータソースとして追加
+2. 以下のようなクエリでダッシュボードを作成：
+   - `jumbodogx_http_total_connections`
+   - `jumbodogx_http_active_connections`
+   - `rate(jumbodogx_http_total_requests[5m])`
+
+## ログ
+
+JumboDogXは、機械可読で検索可能なログを提供するため、Serilogによる構造化ログを使用しています。
+
+### ログ形式
+
+すべてのログは**コンパクトJSON形式**で出力され、ログ集約ツールで簡単に解析できます。
+
+### ログ出力先
+
+ログは2つの出力先に書き込まれます：
+
+1. **コンソール**: JSON形式のリアルタイムログ出力
+2. **ファイル**: 自動ローテーション付きの永続的なログファイル
+
+### ログファイル
+
+- **ホストアプリケーション**: `logs/jumbodogx-host20260119.log`
+- **WebUIアプリケーション**: `logs/jumbodogx-webui20260119.log`
+
+注: Serilogは日次ローテーションが有効な場合、ファイル名と拡張子の間に日付（YYYYMMDD）を自動的に追加します。
+
+### ログローテーション
+
+ログファイルは以下の基準で自動的にローテーションされます：
+
+- **日次ローテーション**: 毎日新しいログファイルを作成
+- **サイズベースローテーション**: ファイルが10MBを超えた場合
+- **保持期間**: 過去30日分のログを保持
+
+### ログ構造
+
+各ログエントリには以下が含まれます：
+
+```json
+{
+  "@t": "2026-01-19T10:30:45.123Z",
+  "@mt": "HTTP request received",
+  "@l": "Information",
+  "Application": "JumboDogX.Host",
+  "SourceContext": "Jdx.Servers.Http.HttpServer",
+  "Method": "GET",
+  "Path": "/index.html"
+}
+```
+
+### ログの解析
+
+`jq`などのツールを使用してJSONログを解析できます：
+
+```bash
+# すべてのエラーログを表示
+cat logs/jumbodogx-host*.log | jq 'select(.["@l"] == "Error")'
+
+# メソッド別にリクエスト数をカウント
+cat logs/jumbodogx-host*.log | jq -r '.Method' | sort | uniq -c
+
+# タイムスタンプとメッセージを抽出
+cat logs/jumbodogx-host*.log | jq -r '"\(.["@t"]) - \(.["@mt"])"'
+```
+
+## テスト
+
+### ユニットテストの実行
+
+すべてのテストを実行：
+```bash
+dotnet test
+```
+
+特定のプロジェクトのテストを実行：
+```bash
+dotnet test tests/Jdx.Core.Tests
+dotnet test tests/Jdx.Servers.Http.Tests
+dotnet test tests/Jdx.Servers.Dns.Tests
+```
+
+カバレッジ付きでテストを実行：
+```bash
+dotnet test --collect:"XPlat Code Coverage"
+```
+
+### ベンチマークの実行
+
+すべてのベンチマークを実行：
+```bash
+dotnet run --project benchmarks/Jdx.Benchmarks -c Release
+```
+
+特定のベンチマークを実行：
+```bash
+dotnet run --project benchmarks/Jdx.Benchmarks -c Release -- --filter *HttpRequestBenchmark*
+```
+
+詳細は [benchmarks/Jdx.Benchmarks/README.md](benchmarks/Jdx.Benchmarks/README.md) を参照してください。
+
+## 設定
+
+詳細な設定例については、[docs/configuration-guide.md](docs/configuration-guide.md) を参照してください。
+
+### 設定のバックアップ・復元
+
+JumboDogXは、簡単なバックアップと移行のための設定インポート/エクスポート機能を提供します。
+
+#### 設定のエクスポート
+
+1. `http://localhost:5001` でWeb UIにアクセス
+2. **Settings** → **Backup & Restore** に移動
+3. **Export Settings** ボタンをクリック
+4. ダウンロードされたJSONファイル（例：`jumbodogx-settings-20260119-120000.json`）を保存
+
+エクスポートされたファイルには、HTTP、DNS、FTP、SMTP、POP3、DHCP、TFTP、Proxyの全サーバー設定が含まれます。
+
+#### 設定のインポート
+
+1. `http://localhost:5001` でWeb UIにアクセス
+2. **Settings** → **Backup & Restore** に移動
+3. 以前にエクスポートしたJSONファイルを選択
+4. **Import Settings** ボタンをクリック
+5. インポートした設定を適用するためにアプリケーションを再起動
+
+**注意**: 設定をインポートした後、変更を有効にするためにアプリケーションを再起動する必要があります。
+
+#### ユースケース
+
+- **バックアップ**: 変更前に現在の設定を保存
+- **マイグレーション**: 異なるインスタンス間で設定を移行
+- **テンプレート**: 開発チーム内で設定を共有
+- **リカバリー**: 以前の動作する設定に復元
 
 ## 設計ドキュメント
 
