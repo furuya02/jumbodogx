@@ -1,4 +1,4 @@
-@page "/settings/http/cgi"
+@page "/settings/http/{vhostId?}/cgi"
 @rendermode InteractiveServer
 @using Jdx.Core.Settings
 @using Jdx.WebUI.Services
@@ -6,7 +6,7 @@
 
 <PageTitle>HTTP CGI Settings - JumboDogX</PageTitle>
 
-<h1>HTTP/HTTPS - CGI Settings</h1>
+<h1>HTTP/HTTPS - CGI Settings@(isVirtualHost ? $" ({virtualHostName})" : "")</h1>
 
 @if (saveMessage != null)
 {
@@ -27,7 +27,7 @@
                     <div class="col-md-4">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="useCgi"
-                                   @bind="settings.HttpServer.UseCgi">
+                                   @bind="UseCgi">
                             <label class="form-check-label" for="useCgi">
                                 <strong>Enable CGI</strong>
                             </label>
@@ -37,7 +37,7 @@
                     <div class="col-md-4">
                         <label for="cgiTimeout" class="form-label">CGI Timeout (seconds)</label>
                         <input type="number" class="form-control" id="cgiTimeout"
-                               @bind="settings.HttpServer.CgiTimeout" min="1" max="300">
+                               @bind="CgiTimeout" min="1" max="300">
                         <div class="form-text">Maximum CGI script execution time</div>
                     </div>
                 </div>
@@ -50,7 +50,7 @@
                             Advanced configuration UI will be added in future updates.
                         </div>
                         <p class="text-muted">
-                            Current: @settings.HttpServer.CgiCommands.Count command(s) configured
+                            Current: @(isVirtualHost ? currentVHostSettings.CgiCommands.Count : settings.HttpServer.CgiCommands.Count) command(s) configured
                         </p>
                     </div>
                 </div>
@@ -63,7 +63,7 @@
                             Advanced configuration UI will be added in future updates.
                         </div>
                         <p class="text-muted">
-                            Current: @settings.HttpServer.CgiPaths.Count path(s) configured
+                            Current: @(isVirtualHost ? currentVHostSettings.CgiPaths.Count : settings.HttpServer.CgiPaths.Count) path(s) configured
                         </p>
                     </div>
                 </div>
@@ -82,19 +82,66 @@
 </div>
 
 @code {
+    [Parameter]
+    public string? VhostId { get; set; }
+
     private ApplicationSettings settings = new();
+    private VirtualHostSettings currentVHostSettings = new();
     private string? saveMessage;
     private bool saveSuccess;
+    private bool isVirtualHost => !string.IsNullOrEmpty(VhostId);
+    private string virtualHostName = "";
+
+    private bool UseCgi
+    {
+        get => isVirtualHost ? currentVHostSettings.UseCgi : settings.HttpServer.UseCgi;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.UseCgi = value;
+            else
+                settings.HttpServer.UseCgi = value;
+        }
+    }
+
+    private int CgiTimeout
+    {
+        get => isVirtualHost ? currentVHostSettings.CgiTimeout : settings.HttpServer.CgiTimeout;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.CgiTimeout = value;
+            else
+                settings.HttpServer.CgiTimeout = value;
+        }
+    }
 
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
+
+        if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+        {
+            if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+            {
+                currentVHostSettings = settings.HttpServer.VirtualHosts[vhostIndex].Settings;
+                virtualHostName = settings.HttpServer.VirtualHosts[vhostIndex].Host;
+            }
+        }
     }
 
     private async Task SaveSettings()
     {
         try
         {
+            if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+            {
+                if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+                {
+                    settings.HttpServer.VirtualHosts[vhostIndex].Settings = currentVHostSettings;
+                }
+            }
+
             await SettingsService.SaveSettingsAsync(settings);
             saveMessage = "Settings saved successfully!";
             saveSuccess = true;
@@ -114,9 +161,17 @@
 
     private void ResetToDefault()
     {
-        var defaults = SettingsService.GetDefaultSettings();
-        settings.HttpServer = defaults.HttpServer;
-        saveMessage = "Settings reset to default values. Click Save to apply.";
+        if (isVirtualHost)
+        {
+            currentVHostSettings = SettingsService.GetDefaultVirtualHostSettings();
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
+        else
+        {
+            var defaults = SettingsService.GetDefaultSettings();
+            settings.HttpServer = defaults.HttpServer;
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
         saveSuccess = true;
     }
 }

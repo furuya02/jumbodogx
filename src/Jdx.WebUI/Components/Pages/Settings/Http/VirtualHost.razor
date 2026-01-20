@@ -57,7 +57,7 @@
                                     <div class="col-md-6">
                                         <label class="form-label">Document Root</label>
                                         <input type="text" class="form-control"
-                                               @bind="vhost.DocumentRoot"
+                                               @bind="vhost.Settings.DocumentRoot"
                                                placeholder="/var/www/example.com">
                                         <div class="form-text">Root directory for this virtual host</div>
                                     </div>
@@ -66,14 +66,14 @@
                                     <div class="col-md-6">
                                         <label class="form-label">Certificate File (optional)</label>
                                         <input type="text" class="form-control"
-                                               @bind="vhost.CertificateFile"
+                                               @bind="vhost.Settings.CertificateFile"
                                                placeholder="/path/to/cert.pfx">
                                         <div class="form-text">SSL certificate for this virtual host</div>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Certificate Password (optional)</label>
                                         <input type="password" class="form-control"
-                                               @bind="vhost.CertificatePassword"
+                                               @bind="vhost.Settings.CertificatePassword"
                                                placeholder="Enter password">
                                         <div class="form-text">Password for the certificate</div>
                                     </div>
@@ -129,9 +129,7 @@
         settings.HttpServer.VirtualHosts.Add(new VirtualHostEntry
         {
             Host = "",
-            DocumentRoot = "",
-            CertificateFile = "",
-            CertificatePassword = ""
+            Settings = SettingsService.GetDefaultVirtualHostSettings()
         });
     }
 

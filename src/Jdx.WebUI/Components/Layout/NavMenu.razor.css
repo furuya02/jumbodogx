@@ -148,3 +148,53 @@
     background-color: rgba(255,255,255,0.08) !important;
 }
 
+/* Virtual Host submenu styles (third level) */
+.submenu-subsection {
+    margin-bottom: 0.25rem;
+}
+
+.submenu-subheader {
+    color: #b0b0b0 !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    min-height: 2.5rem;
+}
+
+.submenu-subheader:hover {
+    background-color: rgba(255,255,255,0.05);
+    border-radius: 4px;
+}
+
+.submenu-subtitle {
+    flex-grow: 1;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+}
+
+.submenu-subitems {
+    margin-left: 1rem;
+}
+
+.submenu-subitem {
+    font-size: 0.85rem !important;
+    height: 2.5rem !important;
+    line-height: 2.5rem !important;
+    padding-left: 3.5rem !important;
+}
+
+.submenu-subitem.active {
+    background-color: rgba(255,255,255,0.25) !important;
+    border-left: 3px solid #fff;
+}
+
+.submenu-subitem:hover {
+    background-color: rgba(255,255,255,0.08) !important;
+}
+

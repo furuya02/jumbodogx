@@ -52,8 +52,8 @@ public class HttpVirtualHostManager
         if (match != null)
         {
             _logger.LogDebug("Virtual host matched by hostname: {Host} -> {DocumentRoot}",
-                normalizedHost, match.DocumentRoot);
-            return match.DocumentRoot;
+                normalizedHost, match.Settings.DocumentRoot);
+            return match.Settings.DocumentRoot;
         }
 
         // 2回目: IPアドレス:ポートで検索
@@ -62,8 +62,8 @@ public class HttpVirtualHostManager
         if (match != null)
         {
             _logger.LogDebug("Virtual host matched by IP: {IpHost} -> {DocumentRoot}",
-                ipHost, match.DocumentRoot);
-            return match.DocumentRoot;
+                ipHost, match.Settings.DocumentRoot);
+            return match.Settings.DocumentRoot;
         }
 
         // マッチしない場合はデフォルト
@@ -107,18 +107,18 @@ public class HttpVirtualHostManager
         var normalizedHost = NormalizeHost(hostHeader, localPort);
         var match = FindVirtualHost(normalizedHost);
 
-        if (match != null && !string.IsNullOrEmpty(match.CertificateFile))
+        if (match != null && !string.IsNullOrEmpty(match.Settings.CertificateFile))
         {
-            return (match.CertificateFile, match.CertificatePassword);
+            return (match.Settings.CertificateFile, match.Settings.CertificatePassword);
         }
 
         // IPアドレスでも試す
         var ipHost = $"{localAddress}:{localPort}";
         match = FindVirtualHost(ipHost);
 
-        if (match != null && !string.IsNullOrEmpty(match.CertificateFile))
+        if (match != null && !string.IsNullOrEmpty(match.Settings.CertificateFile))
         {
-            return (match.CertificateFile, match.CertificatePassword);
+            return (match.Settings.CertificateFile, match.Settings.CertificatePassword);
         }
 
         return (null, null);

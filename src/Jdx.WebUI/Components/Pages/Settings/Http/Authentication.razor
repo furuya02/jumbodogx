@@ -1,4 +1,4 @@
-@page "/settings/http/authentication"
+@page "/settings/http/{vhostId?}/authentication"
 @rendermode InteractiveServer
 @using Jdx.Core.Settings
 @using Jdx.WebUI.Services
@@ -6,7 +6,7 @@
 
 <PageTitle>HTTP Authentication Settings - JumboDogX</PageTitle>
 
-<h1>HTTP/HTTPS - Authentication Settings</h1>
+<h1>HTTP/HTTPS - Authentication Settings@(isVirtualHost ? $" ({virtualHostName})" : "")</h1>
 
 @if (saveMessage != null)
 {
@@ -29,7 +29,7 @@
                     Advanced configuration UI will be added in future updates.
                 </div>
                 <p class="text-muted mb-4">
-                    Current: @settings.HttpServer.AuthList.Count auth rule(s) configured
+                    Current: @(isVirtualHost ? currentVHostSettings.AuthList.Count : settings.HttpServer.AuthList.Count) auth rule(s) configured
                 </p>
 
                 <h6>Users</h6>
@@ -38,7 +38,7 @@
                     Advanced configuration UI will be added in future updates.
                 </div>
                 <p class="text-muted mb-4">
-                    Current: @settings.HttpServer.UserList.Count user(s) configured
+                    Current: @(isVirtualHost ? currentVHostSettings.UserList.Count : settings.HttpServer.UserList.Count) user(s) configured
                 </p>
 
                 <h6>Groups</h6>
@@ -47,7 +47,7 @@
                     Advanced configuration UI will be added in future updates.
                 </div>
                 <p class="text-muted">
-                    Current: @settings.HttpServer.GroupList.Count group(s) configured
+                    Current: @(isVirtualHost ? currentVHostSettings.GroupList.Count : settings.HttpServer.GroupList.Count) group(s) configured
                 </p>
 
                 <div class="border-top pt-3 mt-4">
@@ -64,19 +64,42 @@
 </div>
 
 @code {
+    [Parameter]
+    public string? VhostId { get; set; }
+
     private ApplicationSettings settings = new();
+    private VirtualHostSettings currentVHostSettings = new();
     private string? saveMessage;
     private bool saveSuccess;
+    private bool isVirtualHost => !string.IsNullOrEmpty(VhostId);
+    private string virtualHostName = "";
 
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
+
+        if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+        {
+            if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+            {
+                currentVHostSettings = settings.HttpServer.VirtualHosts[vhostIndex].Settings;
+                virtualHostName = settings.HttpServer.VirtualHosts[vhostIndex].Host;
+            }
+        }
     }
 
     private async Task SaveSettings()
     {
         try
         {
+            if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+            {
+                if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+                {
+                    settings.HttpServer.VirtualHosts[vhostIndex].Settings = currentVHostSettings;
+                }
+            }
+
             await SettingsService.SaveSettingsAsync(settings);
             saveMessage = "Settings saved successfully!";
             saveSuccess = true;
@@ -96,9 +119,17 @@
 
     private void ResetToDefault()
     {
-        var defaults = SettingsService.GetDefaultSettings();
-        settings.HttpServer = defaults.HttpServer;
-        saveMessage = "Settings reset to default values. Click Save to apply.";
+        if (isVirtualHost)
+        {
+            currentVHostSettings = SettingsService.GetDefaultVirtualHostSettings();
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
+        else
+        {
+            var defaults = SettingsService.GetDefaultSettings();
+            settings.HttpServer = defaults.HttpServer;
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
         saveSuccess = true;
     }
 }

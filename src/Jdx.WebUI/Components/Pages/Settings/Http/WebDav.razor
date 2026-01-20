@@ -1,4 +1,4 @@
-@page "/settings/http/webdav"
+@page "/settings/http/{vhostId?}/webdav"
 @rendermode InteractiveServer
 @using Jdx.Core.Settings
 @using Jdx.WebUI.Services
@@ -6,7 +6,7 @@
 
 <PageTitle>HTTP WebDAV Settings - JumboDogX</PageTitle>
 
-<h1>HTTP/HTTPS - WebDAV Settings</h1>
+<h1>HTTP/HTTPS - WebDAV Settings@(isVirtualHost ? $" ({virtualHostName})" : "")</h1>
 
 @if (saveMessage != null)
 {
@@ -27,7 +27,7 @@
                     <div class="col-md-6">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="useWebDav"
-                                   @bind="settings.HttpServer.UseWebDav">
+                                   @bind="UseWebDav">
                             <label class="form-check-label" for="useWebDav">
                                 <strong>Enable WebDAV</strong>
                             </label>
@@ -44,7 +44,7 @@
                             Advanced configuration UI will be added in future updates.
                         </div>
                         <p class="text-muted">
-                            Current: @settings.HttpServer.WebDavPaths.Count path(s) configured
+                            Current: @(isVirtualHost ? currentVHostSettings.WebDavPaths.Count : settings.HttpServer.WebDavPaths.Count) path(s) configured
                         </p>
                     </div>
                 </div>
@@ -63,19 +63,54 @@
 </div>
 
 @code {
+    [Parameter]
+    public string? VhostId { get; set; }
+
     private ApplicationSettings settings = new();
+    private VirtualHostSettings currentVHostSettings = new();
     private string? saveMessage;
     private bool saveSuccess;
+    private bool isVirtualHost => !string.IsNullOrEmpty(VhostId);
+    private string virtualHostName = "";
+
+    private bool UseWebDav
+    {
+        get => isVirtualHost ? currentVHostSettings.UseWebDav : settings.HttpServer.UseWebDav;
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.UseWebDav = value;
+            else
+                settings.HttpServer.UseWebDav = value;
+        }
+    }
 
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
+
+        if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+        {
+            if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+            {
+                currentVHostSettings = settings.HttpServer.VirtualHosts[vhostIndex].Settings;
+                virtualHostName = settings.HttpServer.VirtualHosts[vhostIndex].Host;
+            }
+        }
     }
 
     private async Task SaveSettings()
     {
         try
         {
+            if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
+            {
+                if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+                {
+                    settings.HttpServer.VirtualHosts[vhostIndex].Settings = currentVHostSettings;
+                }
+            }
+
             await SettingsService.SaveSettingsAsync(settings);
             saveMessage = "Settings saved successfully!";
             saveSuccess = true;
@@ -95,9 +130,17 @@
 
     private void ResetToDefault()
     {
-        var defaults = SettingsService.GetDefaultSettings();
-        settings.HttpServer = defaults.HttpServer;
-        saveMessage = "Settings reset to default values. Click Save to apply.";
+        if (isVirtualHost)
+        {
+            currentVHostSettings = SettingsService.GetDefaultVirtualHostSettings();
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
+        else
+        {
+            var defaults = SettingsService.GetDefaultSettings();
+            settings.HttpServer = defaults.HttpServer;
+            saveMessage = "Settings reset to default values. Click Save to apply.";
+        }
         saveSuccess = true;
     }
 }
