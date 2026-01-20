@@ -49,22 +49,7 @@
                                 <!-- Virtual Hosts management always first -->
                                 <NavLink class="nav-link submenu-item" href="settings/http/virtualhost">Virtual Hosts</NavLink>
 
-                                @if (virtualHosts == null || virtualHosts.Count == 0)
-                                {
-                                    <!-- Default HTTP settings (when no Virtual Hosts) -->
-                                    <NavLink class="nav-link submenu-item" href="settings/http/general">General</NavLink>
-                                    <NavLink class="nav-link submenu-item" href="settings/http/document">Document</NavLink>
-                                    <NavLink class="nav-link submenu-item" href="settings/http/cgi">CGI</NavLink>
-                                    <NavLink class="nav-link submenu-item" href="settings/http/ssi">SSI</NavLink>
-                                    <NavLink class="nav-link submenu-item" href="settings/http/webdav">WebDAV</NavLink>
-                                    <NavLink class="nav-link submenu-item" href="settings/http/alias-mime">Alias & MIME</NavLink>
-                                    <NavLink class="nav-link submenu-item" href="settings/http/authentication">Authentication</NavLink>
-                                    <NavLink class="nav-link submenu-item" href="settings/http/template">Template</NavLink>
-                                    <NavLink class="nav-link submenu-item" href="settings/http/acl">ACL</NavLink>
-                                    <NavLink class="nav-link submenu-item" href="settings/http/ssl">SSL/TLS</NavLink>
-                                    <NavLink class="nav-link submenu-item" href="settings/http/advanced">Advanced</NavLink>
-                                }
-                                else
+                                @if (virtualHosts != null && virtualHosts.Count > 0)
                                 {
                                     <!-- Virtual Hosts with individual settings -->
                                     @foreach (var (vhost, index) in virtualHosts.Select((v, i) => (v, i)))
