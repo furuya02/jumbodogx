@@ -2,7 +2,8 @@
 
 English | [日本語](README.ja.md)
 
-**JumboDogX** is the next-generation multi-platform integrated server software, a complete rewrite of BlackJumboDog (BJD) using .NET 9. JumboDogX represents the evolution of BJD, bringing modern cross-platform capabilities to the beloved Japanese server software.
+**JumboDogX** is the next-generation multi-platform integrated server software, a complete rewrite of BlackJumboDog (BJD) using .NET 9. JumboDogX represents the evolution of BJD, bringing modern cross-platform capabilities to the beloved Japanese server software that has been widely used.
+(Under development as of January 2026)
 
 **⚠️ Important**: This software is designed for **local testing purposes only**. It is NOT intended for production use or public-facing deployments. Use it exclusively in development and testing environments.
 
@@ -15,14 +16,15 @@ English | [日本語](README.ja.md)
 - **Framework**: .NET 9
 - **Language**: C# 13
 
-## Key Features (Planned)
+## Key Features
 
 - HTTP/HTTPS Server
 - DNS Server
 - SMTP/POP3 Mail Server
 - FTP Server
 - DHCP Server
-- Various Proxy Servers
+- TFTP Server
+- Proxy Server
 - Web UI Management Console (Blazor Server)
 
 ## Project Structure
@@ -44,42 +46,53 @@ jdx/
 ## Development Status
 
 ### Core Infrastructure
-- [x] .NET 9 SDK installation
-- [x] Project structure creation
-- [x] Solution configuration
-- [x] Core implementation (ServerBase, IServer abstraction)
-- [x] Common infrastructure (NetworkHelper, ConnectionLimiter, NetworkExceptionHandler)
-- [x] Server refactoring Phase 1-3 completed (PR #13, #14)
+- .NET 9 SDK installed
+- Project structure created
+- Solution configuration completed
+- Core functionality implemented (ServerBase, IServer abstraction)
+- Common infrastructure implemented (NetworkHelper, ConnectionLimiter, NetworkExceptionHandler)
+- Server refactoring Phase 1-3 completed (PR #13, #14)
 
 ### Server Implementations
-- [x] HTTP/HTTPS server (Range Requests, Keep-Alive, Virtual Host, SSL/TLS structure)
-- [x] DNS server (A, AAAA, CNAME, MX, NS, PTR, SOA records)
-- [x] SMTP server (mail sending with authentication)
-- [x] POP3 server (mail retrieval with authentication)
-- [x] FTP server (file transfer, user management, ACL)
-- [x] DHCP server (IP address assignment, lease management)
-- [x] TFTP server (simple file transfer)
-- [x] Proxy server (HTTP proxy with cache, URL filtering)
+- HTTP/HTTPS server implemented (Range Requests, Keep-Alive, Virtual Host, SSL/TLS structure)
+- DNS server implemented (A, AAAA, CNAME, MX, NS, PTR, SOA records)
+- SMTP server implemented (mail sending with authentication)
+- POP3 server implemented (mail retrieval with authentication)
+- FTP server implemented (file transfer, user management, ACL)
+- DHCP server implemented (IP address assignment, lease management)
+- TFTP server implemented (simple file transfer)
+- Proxy server implemented (HTTP proxy with cache, URL filtering)
 
 ### Web UI (Blazor Server)
-- [x] Dashboard (server status monitoring)
-- [x] Logs viewer (real-time log display)
-- [x] Settings pages for all servers (100% coverage)
+- Dashboard implemented (server status monitoring)
+- Logs viewer implemented (real-time log display)
+- Settings pages for all servers implemented (100% coverage)
   - HTTP/HTTPS: General, Document, CGI, SSI, WebDAV, Alias & MIME, Authentication, Template, ACL, Virtual Hosts, SSL/TLS, Advanced
   - DNS: General, Records management
   - SMTP, POP3, FTP, DHCP, TFTP, Proxy: Configuration pages
 
 ### Advanced Features
-- [x] Apache Killer protection (DoS attack defense)
-- [x] AttackDb (time-window based attack detection)
-- [x] Range Requests (partial content delivery - RFC 7233)
-- [x] Keep-Alive (HTTP persistent connections)
-- [x] Virtual Host (host header-based routing)
-- [x] SSL/TLS basic structure (certificate management)
-- [x] SSL/TLS full integration (actual SSL communication - PR #20)
-- [x] AttackDb ACL auto-addition (PR #18)
-- [x] Metrics collection (Prometheus format export)
-- [x] Structured logging with Serilog (JSON format, log rotation)
+- Apache Killer protection implemented (DoS attack defense)
+- AttackDb implemented (time-window based attack detection)
+- Range Requests implemented (partial content delivery - RFC 7233)
+- Keep-Alive implemented (HTTP persistent connections)
+- Virtual Host implemented (host header-based routing)
+- SSL/TLS basic structure implemented (certificate management)
+- SSL/TLS full integration completed (actual SSL communication - PR #20)
+- AttackDb ACL auto-addition completed (PR #18)
+
+### Phase 2: Next-Generation Features and Enterprise Support
+
+**Phase 1 Completion**: All 27 TODO items in Phase 1 were completed on January 19, 2026!
+Phase 2 focuses on improving operability, further enhancing quality, and adding new features.
+
+**Progress**: 4/18 items completed (22.2%)
+
+#### Completed (Critical Priority)
+- Metrics collection feature (PR #26)
+- Log rotation feature (PR #27)
+- Structured logging with Serilog (PR #27)
+- Settings import/export feature (PR #28)
 
 ## Requirements
 

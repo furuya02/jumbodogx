@@ -32,7 +32,7 @@
 1. 「Document Settings (HTTP Server)」セクションを確認
 2. 以下の値が表示されていることを確認：
    - Welcome File: index.html
-   - Server Header: BlackJumboDog Version $v
+   - Server Header: JumboDogX Version $v
    - Use Hidden Files: ✗
    - Use Dot Files: ✗
    - Enable Directory Listing: ✗

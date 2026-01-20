@@ -94,7 +94,7 @@ HTTP Serverの基本的な動作設定。
 | **Allow Hidden Files** | 隠しファイルへのアクセス許可 | OFF |
 | **Allow ".." in URL** | 親ディレクトリアクセス許可 | OFF |
 | **Directory Listing** | ディレクトリ一覧表示 | OFF |
-| **Server Header** | Server:ヘッダの内容 | BlackJumboDog Version $v |
+| **Server Header** | Server:ヘッダの内容 | JumboDogX Version $v |
 | **Use ETag** | ETagヘッダの使用 | OFF |
 | **Server Admin** | 管理者メールアドレス | (空) |
 

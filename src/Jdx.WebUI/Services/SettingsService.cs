@@ -89,7 +89,7 @@ public class SettingsService : ISettingsService
             UseHidden = false,
             UseDot = false,
             UseDirectoryEnum = false,
-            ServerHeader = "BlackJumboDog Version $v",
+            ServerHeader = "JumboDogX Version $v",
             UseEtag = false,
             ServerAdmin = "",
             UseCgi = false,
