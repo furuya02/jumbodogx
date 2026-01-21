@@ -1,10 +1,12 @@
 .top-row {
     min-height: 3.5rem;
-    background-color: rgba(0,0,0,0.4);
+    background-color: #2D3748;
 }
 
 .navbar-brand {
     font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
 .bi {
@@ -65,12 +67,13 @@
     }
 
 .nav-item ::deep a.active {
-    background-color: rgba(255,255,255,0.37);
+    background-color: rgba(66, 153, 225, 0.25);
     color: white;
+    border-left: 3px solid #4299E1;
 }
 
 .nav-item ::deep .nav-link:hover {
-    background-color: rgba(255,255,255,0.1);
+    background-color: rgba(255,255,255,0.08);
     color: white;
 }
 

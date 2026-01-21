@@ -6,58 +6,63 @@
 
 <PageTitle>HTTP WebDAV Settings - JumboDogX</PageTitle>
 
-<h1>HTTP/HTTPS - WebDAV Settings@(isVirtualHost ? $" ({virtualHostName})" : "")</h1>
-
-@if (saveMessage != null)
-{
-    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
-        @saveMessage
-        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+<div class="page-container">
+    <!-- Header -->
+    <div class="page-header">
+        <h1>HTTP/HTTPS - WebDAV Settings@(isVirtualHost ? $" ({virtualHostName})" : "")</h1>
+        <p class="subtitle">Configure Web Distributed Authoring and Versioning</p>
     </div>
-}
 
-<div class="row">
-    <div class="col-md-10">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">💾 WebDAV Configuration</h5>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="useWebDav"
-                                   @bind="UseWebDav">
-                            <label class="form-check-label" for="useWebDav">
-                                <strong>Enable WebDAV</strong>
-                            </label>
-                        </div>
-                        <div class="form-text">Enable Web Distributed Authoring and Versioning</div>
+    @if (saveMessage != null)
+    {
+        <div class="alert-modern @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+            @saveMessage
+            <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+        </div>
+    }
+
+    <div class="settings-card">
+        <div class="card-header">
+            <h5>WebDAV Configuration</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="useWebDav"
+                               @bind="UseWebDav">
+                        <label class="form-check-label" for="useWebDav">
+                            <strong>Enable WebDAV</strong>
+                        </label>
                     </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <h6>WebDAV Paths</h6>
-                        <div class="alert alert-info">
-                            <strong>Info:</strong> WebDAV path mappings (e.g., /webdav → /var/webdav) can be configured here.
-                            Advanced configuration UI will be added in future updates.
-                        </div>
-                        <p class="text-muted">
-                            Current: @(isVirtualHost ? currentVHostSettings.WebDavPaths.Count : settings.HttpServer.WebDavPaths.Count) path(s) configured
-                        </p>
-                    </div>
-                </div>
-
-                <div class="border-top pt-3 mt-4">
-                    <button class="btn btn-primary me-2" @onclick="SaveSettings">
-                        Save Settings
-                    </button>
-                    <button class="btn btn-secondary" @onclick="ResetToDefault">
-                        Reset to Default
-                    </button>
+                    <div class="form-text">Enable Web Distributed Authoring and Versioning</div>
                 </div>
             </div>
+
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <h6>WebDAV Paths</h6>
+                    <div class="alert-modern alert-info">
+                        <strong>Info:</strong> WebDAV path mappings (e.g., /webdav -> /var/webdav) can be configured here.
+                        Advanced configuration UI will be added in future updates.
+                    </div>
+                    <p class="text-muted">
+                        Current: @(isVirtualHost ? currentVHostSettings.WebDavPaths.Count : settings.HttpServer.WebDavPaths.Count) path(s) configured
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Buttons -->
+    <div class="settings-card">
+        <div class="card-body">
+            <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg me-2" @onclick="SaveSettings">
+                Save Settings
+            </button>
+            <button class="btn btn-dashboard btn-dashboard-outline btn-dashboard-lg" @onclick="ResetToDefault">
+                Reset to Default
+            </button>
         </div>
     </div>
 </div>
