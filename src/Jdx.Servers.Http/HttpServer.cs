@@ -321,7 +321,8 @@ public class HttpServer : ServerBase
         _settingsLock.EnterReadLock();
         try
         {
-            settings = _settingsService.GetSettings().HttpServer;
+            // VirtualHostモードの場合は_virtualHostSettingsを使用
+            settings = _isVirtualHostMode ? _virtualHostSettings! : _settingsService!.GetSettings().HttpServer;
         }
         finally
         {
@@ -352,7 +353,8 @@ public class HttpServer : ServerBase
                     _settingsLock.EnterReadLock();
                     try
                     {
-                        currentSettings = _settingsService.GetSettings().HttpServer;
+                        // VirtualHostモードの場合は_virtualHostSettingsを使用
+                        currentSettings = _isVirtualHostMode ? _virtualHostSettings! : _settingsService!.GetSettings().HttpServer;
                     }
                     finally
                     {
@@ -434,7 +436,8 @@ public class HttpServer : ServerBase
         _settingsLock.EnterReadLock();
         try
         {
-            settings = _settingsService.GetSettings().HttpServer;
+            // VirtualHostモードの場合は_virtualHostSettingsを使用
+            settings = _isVirtualHostMode ? _virtualHostSettings! : _settingsService!.GetSettings().HttpServer;
             aclFilter = _aclFilter!; // Capture component reference inside lock
             sslManager = _sslManager; // Capture SSL manager reference
         }
@@ -728,7 +731,8 @@ public class HttpServer : ServerBase
         _settingsLock.EnterReadLock();
         try
         {
-            settings = _settingsService.GetSettings().HttpServer;
+            // VirtualHostモードの場合は_virtualHostSettingsを使用
+            settings = _isVirtualHostMode ? _virtualHostSettings! : _settingsService!.GetSettings().HttpServer;
             // Capture all component references inside lock to ensure thread-safe access
             virtualHostManager = _virtualHostManager;
             authenticator = _authenticator!;
