@@ -87,23 +87,6 @@
                         }
                     </div>
 
-                    <!-- FTP -->
-                    <div class="submenu-section">
-                        <div class="submenu-header" @onclick="ToggleFtp" @onclick:stopPropagation="true">
-                            <span class="submenu-title">FTP</span>
-                            <span class="submenu-arrow @(ftpExpanded ? "expanded" : "")">▼</span>
-                        </div>
-                        @if (ftpExpanded)
-                        {
-                            <div class="submenu-items">
-                                <NavLink class="nav-link submenu-item" href="settings/ftp/general">General</NavLink>
-                                <NavLink class="nav-link submenu-item" href="settings/ftp/acl">ACL</NavLink>
-                                <NavLink class="nav-link submenu-item" href="settings/ftp/virtualfolder">Virtual Folder</NavLink>
-                                <NavLink class="nav-link submenu-item" href="settings/ftp/user">User</NavLink>
-                            </div>
-                        }
-                    </div>
-
                     <!-- DNS -->
                     <div class="submenu-section">
                         <div class="submenu-header" @onclick="ToggleDns" @onclick:stopPropagation="true">
@@ -117,21 +100,6 @@
                                 <NavLink class="nav-link submenu-item" href="settings/dns/acl">ACL</NavLink>
                                 <NavLink class="nav-link submenu-item" href="settings/dns/domains">Domains</NavLink>
                                 <NavLink class="nav-link submenu-item" href="settings/dns/resources">Resources</NavLink>
-                            </div>
-                        }
-                    </div>
-
-                    <!-- TFTP -->
-                    <div class="submenu-section">
-                        <div class="submenu-header" @onclick="ToggleTftp" @onclick:stopPropagation="true">
-                            <span class="submenu-title">TFTP</span>
-                            <span class="submenu-arrow @(tftpExpanded ? "expanded" : "")">▼</span>
-                        </div>
-                        @if (tftpExpanded)
-                        {
-                            <div class="submenu-items">
-                                <NavLink class="nav-link submenu-item" href="settings/tftp/general">General</NavLink>
-                                <NavLink class="nav-link submenu-item" href="settings/tftp/acl">ACL</NavLink>
                             </div>
                         }
                     </div>
@@ -151,19 +119,34 @@
                         }
                     </div>
 
-                    <!-- POP3 -->
+                    <!-- FTP -->
                     <div class="submenu-section">
-                        <div class="submenu-header" @onclick="TogglePop3" @onclick:stopPropagation="true">
-                            <span class="submenu-title">POP3</span>
-                            <span class="submenu-arrow @(pop3Expanded ? "expanded" : "")">▼</span>
+                        <div class="submenu-header" @onclick="ToggleFtp" @onclick:stopPropagation="true">
+                            <span class="submenu-title">FTP</span>
+                            <span class="submenu-arrow @(ftpExpanded ? "expanded" : "")">▼</span>
                         </div>
-                        @if (pop3Expanded)
+                        @if (ftpExpanded)
                         {
                             <div class="submenu-items">
-                                <NavLink class="nav-link submenu-item" href="settings/pop3/general">General</NavLink>
-                                <NavLink class="nav-link submenu-item" href="settings/pop3/acl">ACL</NavLink>
-                                <NavLink class="nav-link submenu-item" href="settings/pop3/changepassword">Change Password</NavLink>
-                                <NavLink class="nav-link submenu-item" href="settings/pop3/autodeny">Auto Deny</NavLink>
+                                <NavLink class="nav-link submenu-item" href="settings/ftp/general">General</NavLink>
+                                <NavLink class="nav-link submenu-item" href="settings/ftp/acl">ACL</NavLink>
+                                <NavLink class="nav-link submenu-item" href="settings/ftp/virtualfolder">Virtual Folder</NavLink>
+                                <NavLink class="nav-link submenu-item" href="settings/ftp/user">User</NavLink>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- TFTP -->
+                    <div class="submenu-section">
+                        <div class="submenu-header" @onclick="ToggleTftp" @onclick:stopPropagation="true">
+                            <span class="submenu-title">TFTP</span>
+                            <span class="submenu-arrow @(tftpExpanded ? "expanded" : "")">▼</span>
+                        </div>
+                        @if (tftpExpanded)
+                        {
+                            <div class="submenu-items">
+                                <NavLink class="nav-link submenu-item" href="settings/tftp/general">General</NavLink>
+                                <NavLink class="nav-link submenu-item" href="settings/tftp/acl">ACL</NavLink>
                             </div>
                         }
                     </div>
@@ -186,6 +169,23 @@
                                 <NavLink class="nav-link submenu-item" href="settings/smtp/header">Header</NavLink>
                                 <NavLink class="nav-link submenu-item" href="settings/smtp/aliases">Aliases</NavLink>
                                 <NavLink class="nav-link submenu-item" href="settings/smtp/autoreception">Auto Reception</NavLink>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- POP3 -->
+                    <div class="submenu-section">
+                        <div class="submenu-header" @onclick="TogglePop3" @onclick:stopPropagation="true">
+                            <span class="submenu-title">POP3</span>
+                            <span class="submenu-arrow @(pop3Expanded ? "expanded" : "")">▼</span>
+                        </div>
+                        @if (pop3Expanded)
+                        {
+                            <div class="submenu-items">
+                                <NavLink class="nav-link submenu-item" href="settings/pop3/general">General</NavLink>
+                                <NavLink class="nav-link submenu-item" href="settings/pop3/acl">ACL</NavLink>
+                                <NavLink class="nav-link submenu-item" href="settings/pop3/changepassword">Change Password</NavLink>
+                                <NavLink class="nav-link submenu-item" href="settings/pop3/autodeny">Auto Deny</NavLink>
                             </div>
                         }
                     </div>
