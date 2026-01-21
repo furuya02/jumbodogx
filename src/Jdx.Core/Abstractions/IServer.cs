@@ -17,6 +17,9 @@ public interface IServer : IDisposable
     /// <summary>リスニングポート</summary>
     int Port { get; }
 
+    /// <summary>バインドアドレス</summary>
+    string BindAddress { get; }
+
     /// <summary>サーバーを起動します</summary>
     /// <param name="cancellationToken">キャンセルトークン</param>
     Task StartAsync(CancellationToken cancellationToken);

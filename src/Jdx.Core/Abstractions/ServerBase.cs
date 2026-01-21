@@ -53,6 +53,9 @@ public abstract class ServerBase : IServer
     public abstract int Port { get; }
 
     /// <inheritdoc/>
+    public abstract string BindAddress { get; }
+
+    /// <inheritdoc/>
     public virtual async Task StartAsync(CancellationToken cancellationToken)
     {
         if (_status != ServerStatus.Stopped)
