@@ -298,15 +298,25 @@ public class HttpServer : ServerBase
         {
             var httpSettings = settings.HttpServer;
 
-            // ポート変更があればサーバーを再起動
-            if (_port != httpSettings.Port)
+            // VirtualHostモードでない場合のみポート変更を適用
+            if (!_isVirtualHostMode && _port != httpSettings.Port)
             {
                 _port = httpSettings.Port;
                 Logger.LogInformation("HTTP Server port changed to {Port}", _port);
             }
 
-            // コンポーネントを再初期化
-            InitializeComponents(httpSettings);
+            // VirtualHostモードの場合は、VirtualHost設定を再生成
+            if (_isVirtualHostMode && _virtualHostEntry != null)
+            {
+                _virtualHostSettings = CreateVirtualHostSettings(httpSettings, _virtualHostEntry);
+                InitializeComponents(_virtualHostSettings);
+            }
+            else
+            {
+                // 通常モードの場合は、直接httpSettingsを使用
+                InitializeComponents(httpSettings);
+            }
+
             Logger.LogInformation("HTTP Server settings updated");
         }
         finally
