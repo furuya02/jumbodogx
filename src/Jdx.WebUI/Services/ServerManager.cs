@@ -43,10 +43,26 @@ public class ServerManager
         {
             var settings = _settingsService.GetSettings();
 
-            // HTTP サーバー（SettingsService注入）
-            var httpLogger = _loggerFactory.CreateLogger<HttpServer>();
-            var httpServer = new HttpServer(httpLogger, _settingsService);
-            _servers["http"] = httpServer;
+            // HTTP VirtualHosts サーバー（各VirtualHostを個別のHttpServerインスタンスとして作成）
+            if (settings.HttpServer.VirtualHosts != null && settings.HttpServer.VirtualHosts.Count > 0)
+            {
+                foreach (var vhost in settings.HttpServer.VirtualHosts)
+                {
+                    var port = vhost.GetPort();
+                    if (port == 0)
+                    {
+                        _logger.LogWarning("VirtualHost {Host} has invalid port, skipping", vhost.Host);
+                        continue;
+                    }
+
+                    var httpLogger = _loggerFactory.CreateLogger<HttpServer>();
+                    var httpServer = new HttpServer(httpLogger, vhost, settings.HttpServer, _settingsService);
+                    var serverId = $"http:{vhost.Host}";
+                    _servers[serverId] = httpServer;
+
+                    _logger.LogInformation("HTTP VirtualHost server registered: {ServerId}", serverId);
+                }
+            }
 
             // FTP サーバー（SettingsService注入）
             var ftpLogger = _loggerFactory.CreateLogger<FtpServer>();
@@ -66,10 +82,19 @@ public class ServerManager
             {
                 try
                 {
-                    if (settings.HttpServer.Enabled)
+                    // VirtualHostsの自動起動
+                    if (settings.HttpServer.VirtualHosts != null)
                     {
-                        await StartServerAsync("http");
+                        foreach (var vhost in settings.HttpServer.VirtualHosts)
+                        {
+                            if (vhost.Enabled && vhost.GetPort() > 0)
+                            {
+                                var serverId = $"http:{vhost.Host}";
+                                await StartServerAsync(serverId);
+                            }
+                        }
                     }
+
                     if (settings.FtpServer.Enabled)
                     {
                         await StartServerAsync("ftp");
@@ -100,6 +125,21 @@ public class ServerManager
         lock (_lock)
         {
             return _servers.TryGetValue(serverId, out var server) ? server : null;
+        }
+    }
+
+    public string? GetServerId(IServer server)
+    {
+        lock (_lock)
+        {
+            foreach (var kvp in _servers)
+            {
+                if (kvp.Value == server)
+                {
+                    return kvp.Key;
+                }
+            }
+            return null;
         }
     }
 
