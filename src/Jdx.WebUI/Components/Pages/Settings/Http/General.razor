@@ -1,4 +1,4 @@
-@page "/settings/http/{vhostId?}/general"
+@page "/settings/http/general"
 @rendermode InteractiveServer
 @using Jdx.Core.Settings
 @using Jdx.WebUI.Services
@@ -6,7 +6,7 @@
 
 <PageTitle>HTTP General Settings - JumboDogX</PageTitle>
 
-<h1>HTTP/HTTPS - General Settings@(isVirtualHost ? $" ({virtualHostName})" : "")</h1>
+<h1>HTTP/HTTPS - General Settings</h1>
 
 @if (saveMessage != null)
 {
@@ -18,149 +18,126 @@
 
 <div class="row">
     <div class="col-md-10">
+        <!-- Basic Settings -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5 class="mb-0">🖥️ HTTP Server - Basic Configuration</h5>
+                <h5 class="mb-0">Basic Settings</h5>
             </div>
             <div class="card-body">
-                @if (!isVirtualHost)
-                {
-                    <!-- Server-wide settings (only visible when editing default) -->
-                    <div class="row mb-3">
-                        <div class="col-md-3">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="httpEnabled"
-                                       @bind="settings.HttpServer.Enabled">
-                                <label class="form-check-label" for="httpEnabled">
-                                    <strong>Enabled</strong>
-                                </label>
-                            </div>
-                            <div class="form-text">Enable HTTP/HTTPS server</div>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="httpProtocol" class="form-label">Protocol</label>
-                            <select class="form-select" id="httpProtocol" @bind="settings.HttpServer.Protocol">
-                                <option value="HTTP">HTTP</option>
-                                <option value="HTTPS">HTTPS</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="httpPort" class="form-label">Port</label>
-                            <input type="number" class="form-control" id="httpPort"
-                                   @bind="settings.HttpServer.Port" min="1" max="65535">
-                        </div>
-                        <div class="col-md-3">
-                            <label for="httpMaxConn" class="form-label">Max Connections</label>
-                            <input type="number" class="form-control" id="httpMaxConn"
-                                   @bind="settings.HttpServer.MaxConnections" min="1" max="10000">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="enabled"
+                                   @bind="settings.HttpServer.Enabled">
+                            <label class="form-check-label" for="enabled">
+                                Enable Server
+                            </label>
                         </div>
                     </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label for="httpBindAddr" class="form-label">Bind Address</label>
-                            <input type="text" class="form-control" id="httpBindAddr"
-                                   @bind="settings.HttpServer.BindAddress" placeholder="0.0.0.0">
-                            <div class="form-text">IP address to bind (0.0.0.0 for all interfaces)</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="httpTimeout" class="form-label">Timeout (seconds)</label>
-                            <input type="number" class="form-control" id="httpTimeout"
-                                   @bind="settings.HttpServer.TimeOut" min="1" max="300">
-                            <div class="form-text">Request timeout in seconds</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="httpDocRoot" class="form-label">Document Root</label>
-                            <input type="text" class="form-control" id="httpDocRoot"
-                                   @bind="settings.HttpServer.DocumentRoot" placeholder="/var/www/html">
-                            <div class="form-text">Root directory for serving files</div>
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="httpUseResolve"
-                                       @bind="settings.HttpServer.UseResolve">
-                                <label class="form-check-label" for="httpUseResolve">
-                                    Use Reverse DNS
-                                </label>
-                            </div>
-                            <div class="form-text">Resolve client hostnames</div>
-                        </div>
-                    </div>
-                }
-                else
-                {
-                    <!-- Virtual Host settings -->
-                    <div class="alert alert-info">
-                        <strong>📌 Virtual Host Settings</strong><br/>
-                        Server-wide settings (Enabled, Protocol, Port, etc.) are configured at the root HTTP settings.
-                        Here you can configure the document root for this virtual host.
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="vhostDocRoot" class="form-label">Document Root</label>
-                            <input type="text" class="form-control" id="vhostDocRoot"
-                                   @bind="currentVHostSettings.DocumentRoot" placeholder="/var/www/example.com">
-                            <div class="form-text">Root directory for this virtual host</div>
-                        </div>
-                    </div>
-                }
-
-                <div class="border-top pt-3 mt-4">
-                    <button class="btn btn-primary me-2" @onclick="SaveSettings">
-                        <span class="bi bi-check-circle me-1"></span> Save Settings
-                    </button>
-                    <button class="btn btn-secondary" @onclick="ResetToDefault">
-                        <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
-                    </button>
                 </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="bindAddress" class="form-label">Bind Address</label>
+                        <input type="text" class="form-control" id="bindAddress"
+                               @bind="settings.HttpServer.BindAddress" placeholder="0.0.0.0">
+                        <div class="form-text">IP address to bind to (0.0.0.0 for all interfaces)</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="port" class="form-label">Port</label>
+                        <input type="number" class="form-control" id="port"
+                               @bind="settings.HttpServer.Port" placeholder="8080">
+                        <div class="form-text">Port number (default: 8080)</div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="documentRoot" class="form-label">Document Root</label>
+                        <input type="text" class="form-control" id="documentRoot"
+                               @bind="settings.HttpServer.DocumentRoot" placeholder="/var/www/html">
+                        <div class="form-text">Root directory for serving files</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SSL/TLS Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">SSL/TLS Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger">
+                    <strong>Security Warning:</strong> Certificate passwords are stored in plaintext in the configuration file.
+                    For production use, consider using environment variables or ASP.NET Core User Secrets.
+                    Example: <code>Environment.GetEnvironmentVariable("HTTP_CERT_PASSWORD")</code>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="enableHttps"
+                                   checked="@enableHttps" @onchange="OnEnableHttpsChanged">
+                            <label class="form-check-label" for="enableHttps">
+                                Enable HTTPS
+                            </label>
+                        </div>
+                        <div class="form-text">Enable HTTP over SSL/TLS</div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="certificateFile" class="form-label">Certificate File (optional)</label>
+                        <input type="text" class="form-control" id="certificateFile"
+                               @bind="settings.HttpServer.CertificateFile" placeholder="/path/to/certificate.pfx">
+                        <div class="form-text">Path to SSL certificate file (PFX format)</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="certificatePassword" class="form-label">Certificate Password (optional)</label>
+                        <input type="password" class="form-control" id="certificatePassword"
+                               @bind="settings.HttpServer.CertificatePassword" placeholder="Enter password">
+                        <div class="form-text">Password for the certificate file</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Buttons -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <button class="btn btn-primary btn-lg me-2" @onclick="SaveSettings">
+                    <span class="bi bi-check-circle me-1"></span> Save Settings
+                </button>
+                <button class="btn btn-secondary btn-lg" @onclick="ResetToDefault">
+                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+                </button>
             </div>
         </div>
     </div>
 </div>
 
 @code {
-    [Parameter]
-    public string? VhostId { get; set; }
-
     private ApplicationSettings settings = new();
-    private VirtualHostSettings currentVHostSettings = new();
     private string? saveMessage;
     private bool saveSuccess;
-    private bool isVirtualHost => !string.IsNullOrEmpty(VhostId);
-    private string virtualHostName = "";
+    private bool enableHttps;
 
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
+        enableHttps = settings.HttpServer.Protocol == "HTTPS";
+    }
 
-        if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
-        {
-            if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
-            {
-                currentVHostSettings = settings.HttpServer.VirtualHosts[vhostIndex].Settings;
-                virtualHostName = settings.HttpServer.VirtualHosts[vhostIndex].Host;
-            }
-        }
+    private void OnEnableHttpsChanged(ChangeEventArgs e)
+    {
+        enableHttps = (bool)(e.Value ?? false);
+        settings.HttpServer.Protocol = enableHttps ? "HTTPS" : "HTTP";
     }
 
     private async Task SaveSettings()
     {
         try
         {
-            if (isVirtualHost && int.TryParse(VhostId, out var vhostIndex))
-            {
-                if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
-                {
-                    settings.HttpServer.VirtualHosts[vhostIndex].Settings = currentVHostSettings;
-                }
-            }
-
             await SettingsService.SaveSettingsAsync(settings);
-            saveMessage = "Settings saved successfully!";
+            saveMessage = "HTTP general settings saved successfully! Restart the server to apply changes.";
             saveSuccess = true;
         }
         catch (Exception ex)
@@ -169,8 +146,8 @@
             saveSuccess = false;
         }
 
-        // Clear message after 3 seconds
-        _ = Task.Delay(3000).ContinueWith(_ =>
+        // Clear message after 5 seconds
+        _ = Task.Delay(5000).ContinueWith(_ =>
         {
             saveMessage = null;
             InvokeAsync(StateHasChanged);
@@ -179,17 +156,20 @@
 
     private void ResetToDefault()
     {
-        if (isVirtualHost)
-        {
-            currentVHostSettings = SettingsService.GetDefaultVirtualHostSettings();
-            saveMessage = "Settings reset to default values. Click Save to apply.";
-        }
-        else
-        {
-            var defaults = SettingsService.GetDefaultSettings();
-            settings.HttpServer = defaults.HttpServer;
-            saveMessage = "Settings reset to default values. Click Save to apply.";
-        }
+        var defaults = SettingsService.GetDefaultSettings();
+
+        // Reset HTTP general settings to defaults
+        settings.HttpServer.Enabled = defaults.HttpServer.Enabled;
+        settings.HttpServer.BindAddress = defaults.HttpServer.BindAddress;
+        settings.HttpServer.Port = defaults.HttpServer.Port;
+        settings.HttpServer.DocumentRoot = defaults.HttpServer.DocumentRoot;
+        settings.HttpServer.Protocol = defaults.HttpServer.Protocol;
+        settings.HttpServer.CertificateFile = defaults.HttpServer.CertificateFile;
+        settings.HttpServer.CertificatePassword = defaults.HttpServer.CertificatePassword;
+
+        enableHttps = settings.HttpServer.Protocol == "HTTPS";
+
+        saveMessage = "HTTP general settings reset to default values. Click 'Save Settings' to apply.";
         saveSuccess = true;
     }
 }
