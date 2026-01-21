@@ -17,9 +17,10 @@ namespace Jdx.Servers.Http;
 /// </summary>
 public class HttpServer : ServerBase
 {
-    private readonly ISettingsService _settingsService;
+    private readonly ISettingsService? _settingsService;
     private readonly ReaderWriterLockSlim _settingsLock = new ReaderWriterLockSlim();
     private int _port;
+    private string _name = "HttpServer";
     private ServerTcpListener? _listener;
     private HttpTarget? _target;
     private HttpContentType? _contentType;
@@ -32,16 +33,26 @@ public class HttpServer : ServerBase
     private HttpVirtualHostManager? _virtualHostManager;
     private HttpSslManager? _sslManager;
 
+    // VirtualHost専用モード
+    private readonly bool _isVirtualHostMode;
+    private readonly VirtualHostEntry? _virtualHostEntry;
+    private HttpServerSettings? _virtualHostSettings;
+
     // デフォルトタイムアウト（タイムアウト設定が0の場合に使用）
     private const int DefaultTimeoutSeconds = 30;
 
+    /// <summary>
+    /// 通常モードのコンストラクタ（ISettingsServiceから全体設定を読み込む）
+    /// </summary>
     public HttpServer(ILogger<HttpServer> logger, ISettingsService settingsService) : base(logger)
     {
         _settingsService = settingsService;
+        _isVirtualHostMode = false;
 
         // 初期設定を取得
         var settings = _settingsService.GetSettings().HttpServer;
         _port = settings.Port;
+        _name = "HttpServer";
 
         // コンポーネントを初期化
         InitializeComponents(settings);
@@ -50,7 +61,33 @@ public class HttpServer : ServerBase
         _settingsService.SettingsChanged += OnSettingsChanged;
     }
 
-    public override string Name => "HttpServer";
+    /// <summary>
+    /// VirtualHost専用モードのコンストラクタ
+    /// </summary>
+    public HttpServer(ILogger<HttpServer> logger, VirtualHostEntry virtualHostEntry, HttpServerSettings parentSettings, ISettingsService? settingsService = null) : base(logger)
+    {
+        _settingsService = settingsService;
+        _isVirtualHostMode = true;
+        _virtualHostEntry = virtualHostEntry;
+
+        // VirtualHostの情報を設定
+        _port = virtualHostEntry.GetPort();
+        _name = $"HttpServer ({virtualHostEntry.GetHostName()})";
+
+        // VirtualHost用の設定を作成（親設定とVirtualHost設定をマージ）
+        _virtualHostSettings = CreateVirtualHostSettings(parentSettings, virtualHostEntry);
+
+        // コンポーネントを初期化
+        InitializeComponents(_virtualHostSettings);
+
+        // 設定変更イベントを購読（VirtualHostモードでもSettingsServiceがあれば購読）
+        if (_settingsService != null)
+        {
+            _settingsService.SettingsChanged += OnSettingsChanged;
+        }
+    }
+
+    public override string Name => _name;
     public override ServerType Type => ServerType.Http;
     public override int Port => _port;
 
@@ -64,11 +101,19 @@ public class HttpServer : ServerBase
         _cgiHandler = new HttpCgiHandler(settings, Logger);
         _webDavHandler = new HttpWebDavHandler(settings, Logger);
 
-        // Virtual Host初期化
-        _virtualHostManager = new HttpVirtualHostManager(settings, Logger);
-        if (settings.VirtualHosts != null && settings.VirtualHosts.Count > 0)
+        // Virtual Host初期化（通常モードの場合のみ）
+        if (!_isVirtualHostMode)
         {
-            Logger.LogInformation("Virtual Host enabled: {Count} hosts configured", settings.VirtualHosts.Count);
+            _virtualHostManager = new HttpVirtualHostManager(settings, Logger);
+            if (settings.VirtualHosts != null && settings.VirtualHosts.Count > 0)
+            {
+                Logger.LogInformation("Virtual Host enabled: {Count} hosts configured", settings.VirtualHosts.Count);
+            }
+        }
+        else
+        {
+            // VirtualHostモードではHttpVirtualHostManagerは不要
+            _virtualHostManager = null;
         }
 
         // SSL/TLS初期化
@@ -166,6 +211,84 @@ public class HttpServer : ServerBase
                 }
             });
         }
+    }
+
+    /// <summary>
+    /// VirtualHost用の設定を作成（親設定とVirtualHost設定をマージ）
+    /// </summary>
+    private HttpServerSettings CreateVirtualHostSettings(HttpServerSettings parentSettings, VirtualHostEntry virtualHostEntry)
+    {
+        var vhostSettings = virtualHostEntry.Settings;
+
+        return new HttpServerSettings
+        {
+            // サーバー基本設定（VirtualHostで個別化）
+            Enabled = virtualHostEntry.Enabled,
+            Protocol = parentSettings.Protocol,  // 親設定を使用
+            Port = virtualHostEntry.GetPort(),    // VirtualHostのポート
+            BindAddress = virtualHostEntry.BindAddress ?? parentSettings.BindAddress,  // VirtualHostで指定がなければ親を使用
+            UseResolve = parentSettings.UseResolve,
+            TimeOut = parentSettings.TimeOut,
+            MaxConnections = parentSettings.MaxConnections,
+
+            // ドキュメント設定（VirtualHostの設定を優先）
+            DocumentRoot = vhostSettings.DocumentRoot,
+            WelcomeFileName = vhostSettings.WelcomeFileName,
+            UseHidden = vhostSettings.UseHidden,
+            UseDot = vhostSettings.UseDot,
+            UseDirectoryEnum = vhostSettings.UseDirectoryEnum,
+            UseExpansion = vhostSettings.UseExpansion,
+            ServerHeader = vhostSettings.ServerHeader,
+            UseEtag = vhostSettings.UseEtag,
+            ServerAdmin = vhostSettings.ServerAdmin,
+
+            // CGI設定
+            UseCgi = vhostSettings.UseCgi,
+            CgiCommands = vhostSettings.CgiCommands,
+            CgiTimeout = vhostSettings.CgiTimeout,
+            CgiPaths = vhostSettings.CgiPaths,
+
+            // SSI設定
+            UseSsi = vhostSettings.UseSsi,
+            SsiExt = vhostSettings.SsiExt,
+            UseExec = vhostSettings.UseExec,
+
+            // WebDAV設定
+            UseWebDav = vhostSettings.UseWebDav,
+            WebDavPaths = vhostSettings.WebDavPaths,
+
+            // Alias & MIME設定
+            Aliases = vhostSettings.Aliases,
+            MimeTypes = vhostSettings.MimeTypes,
+
+            // 認証設定
+            AuthList = vhostSettings.AuthList,
+            UserList = vhostSettings.UserList,
+            GroupList = vhostSettings.GroupList,
+            Encode = vhostSettings.Encode,
+            IndexDocument = vhostSettings.IndexDocument,
+            ErrorDocument = vhostSettings.ErrorDocument,
+
+            // ACL設定
+            EnableAcl = vhostSettings.EnableAcl,
+            AclList = vhostSettings.AclList,
+            UseAutoAcl = vhostSettings.UseAutoAcl,
+            AutoAclApacheKiller = vhostSettings.AutoAclApacheKiller,
+
+            // SSL/TLS設定（VirtualHostの設定を優先）
+            CertificateFile = vhostSettings.CertificateFile,
+            CertificatePassword = vhostSettings.CertificatePassword,
+
+            // 高度な設定（親設定を継承）
+            UseKeepAlive = vhostSettings.UseKeepAlive,
+            KeepAliveTimeout = vhostSettings.KeepAliveTimeout,
+            MaxKeepAliveRequests = vhostSettings.MaxKeepAliveRequests,
+            UseRangeRequests = vhostSettings.UseRangeRequests,
+            MaxRangeCount = vhostSettings.MaxRangeCount,
+
+            // VirtualHosts設定は空（このHttpServerインスタンスは単一VirtualHostを表す）
+            VirtualHosts = new List<VirtualHostEntry>()
+        };
     }
 
     private void OnSettingsChanged(object? sender, ApplicationSettings settings)
@@ -294,10 +417,10 @@ public class HttpServer : ServerBase
         }, StopCts.Token);
     }
 
-    protected override Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
     {
+        await StopTcpListenerAsync();
         Logger.LogInformation("HTTP Server stopped");
-        return Task.CompletedTask;
     }
 
     protected override async Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)

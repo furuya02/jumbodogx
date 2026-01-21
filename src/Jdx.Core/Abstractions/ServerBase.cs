@@ -237,6 +237,24 @@ public abstract class ServerBase : IServer
         }
     }
 
+    /// <summary>
+    /// 現在のTCPリスナーを停止する（派生クラスから呼び出し可能）
+    /// </summary>
+    protected async Task StopTcpListenerAsync()
+    {
+        await StopExistingListenerAsync(_tcpListener);
+        _tcpListener = null;
+    }
+
+    /// <summary>
+    /// 現在のUDPリスナーを停止する（派生クラスから呼び出し可能）
+    /// </summary>
+    protected async Task StopUdpListenerAsync()
+    {
+        await StopExistingListenerAsync(_udpListener);
+        _udpListener = null;
+    }
+
     #endregion
 
     #region Accept/Receiveループメソッド（Phase 2で追加）
