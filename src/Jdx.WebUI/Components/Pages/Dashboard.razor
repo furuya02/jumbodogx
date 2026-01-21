@@ -65,6 +65,10 @@
                                 <span class="stat-label">Port</span>
                                 <span class="stat-value">@server.Port</span>
                             </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Bind Address</span>
+                                <span class="stat-value">@server.BindAddress</span>
+                            </div>
                             @if (server.Status == ServerStatus.Running)
                             {
                                 var stats = server.GetStatistics();
@@ -128,6 +132,10 @@
                             <div class="stat-row">
                                 <span class="stat-label">Port</span>
                                 <span class="stat-value">@server.Port</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Bind Address</span>
+                                <span class="stat-value">@server.BindAddress</span>
                             </div>
                             @if (server.Status == ServerStatus.Running)
                             {

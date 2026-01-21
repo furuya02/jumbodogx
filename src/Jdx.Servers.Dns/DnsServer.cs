@@ -16,6 +16,7 @@ namespace Jdx.Servers.Dns;
 public class DnsServer : ServerBase
 {
     private readonly int _port;
+    private readonly string _bindAddress;
     private readonly DnsServerSettings _settings;
     private readonly Dictionary<string, RrDb> _cacheList; // Domain caches
     private readonly List<string> _sortedDomains; // Pre-sorted domain list by length (descending)
@@ -26,6 +27,7 @@ public class DnsServer : ServerBase
     {
         _settings = settings;
         _port = settings.Port;
+        _bindAddress = settings.BindAddress;
         _cacheList = new Dictionary<string, RrDb>(StringComparer.OrdinalIgnoreCase);
 
         // Initialize domain caches
@@ -63,6 +65,7 @@ public class DnsServer : ServerBase
     public override string Name => "DnsServer";
     public override ServerType Type => ServerType.Dns;
     public override int Port => _port;
+    public override string BindAddress => _bindAddress;
 
     public void AddRecord(string domainName, string ipAddress)
     {

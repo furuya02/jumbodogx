@@ -21,6 +21,7 @@ public class HttpServer : ServerBase
     private readonly Action<LogLevel, string, string>? _logCallback;
     private readonly ReaderWriterLockSlim _settingsLock = new ReaderWriterLockSlim();
     private int _port;
+    private string _bindAddress = "0.0.0.0";
     private string _name = "HttpServer";
     private ServerTcpListener? _listener;
     private HttpTarget? _target;
@@ -54,6 +55,7 @@ public class HttpServer : ServerBase
         // 初期設定を取得
         var settings = _settingsService.GetSettings().HttpServer;
         _port = settings.Port;
+        _bindAddress = settings.BindAddress;
         _name = "HttpServer";
 
         // コンポーネントを初期化
@@ -75,6 +77,7 @@ public class HttpServer : ServerBase
 
         // VirtualHostの情報を設定
         _port = virtualHostEntry.GetPort();
+        _bindAddress = virtualHostEntry.BindAddress ?? "0.0.0.0";
         _name = $"HttpServer ({virtualHostEntry.GetHostName()})";
 
         // VirtualHost用の設定を作成（親設定とVirtualHost設定をマージ）
@@ -93,6 +96,7 @@ public class HttpServer : ServerBase
     public override string Name => _name;
     public override ServerType Type => ServerType.Http;
     public override int Port => _port;
+    public override string BindAddress => _bindAddress;
 
     private void InitializeComponents(HttpServerSettings settings)
     {

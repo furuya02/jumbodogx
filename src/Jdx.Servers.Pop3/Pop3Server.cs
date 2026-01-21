@@ -28,6 +28,7 @@ public class Pop3Server : ServerBase
     public override string Name => "Pop3Server";
     public override ServerType Type => ServerType.Pop3;
     public override int Port => _settings.Port;
+    public override string BindAddress => _settings.BindAddress;
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {

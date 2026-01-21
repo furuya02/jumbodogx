@@ -26,6 +26,7 @@ public class FtpServer : ServerBase
     private FtpAclFilter? _aclFilter;
     private ServerTcpListener? _listener;
     private int _port;
+    private string _bindAddress = "0.0.0.0";
 
     public FtpServer(ILogger<FtpServer> logger, ISettingsService settingsService)
         : base(logger)
@@ -34,11 +35,13 @@ public class FtpServer : ServerBase
 
         var settings = _settingsService.GetSettings();
         _port = settings.FtpServer.Port;
+        _bindAddress = settings.FtpServer.BindAddress;
     }
 
     public override string Name => "FtpServer";
     public override ServerType Type => ServerType.Ftp;
     public override int Port => _port;
+    public override string BindAddress => _bindAddress;
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {

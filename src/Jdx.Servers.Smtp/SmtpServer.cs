@@ -35,6 +35,7 @@ public class SmtpServer : ServerBase
     public override string Name => "SmtpServer";
     public override ServerType Type => ServerType.Smtp;
     public override int Port => _settings.Port;
+    public override string BindAddress => _settings.BindAddress;
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {
