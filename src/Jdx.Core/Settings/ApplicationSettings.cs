@@ -159,7 +159,38 @@ public class AclEntry
 public class VirtualHostEntry
 {
     public string Host { get; set; } = "";  // ホスト名（例: example.com:8080）
+    public bool Enabled { get; set; } = true;  // 個別起動/停止フラグ
+    public string? BindAddress { get; set; } = null;  // バインドアドレス（nullの場合は親設定を使用）
     public VirtualHostSettings Settings { get; set; } = new();
+
+    /// <summary>
+    /// Hostからホスト名部分を取得（例: "example.com:8080" → "example.com"）
+    /// </summary>
+    public string GetHostName()
+    {
+        if (string.IsNullOrEmpty(Host))
+            return "";
+
+        var colonIndex = Host.LastIndexOf(':');
+        return colonIndex >= 0 ? Host.Substring(0, colonIndex) : Host;
+    }
+
+    /// <summary>
+    /// Hostからポート番号を取得（例: "example.com:8080" → 8080）
+    /// ポート番号が指定されていない場合は0を返す
+    /// </summary>
+    public int GetPort()
+    {
+        if (string.IsNullOrEmpty(Host))
+            return 0;
+
+        var colonIndex = Host.LastIndexOf(':');
+        if (colonIndex < 0)
+            return 0;
+
+        var portString = Host.Substring(colonIndex + 1);
+        return int.TryParse(portString, out var port) ? port : 0;
+    }
 }
 
 /// <summary>

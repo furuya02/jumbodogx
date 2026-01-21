@@ -115,10 +115,10 @@ public class DnsServer : ServerBase
             StopCts.Token), StopCts.Token);
     }
 
-    protected override Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
     {
+        await StopUdpListenerAsync();
         Logger.LogInformation("DNS Server stopped");
-        return Task.CompletedTask;
     }
 
     protected override Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)

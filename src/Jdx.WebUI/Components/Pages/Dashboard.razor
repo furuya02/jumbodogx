@@ -126,9 +126,7 @@
 
     private string GetServerId(IServer server)
     {
-        if (server.Type == ServerType.Http) return "http";
-        if (server.Type == ServerType.Dns) return "dns";
-        return server.Name.ToLower();
+        return ServerManager.GetServerId(server) ?? server.Name.ToLower();
     }
 
     private async Task StartServer(string serverId)

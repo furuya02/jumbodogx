@@ -59,10 +59,10 @@ public class FtpServer : ServerBase
         Logger.LogInformation("FTP Server started successfully");
     }
 
-    protected override Task StopListeningAsync(CancellationToken cancellationToken)
+    protected override async Task StopListeningAsync(CancellationToken cancellationToken)
     {
+        await StopTcpListenerAsync();
         Logger.LogInformation("FTP Server stopped");
-        return Task.CompletedTask;
     }
 
     protected override async Task HandleClientAsync(Socket socket, CancellationToken cancellationToken)
