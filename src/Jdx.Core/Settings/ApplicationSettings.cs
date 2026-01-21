@@ -334,6 +334,7 @@ public class DnsServerSettings
     // 基本設定 (TAB1: Basic)
     public bool Enabled { get; set; } = false;
     public int Port { get; set; } = 53;  // 標準DNSポート（特権必要）
+    public string BindAddress { get; set; } = "0.0.0.0";
     public int MaxConnections { get; set; } = 10;
     public int TimeOut { get; set; } = 30;  // 秒
 
