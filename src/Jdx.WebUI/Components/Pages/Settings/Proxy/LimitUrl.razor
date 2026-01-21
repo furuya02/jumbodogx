@@ -6,133 +6,138 @@
 
 <PageTitle>Proxy URL Limit Settings - JumboDogX</PageTitle>
 
-<h1>Proxy - URL Limit Settings</h1>
-
-@if (saveMessage != null)
-{
-    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
-        @saveMessage
-        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+<div class="page-container">
+    <div class="page-header">
+        <h1>Proxy - URL Limit Settings</h1>
+        <p class="subtitle">Configure URL-based allow and deny lists for the proxy</p>
     </div>
-}
 
-<div class="row">
-    <div class="col-md-10">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">✅ Allow URL List</h5>
-            </div>
-            <div class="card-body">
-                <p class="text-muted">
-                    URLs in this list will be allowed through the proxy.
-                </p>
+    @if (saveMessage != null)
+    {
+        <div class="alert-modern @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+            @saveMessage
+            <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+        </div>
+    }
 
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th style="width: 50%">URL</th>
-                            <th style="width: 30%">Matching</th>
-                            <th style="width: 20%">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var (entry, index) in settings.ProxyServer.LimitUrlAllowList.Select((e, i) => (e, i)))
-                        {
+    <div class="row">
+        <div class="col-md-10">
+            <div class="settings-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Allow URL List</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        URLs in this list will be allowed through the proxy.
+                    </p>
+
+                    <table class="table table-sm">
+                        <thead>
                             <tr>
-                                <td>
-                                    <input type="text" class="form-control form-control-sm"
-                                           @bind="entry.Url" placeholder="https://example.com">
-                                </td>
-                                <td>
-                                    <select class="form-select form-select-sm" @bind="entry.Matching">
-                                        <option value="0">Prefix Match</option>
-                                        <option value="1">Suffix Match</option>
-                                        <option value="2">Partial Match</option>
-                                        <option value="3">Regular Expression</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <button class="btn btn-danger btn-sm" @onclick="() => RemoveAllowUrl(index)">
-                                        <span class="bi bi-trash"></span>
-                                    </button>
-                                </td>
+                                <th style="width: 50%">URL</th>
+                                <th style="width: 30%">Matching</th>
+                                <th style="width: 20%">Action</th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach (var (entry, index) in settings.ProxyServer.LimitUrlAllowList.Select((e, i) => (e, i)))
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm"
+                                               @bind="entry.Url" placeholder="https://example.com">
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="entry.Matching">
+                                            <option value="0">Prefix Match</option>
+                                            <option value="1">Suffix Match</option>
+                                            <option value="2">Partial Match</option>
+                                            <option value="3">Regular Expression</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-danger" @onclick="() => RemoveAllowUrl(index)">
+                                            <span class="bi bi-trash"></span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
 
-                <button class="btn btn-success btn-sm" @onclick="AddAllowUrl">
-                    <span class="bi bi-plus-circle me-1"></span> Add Allow URL
+                    <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-info" @onclick="AddAllowUrl">
+                        <span class="bi bi-plus-circle me-1"></span> Add Allow URL
+                    </button>
+                </div>
+            </div>
+
+            <div class="settings-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Deny URL List</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        URLs in this list will be blocked by the proxy.
+                    </p>
+
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th style="width: 50%">URL</th>
+                                <th style="width: 30%">Matching</th>
+                                <th style="width: 20%">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var (entry, index) in settings.ProxyServer.LimitUrlDenyList.Select((e, i) => (e, i)))
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm"
+                                               @bind="entry.Url" placeholder="https://blocked.com">
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="entry.Matching">
+                                            <option value="0">Prefix Match</option>
+                                            <option value="1">Suffix Match</option>
+                                            <option value="2">Partial Match</option>
+                                            <option value="3">Regular Expression</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-danger" @onclick="() => RemoveDenyUrl(index)">
+                                            <span class="bi bi-trash"></span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-info" @onclick="AddDenyUrl">
+                        <span class="bi bi-plus-circle me-1"></span> Add Deny URL
+                    </button>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>Matching Types:</strong>
+                <ul class="mb-0 mt-2">
+                    <li><strong>Prefix Match:</strong> Matches URLs starting with the specified pattern (e.g., "https://example.com")</li>
+                    <li><strong>Suffix Match:</strong> Matches URLs ending with the specified pattern (e.g., ".pdf")</li>
+                    <li><strong>Partial Match:</strong> Matches URLs containing the specified pattern anywhere</li>
+                    <li><strong>Regular Expression:</strong> Matches URLs using a regex pattern</li>
+                </ul>
+            </div>
+
+            <div class="border-top pt-3 mt-4">
+                <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg me-2" @onclick="SaveSettings">
+                    <span class="bi bi-check-circle me-1"></span> Save Settings
+                </button>
+                <button class="btn btn-dashboard btn-dashboard-outline btn-dashboard-lg" @onclick="ResetToDefault">
+                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
                 </button>
             </div>
-        </div>
-
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">🚫 Deny URL List</h5>
-            </div>
-            <div class="card-body">
-                <p class="text-muted">
-                    URLs in this list will be blocked by the proxy.
-                </p>
-
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th style="width: 50%">URL</th>
-                            <th style="width: 30%">Matching</th>
-                            <th style="width: 20%">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var (entry, index) in settings.ProxyServer.LimitUrlDenyList.Select((e, i) => (e, i)))
-                        {
-                            <tr>
-                                <td>
-                                    <input type="text" class="form-control form-control-sm"
-                                           @bind="entry.Url" placeholder="https://blocked.com">
-                                </td>
-                                <td>
-                                    <select class="form-select form-select-sm" @bind="entry.Matching">
-                                        <option value="0">Prefix Match</option>
-                                        <option value="1">Suffix Match</option>
-                                        <option value="2">Partial Match</option>
-                                        <option value="3">Regular Expression</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <button class="btn btn-danger btn-sm" @onclick="() => RemoveDenyUrl(index)">
-                                        <span class="bi bi-trash"></span>
-                                    </button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-
-                <button class="btn btn-success btn-sm" @onclick="AddDenyUrl">
-                    <span class="bi bi-plus-circle me-1"></span> Add Deny URL
-                </button>
-            </div>
-        </div>
-
-        <div class="alert alert-info">
-            <strong>ℹ️ Matching Types:</strong>
-            <ul class="mb-0 mt-2">
-                <li><strong>Prefix Match:</strong> Matches URLs starting with the specified pattern (e.g., "https://example.com")</li>
-                <li><strong>Suffix Match:</strong> Matches URLs ending with the specified pattern (e.g., ".pdf")</li>
-                <li><strong>Partial Match:</strong> Matches URLs containing the specified pattern anywhere</li>
-                <li><strong>Regular Expression:</strong> Matches URLs using a regex pattern</li>
-            </ul>
-        </div>
-
-        <div class="border-top pt-3 mt-4">
-            <button class="btn btn-primary me-2" @onclick="SaveSettings">
-                <span class="bi bi-check-circle me-1"></span> Save Settings
-            </button>
-            <button class="btn btn-secondary" @onclick="ResetToDefault">
-                <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
-            </button>
         </div>
     </div>
 </div>

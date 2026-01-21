@@ -6,110 +6,112 @@
 
 <PageTitle>HTTP General Settings - JumboDogX</PageTitle>
 
-<h1>HTTP/HTTPS - General Settings</h1>
-
-@if (saveMessage != null)
-{
-    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
-        @saveMessage
-        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+<div class="page-container">
+    <!-- Header -->
+    <div class="page-header">
+        <h1>HTTP/HTTPS - General Settings</h1>
+        <p class="subtitle">Configure basic server settings and SSL/TLS options</p>
     </div>
-}
 
-<div class="row">
-    <div class="col-md-10">
-        <!-- Basic Settings -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Basic Settings</h5>
+    @if (saveMessage != null)
+    {
+        <div class="alert-modern @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+            @saveMessage
+            <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+        </div>
+    }
+
+    <!-- Basic Settings -->
+    <div class="settings-card">
+        <div class="card-header">
+            <h5>Basic Settings</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="enabled"
+                               @bind="settings.HttpServer.Enabled">
+                        <label class="form-check-label" for="enabled">
+                            Enable Server
+                        </label>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="enabled"
-                                   @bind="settings.HttpServer.Enabled">
-                            <label class="form-check-label" for="enabled">
-                                Enable Server
-                            </label>
-                        </div>
-                    </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="bindAddress" class="form-label">Bind Address</label>
+                    <input type="text" class="form-control" id="bindAddress"
+                           @bind="settings.HttpServer.BindAddress" placeholder="0.0.0.0">
+                    <div class="form-text">IP address to bind to (0.0.0.0 for all interfaces)</div>
                 </div>
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="bindAddress" class="form-label">Bind Address</label>
-                        <input type="text" class="form-control" id="bindAddress"
-                               @bind="settings.HttpServer.BindAddress" placeholder="0.0.0.0">
-                        <div class="form-text">IP address to bind to (0.0.0.0 for all interfaces)</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="port" class="form-label">Port</label>
-                        <input type="number" class="form-control" id="port"
-                               @bind="settings.HttpServer.Port" placeholder="8080">
-                        <div class="form-text">Port number (default: 8080)</div>
-                    </div>
+                <div class="col-md-6">
+                    <label for="port" class="form-label">Port</label>
+                    <input type="number" class="form-control" id="port"
+                           @bind="settings.HttpServer.Port" placeholder="8080">
+                    <div class="form-text">Port number (default: 8080)</div>
                 </div>
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <label for="documentRoot" class="form-label">Document Root</label>
-                        <input type="text" class="form-control" id="documentRoot"
-                               @bind="settings.HttpServer.DocumentRoot" placeholder="/var/www/html">
-                        <div class="form-text">Root directory for serving files</div>
-                    </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label for="documentRoot" class="form-label">Document Root</label>
+                    <input type="text" class="form-control" id="documentRoot"
+                           @bind="settings.HttpServer.DocumentRoot" placeholder="/var/www/html">
+                    <div class="form-text">Root directory for serving files</div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- SSL/TLS Settings -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">SSL/TLS Settings</h5>
+    <!-- SSL/TLS Settings -->
+    <div class="settings-card">
+        <div class="card-header">
+            <h5>SSL/TLS Settings</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert-modern alert-danger mb-3">
+                <strong>Security Warning:</strong> Certificate passwords are stored in plaintext in the configuration file.
+                For production use, consider using environment variables or ASP.NET Core User Secrets.
+                Example: <code>Environment.GetEnvironmentVariable("HTTP_CERT_PASSWORD")</code>
             </div>
-            <div class="card-body">
-                <div class="alert alert-danger">
-                    <strong>Security Warning:</strong> Certificate passwords are stored in plaintext in the configuration file.
-                    For production use, consider using environment variables or ASP.NET Core User Secrets.
-                    Example: <code>Environment.GetEnvironmentVariable("HTTP_CERT_PASSWORD")</code>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="enableHttps"
+                               checked="@enableHttps" @onchange="OnEnableHttpsChanged">
+                        <label class="form-check-label" for="enableHttps">
+                            Enable HTTPS
+                        </label>
+                    </div>
+                    <div class="form-text">Enable HTTP over SSL/TLS</div>
                 </div>
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="enableHttps"
-                                   checked="@enableHttps" @onchange="OnEnableHttpsChanged">
-                            <label class="form-check-label" for="enableHttps">
-                                Enable HTTPS
-                            </label>
-                        </div>
-                        <div class="form-text">Enable HTTP over SSL/TLS</div>
-                    </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="certificateFile" class="form-label">Certificate File (optional)</label>
+                    <input type="text" class="form-control" id="certificateFile"
+                           @bind="settings.HttpServer.CertificateFile" placeholder="/path/to/certificate.pfx">
+                    <div class="form-text">Path to SSL certificate file (PFX format)</div>
                 </div>
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="certificateFile" class="form-label">Certificate File (optional)</label>
-                        <input type="text" class="form-control" id="certificateFile"
-                               @bind="settings.HttpServer.CertificateFile" placeholder="/path/to/certificate.pfx">
-                        <div class="form-text">Path to SSL certificate file (PFX format)</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="certificatePassword" class="form-label">Certificate Password (optional)</label>
-                        <input type="password" class="form-control" id="certificatePassword"
-                               @bind="settings.HttpServer.CertificatePassword" placeholder="Enter password">
-                        <div class="form-text">Password for the certificate file</div>
-                    </div>
+                <div class="col-md-6">
+                    <label for="certificatePassword" class="form-label">Certificate Password (optional)</label>
+                    <input type="password" class="form-control" id="certificatePassword"
+                           @bind="settings.HttpServer.CertificatePassword" placeholder="Enter password">
+                    <div class="form-text">Password for the certificate file</div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Save Buttons -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <button class="btn btn-primary btn-lg me-2" @onclick="SaveSettings">
-                    <span class="bi bi-check-circle me-1"></span> Save Settings
-                </button>
-                <button class="btn btn-secondary btn-lg" @onclick="ResetToDefault">
-                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
-                </button>
-            </div>
+    <!-- Save Buttons -->
+    <div class="settings-card">
+        <div class="card-body">
+            <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg me-2" @onclick="SaveSettings">
+                Save Settings
+            </button>
+            <button class="btn btn-dashboard btn-dashboard-outline btn-dashboard-lg" @onclick="ResetToDefault">
+                Reset to Default
+            </button>
         </div>
     </div>
 </div>

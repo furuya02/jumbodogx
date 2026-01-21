@@ -6,186 +6,191 @@
 
 <PageTitle>DHCP General Settings - JumboDogX</PageTitle>
 
-<h1>DHCP - General Settings</h1>
-
-@if (saveMessage != null)
-{
-    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
-        @saveMessage
-        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+<div class="page-container">
+    <div class="page-header">
+        <h1>DHCP - General Settings</h1>
+        <p class="subtitle">Configure DHCP server parameters, IP address pool, and DNS settings</p>
     </div>
-}
 
-<div class="row">
-    <div class="col-md-10">
-        <!-- 基本設定 -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">🌐 DHCP Server - Basic Configuration</h5>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="dhcpEnabled"
-                                   @bind="settings.DhcpServer.Enabled">
-                            <label class="form-check-label" for="dhcpEnabled">
-                                <strong>Enabled</strong>
-                            </label>
+    @if (saveMessage != null)
+    {
+        <div class="alert-modern @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+            @saveMessage
+            <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-md-10">
+            <!-- 基本設定 -->
+            <div class="settings-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">DHCP Server - Basic Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="dhcpEnabled"
+                                       @bind="settings.DhcpServer.Enabled">
+                                <label class="form-check-label" for="dhcpEnabled">
+                                    <strong>Enabled</strong>
+                                </label>
+                            </div>
+                            <div class="form-text">Enable DHCP server</div>
                         </div>
-                        <div class="form-text">Enable DHCP server</div>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="dhcpBindAddress" class="form-label">Bind Address</label>
-                        <input type="text" class="form-control" id="dhcpBindAddress"
-                               @bind="settings.DhcpServer.BindAddress">
-                        <div class="form-text">IP address to bind (0.0.0.0 = all)</div>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="dhcpPort" class="form-label">Port</label>
-                        <input type="number" class="form-control" id="dhcpPort"
-                               @bind="settings.DhcpServer.Port" min="1" max="65535">
-                        <div class="form-text">DHCP server port (default: 67)</div>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <label for="dhcpTimeout" class="form-label">Timeout (seconds)</label>
-                        <input type="number" class="form-control" id="dhcpTimeout"
-                               @bind="settings.DhcpServer.TimeOut" min="1" max="600">
-                        <div class="form-text">Connection timeout in seconds</div>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="dhcpMaxConnections" class="form-label">Max Connections</label>
-                        <input type="number" class="form-control" id="dhcpMaxConnections"
-                               @bind="settings.DhcpServer.MaxConnections" min="1" max="1000">
-                        <div class="form-text">Maximum concurrent connections</div>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="dhcpLeaseTime" class="form-label">Lease Time (seconds)</label>
-                        <input type="number" class="form-control" id="dhcpLeaseTime"
-                               @bind="settings.DhcpServer.LeaseTime" min="60" max="86400">
-                        <div class="form-text">IP address lease time (default: 18000)</div>
-                    </div>
-                </div>
-
-                <div class="alert alert-info">
-                    <strong>Note:</strong> DHCP server requires system privileges to bind to port 67.
-                    For testing purposes, you can use port 6700 or higher.
-                </div>
-            </div>
-        </div>
-
-        <!-- IPアドレス範囲設定 -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">📋 IP Address Pool Configuration</h5>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="dhcpStartIp" class="form-label">Start IP Address</label>
-                        <input type="text" class="form-control" id="dhcpStartIp"
-                               @bind="settings.DhcpServer.StartIp"
-                               placeholder="192.168.1.100">
-                        <div class="form-text">First IP address in the pool</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="dhcpEndIp" class="form-label">End IP Address</label>
-                        <input type="text" class="form-control" id="dhcpEndIp"
-                               @bind="settings.DhcpServer.EndIp"
-                               placeholder="192.168.1.200">
-                        <div class="form-text">Last IP address in the pool</div>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="dhcpMaskIp" class="form-label">Subnet Mask</label>
-                        <input type="text" class="form-control" id="dhcpMaskIp"
-                               @bind="settings.DhcpServer.MaskIp"
-                               placeholder="255.255.255.0">
-                        <div class="form-text">Network subnet mask</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="dhcpGwIp" class="form-label">Gateway IP Address</label>
-                        <input type="text" class="form-control" id="dhcpGwIp"
-                               @bind="settings.DhcpServer.GwIp"
-                               placeholder="192.168.1.1">
-                        <div class="form-text">Default gateway for clients</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- DNS設定 -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">🔍 DNS Configuration</h5>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="dhcpDnsIp0" class="form-label">Primary DNS Server</label>
-                        <input type="text" class="form-control" id="dhcpDnsIp0"
-                               @bind="settings.DhcpServer.DnsIp0"
-                               placeholder="8.8.8.8">
-                        <div class="form-text">Primary DNS server for clients</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="dhcpDnsIp1" class="form-label">Secondary DNS Server</label>
-                        <input type="text" class="form-control" id="dhcpDnsIp1"
-                               @bind="settings.DhcpServer.DnsIp1"
-                               placeholder="8.8.4.4">
-                        <div class="form-text">Secondary DNS server for clients</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- WPAD設定 -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">🌍 WPAD (Web Proxy Auto-Discovery) Configuration</h5>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="dhcpUseWpad"
-                                   @bind="settings.DhcpServer.UseWpad">
-                            <label class="form-check-label" for="dhcpUseWpad">
-                                <strong>Enable WPAD</strong>
-                            </label>
+                        <div class="col-md-4">
+                            <label for="dhcpBindAddress" class="form-label">Bind Address</label>
+                            <input type="text" class="form-control" id="dhcpBindAddress"
+                                   @bind="settings.DhcpServer.BindAddress">
+                            <div class="form-text">IP address to bind (0.0.0.0 = all)</div>
                         </div>
-                        <div class="form-text">Enable Web Proxy Auto-Discovery Protocol</div>
+                        <div class="col-md-4">
+                            <label for="dhcpPort" class="form-label">Port</label>
+                            <input type="number" class="form-control" id="dhcpPort"
+                                   @bind="settings.DhcpServer.Port" min="1" max="65535">
+                            <div class="form-text">DHCP server port (default: 67)</div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="dhcpTimeout" class="form-label">Timeout (seconds)</label>
+                            <input type="number" class="form-control" id="dhcpTimeout"
+                                   @bind="settings.DhcpServer.TimeOut" min="1" max="600">
+                            <div class="form-text">Connection timeout in seconds</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="dhcpMaxConnections" class="form-label">Max Connections</label>
+                            <input type="number" class="form-control" id="dhcpMaxConnections"
+                                   @bind="settings.DhcpServer.MaxConnections" min="1" max="1000">
+                            <div class="form-text">Maximum concurrent connections</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="dhcpLeaseTime" class="form-label">Lease Time (seconds)</label>
+                            <input type="number" class="form-control" id="dhcpLeaseTime"
+                                   @bind="settings.DhcpServer.LeaseTime" min="60" max="86400">
+                            <div class="form-text">IP address lease time (default: 18000)</div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <strong>Note:</strong> DHCP server requires system privileges to bind to port 67.
+                        For testing purposes, you can use port 6700 or higher.
                     </div>
                 </div>
+            </div>
 
-                @if (settings.DhcpServer.UseWpad)
-                {
+            <!-- IPアドレス範囲設定 -->
+            <div class="settings-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">IP Address Pool Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="dhcpStartIp" class="form-label">Start IP Address</label>
+                            <input type="text" class="form-control" id="dhcpStartIp"
+                                   @bind="settings.DhcpServer.StartIp"
+                                   placeholder="192.168.1.100">
+                            <div class="form-text">First IP address in the pool</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="dhcpEndIp" class="form-label">End IP Address</label>
+                            <input type="text" class="form-control" id="dhcpEndIp"
+                                   @bind="settings.DhcpServer.EndIp"
+                                   placeholder="192.168.1.200">
+                            <div class="form-text">Last IP address in the pool</div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="dhcpMaskIp" class="form-label">Subnet Mask</label>
+                            <input type="text" class="form-control" id="dhcpMaskIp"
+                                   @bind="settings.DhcpServer.MaskIp"
+                                   placeholder="255.255.255.0">
+                            <div class="form-text">Network subnet mask</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="dhcpGwIp" class="form-label">Gateway IP Address</label>
+                            <input type="text" class="form-control" id="dhcpGwIp"
+                                   @bind="settings.DhcpServer.GwIp"
+                                   placeholder="192.168.1.1">
+                            <div class="form-text">Default gateway for clients</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DNS設定 -->
+            <div class="settings-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">DNS Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="dhcpDnsIp0" class="form-label">Primary DNS Server</label>
+                            <input type="text" class="form-control" id="dhcpDnsIp0"
+                                   @bind="settings.DhcpServer.DnsIp0"
+                                   placeholder="8.8.8.8">
+                            <div class="form-text">Primary DNS server for clients</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="dhcpDnsIp1" class="form-label">Secondary DNS Server</label>
+                            <input type="text" class="form-control" id="dhcpDnsIp1"
+                                   @bind="settings.DhcpServer.DnsIp1"
+                                   placeholder="8.8.4.4">
+                            <div class="form-text">Secondary DNS server for clients</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WPAD設定 -->
+            <div class="settings-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">WPAD (Web Proxy Auto-Discovery) Configuration</h5>
+                </div>
+                <div class="card-body">
                     <div class="row mb-3">
                         <div class="col-md-12">
-                            <label for="dhcpWpadUrl" class="form-label">WPAD URL</label>
-                            <input type="text" class="form-control" id="dhcpWpadUrl"
-                                   @bind="settings.DhcpServer.WpadUrl"
-                                   placeholder="http://proxy.example.com/wpad.dat">
-                            <div class="form-text">URL to the proxy auto-config file</div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="dhcpUseWpad"
+                                       @bind="settings.DhcpServer.UseWpad">
+                                <label class="form-check-label" for="dhcpUseWpad">
+                                    <strong>Enable WPAD</strong>
+                                </label>
+                            </div>
+                            <div class="form-text">Enable Web Proxy Auto-Discovery Protocol</div>
                         </div>
                     </div>
-                }
-            </div>
-        </div>
 
-        <!-- 保存ボタン -->
-        <div class="border-top pt-3 mt-4">
-            <button class="btn btn-primary me-2" @onclick="SaveSettings">
-                Save Settings
-            </button>
-            <button class="btn btn-secondary" @onclick="ResetToDefault">
-                Reset to Default
-            </button>
+                    @if (settings.DhcpServer.UseWpad)
+                    {
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label for="dhcpWpadUrl" class="form-label">WPAD URL</label>
+                                <input type="text" class="form-control" id="dhcpWpadUrl"
+                                       @bind="settings.DhcpServer.WpadUrl"
+                                       placeholder="http://proxy.example.com/wpad.dat">
+                                <div class="form-text">URL to the proxy auto-config file</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- 保存ボタン -->
+            <div class="border-top pt-3 mt-4">
+                <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg me-2" @onclick="SaveSettings">
+                    Save Settings
+                </button>
+                <button class="btn btn-dashboard btn-dashboard-outline btn-dashboard-lg" @onclick="ResetToDefault">
+                    Reset to Default
+                </button>
+            </div>
         </div>
     </div>
 </div>

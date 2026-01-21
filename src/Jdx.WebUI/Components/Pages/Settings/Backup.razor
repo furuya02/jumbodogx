@@ -4,53 +4,58 @@
 @inject ISettingsService SettingsService
 @inject IJSRuntime JS
 
-<div class="container-fluid py-4">
+<div class="page-container">
+    <div class="page-header">
+        <h1>Settings Backup / Restore</h1>
+        <p class="subtitle">Export and import your JumboDogX configuration settings</p>
+    </div>
+
     <div class="row">
         <div class="col-12">
-            <div class="card">
+            <div class="settings-card">
                 <div class="card-header">
-                    <h3 class="card-title mb-0">設定のバックアップ・復元</h3>
+                    <h5 class="mb-0">Backup and Restore Configuration</h5>
                 </div>
                 <div class="card-body">
                     <div class="alert alert-warning" role="alert">
-                        <strong>⚠️ セキュリティ警告</strong>
+                        <strong>Security Warning</strong>
                         <p class="mb-0 mt-2">
-                            エクスポートされたファイルには、パスワード、証明書パスワード、その他の機密情報が含まれています。
-                            エクスポートしたファイルは安全な場所に保管し、第三者と共有しないでください。
+                            Exported files contain passwords, certificate passwords, and other sensitive information.
+                            Keep exported files in a secure location and do not share with third parties.
                         </p>
                     </div>
                     <p class="text-muted">
-                        現在の設定をJSON形式でエクスポートして保存したり、以前にエクスポートした設定ファイルをインポートして復元できます。
+                        Export your current settings in JSON format or import previously exported settings to restore your configuration.
                     </p>
 
-                    <!-- エクスポートセクション -->
+                    <!-- Export Section -->
                     <div class="mb-4">
-                        <h5>設定のエクスポート</h5>
-                        <p class="text-sm text-muted">現在の設定をJSON形式でダウンロードします。</p>
-                        <button class="btn btn-primary" @onclick="ExportSettings" disabled="@isProcessing">
+                        <h5>Export Settings</h5>
+                        <p class="text-sm text-muted">Download current settings in JSON format.</p>
+                        <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg" @onclick="ExportSettings" disabled="@isProcessing">
                             <span class="bi bi-download me-2"></span>
-                            設定をエクスポート
+                            Export Settings
                         </button>
                     </div>
 
                     <hr />
 
-                    <!-- インポートセクション -->
+                    <!-- Import Section -->
                     <div class="mb-4">
-                        <h5>設定のインポート</h5>
-                        <p class="text-sm text-muted">以前にエクスポートした設定ファイルを選択してアップロードします。</p>
+                        <h5>Import Settings</h5>
+                        <p class="text-sm text-muted">Select and upload a previously exported settings file.</p>
                         <div class="mb-3">
                             <InputFile OnChange="OnFileSelected" class="form-control" accept=".json" disabled="@isProcessing" />
                         </div>
-                        <button class="btn btn-success" @onclick="ImportSettings" disabled="@(selectedFile == null || isProcessing)">
+                        <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg" @onclick="ImportSettings" disabled="@(selectedFile == null || isProcessing)">
                             <span class="bi bi-upload me-2"></span>
-                            設定をインポート
+                            Import Settings
                         </button>
                     </div>
 
                     @if (!string.IsNullOrEmpty(message))
                     {
-                        <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show mt-3" role="alert">
+                        <div class="alert-modern @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show mt-3" role="alert">
                             @message
                             <button type="button" class="btn-close" @onclick="ClearMessage"></button>
                         </div>
@@ -60,9 +65,9 @@
                     {
                         <div class="text-center mt-3">
                             <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">処理中...</span>
+                                <span class="visually-hidden">Processing...</span>
                             </div>
-                            <p class="mt-2">処理中...</p>
+                            <p class="mt-2">Processing...</p>
                         </div>
                     }
                 </div>
@@ -91,12 +96,12 @@
             // JavaScriptを使用してファイルをダウンロード
             await JS.InvokeVoidAsync("downloadFile", fileName, json);
 
-            message = "設定のエクスポートが完了しました。";
+            message = "Settings export completed successfully.";
             isError = false;
         }
         catch (Exception ex)
         {
-            message = $"エクスポートエラー: {ex.Message}";
+            message = $"Export error: {ex.Message}";
             isError = true;
         }
         finally
@@ -127,7 +132,7 @@
             // ファイルサイズチェック (10MB以下)
             if (selectedFile.Size > 10 * 1024 * 1024)
             {
-                message = "ファイルサイズが大きすぎます (最大10MB)。";
+                message = "File size is too large (max 10MB).";
                 isError = true;
                 return;
             }
@@ -140,18 +145,18 @@
             // 設定をインポート
             await SettingsService.ImportSettingsAsync(json);
 
-            message = "設定のインポートが完了しました。変更を反映するためにアプリケーションを再起動してください。";
+            message = "Settings import completed successfully. Please restart the application to apply changes.";
             isError = false;
             selectedFile = null;
         }
         catch (ArgumentException ex)
         {
-            message = $"インポートエラー: {ex.Message}";
+            message = $"Import error: {ex.Message}";
             isError = true;
         }
         catch (Exception ex)
         {
-            message = $"予期しないエラー: {ex.Message}";
+            message = $"Unexpected error: {ex.Message}";
             isError = true;
         }
         finally

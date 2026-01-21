@@ -6,96 +6,101 @@
 
 <PageTitle>Logs - JumboDogX</PageTitle>
 
-<h1>Server Logs</h1>
+<div class="logs-container">
+    <!-- Header -->
+    <div class="page-header">
+        <h1>Server Logs</h1>
+        <p class="subtitle">Monitor server activity and events</p>
+    </div>
 
-<div class="mb-3">
-    <div class="row">
-        <div class="col-md-6">
-            <div class="btn-group" role="group">
-                <input type="radio" class="btn-check" name="logLevel" id="levelAll" checked @onchange="() => FilterByLevel(null)">
-                <label class="btn btn-outline-primary" for="levelAll">All</label>
-
-                <input type="radio" class="btn-check" name="logLevel" id="levelInfo" @onchange="() => FilterByLevel(LogLevel.Information)">
-                <label class="btn btn-outline-info" for="levelInfo">Info</label>
-
-                <input type="radio" class="btn-check" name="logLevel" id="levelWarning" @onchange="() => FilterByLevel(LogLevel.Warning)">
-                <label class="btn btn-outline-warning" for="levelWarning">Warning</label>
-
-                <input type="radio" class="btn-check" name="logLevel" id="levelError" @onchange="() => FilterByLevel(LogLevel.Error)">
-                <label class="btn btn-outline-danger" for="levelError">Error</label>
-            </div>
-        </div>
-        <div class="col-md-6 text-end">
-            <button class="btn btn-secondary" @onclick="ClearLogs">
-                🗑️ Clear Logs
+    <!-- Control Bar -->
+    <div class="logs-control-bar">
+        <div class="logs-filter-group">
+            <button class="logs-filter-btn @(selectedLevel == null ? "active" : "")" @onclick="() => FilterByLevel(null)">
+                All
             </button>
-            <button class="btn btn-primary" @onclick="RefreshLogs">
-                🔄 Refresh
+            <button class="logs-filter-btn info @(selectedLevel == LogLevel.Information ? "active" : "")" @onclick="() => FilterByLevel(LogLevel.Information)">
+                Info
+            </button>
+            <button class="logs-filter-btn warning @(selectedLevel == LogLevel.Warning ? "active" : "")" @onclick="() => FilterByLevel(LogLevel.Warning)">
+                Warning
+            </button>
+            <button class="logs-filter-btn error @(selectedLevel == LogLevel.Error ? "active" : "")" @onclick="() => FilterByLevel(LogLevel.Error)">
+                Error
+            </button>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-dashboard btn-dashboard-secondary" @onclick="ClearLogs">
+                Clear Logs
+            </button>
+            <button class="btn btn-dashboard btn-dashboard-outline" @onclick="RefreshLogs">
+                Refresh
             </button>
         </div>
     </div>
-</div>
 
-<div class="card">
-    <div class="card-header">
-        <h5 class="mb-0">Log Entries (@filteredLogs.Count())</h5>
-    </div>
-    <div class="card-body" style="max-height: 600px; overflow-y: auto;">
-        @if (!filteredLogs.Any())
-        {
-            <div class="text-center text-muted p-4">
-                <p>No log entries to display.</p>
-            </div>
-        }
-        else
-        {
-            <table class="table table-sm table-striped mb-0 resizable-table" id="logsTable">
-                <colgroup>
-                    <col style="width: @(timeWidth)px" />
-                    <col style="width: @(levelWidth)px" />
-                    <col style="width: @(categoryWidth)px" />
-                    <col />
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th class="resizable-header">
-                            Time
-                            <div class="resize-handle"></div>
-                        </th>
-                        <th class="resizable-header">
-                            Level
-                            <div class="resize-handle"></div>
-                        </th>
-                        <th class="resizable-header">
-                            Category
-                            <div class="resize-handle"></div>
-                        </th>
-                        <th>Message</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var log in filteredLogs.OrderByDescending(l => l.Timestamp).Take(100))
-                    {
+    <!-- Logs Table -->
+    <div class="logs-table-container">
+        <div class="logs-table-header">
+            <h5>Log Entries (@filteredLogs.Count())</h5>
+        </div>
+        <div class="logs-table-body">
+            @if (!filteredLogs.Any())
+            {
+                <div class="logs-empty">
+                    <p>No log entries to display.</p>
+                </div>
+            }
+            else
+            {
+                <table class="table table-sm mb-0 resizable-table" id="logsTable">
+                    <colgroup>
+                        <col style="width: @(timeWidth)px" />
+                        <col style="width: @(levelWidth)px" />
+                        <col style="width: @(categoryWidth)px" />
+                        <col />
+                    </colgroup>
+                    <thead>
                         <tr>
-                            <td class="text-nowrap">
-                                <small>@log.Timestamp.ToString("HH:mm:ss.fff")</small>
-                            </td>
-                            <td>
-                                <span class="@log.LevelClass">
-                                    @log.LevelIcon @log.Level
-                                </span>
-                            </td>
-                            <td>
-                                <small class="text-muted">@log.Category</small>
-                            </td>
-                            <td>
-                                <small>@log.Message</small>
-                            </td>
+                            <th class="resizable-header">
+                                Time
+                                <div class="resize-handle"></div>
+                            </th>
+                            <th class="resizable-header">
+                                Level
+                                <div class="resize-handle"></div>
+                            </th>
+                            <th class="resizable-header">
+                                Category
+                                <div class="resize-handle"></div>
+                            </th>
+                            <th>Message</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
-        }
+                    </thead>
+                    <tbody>
+                        @foreach (var log in filteredLogs.OrderByDescending(l => l.Timestamp).Take(100))
+                        {
+                            <tr>
+                                <td class="text-nowrap">
+                                    <small>@log.Timestamp.ToString("HH:mm:ss.fff")</small>
+                                </td>
+                                <td>
+                                    <span class="log-level-badge @GetLevelBadgeClass(log.Level)">
+                                        @log.Level
+                                    </span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">@log.Category</small>
+                                </td>
+                                <td>
+                                    <small>@log.Message</small>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
     </div>
 </div>
 
@@ -103,6 +108,33 @@
     .resizable-table {
         table-layout: fixed;
         width: 100%;
+    }
+
+    .resizable-table thead {
+        background-color: #F7F8FA;
+    }
+
+    .resizable-table thead th {
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--card-border);
+        border-top: none;
+    }
+
+    .resizable-table tbody td {
+        color: var(--text-primary);
+        font-size: 0.875rem;
+        padding: 0.6rem 1rem;
+        border-bottom: 1px solid #F0F0F0;
+        vertical-align: middle;
+    }
+
+    .resizable-table tbody tr:hover {
+        background-color: rgba(66, 153, 225, 0.05);
     }
 
     .resizable-header {
@@ -122,11 +154,11 @@
     }
 
     .resize-handle:hover {
-        background-color: rgba(0, 123, 255, 0.3);
+        background-color: rgba(66, 153, 225, 0.3);
     }
 
     .resize-handle:active {
-        background-color: rgba(0, 123, 255, 0.5);
+        background-color: rgba(66, 153, 225, 0.5);
     }
 </style>
 
@@ -194,7 +226,7 @@
 
     // Column widths
     private int timeWidth = 150;
-    private int levelWidth = 120;
+    private int levelWidth = 100;
     private int categoryWidth = 250;
 
     protected override void OnInitialized()
@@ -255,6 +287,20 @@
             LoadLogs();
             StateHasChanged();
         });
+    }
+
+    private string GetLevelBadgeClass(LogLevel level)
+    {
+        return level switch
+        {
+            LogLevel.Information => "info",
+            LogLevel.Warning => "warning",
+            LogLevel.Error => "error",
+            LogLevel.Critical => "error",
+            LogLevel.Debug => "debug",
+            LogLevel.Trace => "debug",
+            _ => "secondary"
+        };
     }
 
     public void Dispose()

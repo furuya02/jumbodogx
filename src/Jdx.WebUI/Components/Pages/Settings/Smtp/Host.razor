@@ -6,112 +6,117 @@
 
 <PageTitle>SMTP Host Settings - JumboDogX</PageTitle>
 
-<h1>SMTP - Smart Host Settings</h1>
-
-@if (saveMessage != null)
-{
-    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
-        @saveMessage
-        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+<div class="page-container">
+    <div class="page-header">
+        <h1>SMTP - Smart Host Settings</h1>
+        <p class="subtitle">Configure external SMTP servers for outgoing mail relay</p>
     </div>
-}
 
-<div class="row">
-    <div class="col-md-12">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">🖥️ Smart Host Configuration</h5>
-            </div>
-            <div class="card-body">
-                <div class="alert alert-info mb-3">
-                    <strong>Smart Host:</strong>
-                    Configure external SMTP servers to use for outgoing mail delivery.
-                    Messages will be routed through these hosts instead of direct delivery.
-                    Useful when your server is behind a firewall or requires relay through ISP mail servers.
+    @if (saveMessage != null)
+    {
+        <div class="alert-modern @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+            @saveMessage
+            <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="settings-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Smart Host Configuration</h5>
                 </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-3">
+                        <strong>Smart Host:</strong>
+                        Configure external SMTP servers to use for outgoing mail delivery.
+                        Messages will be routed through these hosts instead of direct delivery.
+                        Useful when your server is behind a firewall or requires relay through ISP mail servers.
+                    </div>
 
-                <h6 class="mt-3 mb-3">SMTP Hosts</h6>
+                    <h6 class="mt-3 mb-3">SMTP Hosts</h6>
 
-                <table class="table table-bordered">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width: 60%">Host Name</th>
-                            <th style="width: 25%">Port</th>
-                            <th style="width: 15%">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (!settings.SmtpServer.HostList.Any())
-                        {
+                    <table class="table table-bordered">
+                        <thead class="table-light">
                             <tr>
-                                <td colspan="3" class="text-center text-muted">
-                                    No smart hosts configured. Direct delivery will be used.
-                                    Click "Add Host" to configure a smart host.
-                                </td>
+                                <th style="width: 60%">Host Name</th>
+                                <th style="width: 25%">Port</th>
+                                <th style="width: 15%">Actions</th>
                             </tr>
-                        }
-                        else
-                        {
-                            @foreach (var (host, index) in settings.SmtpServer.HostList.Select((h, i) => (h, i)))
+                        </thead>
+                        <tbody>
+                            @if (!settings.SmtpServer.HostList.Any())
                             {
                                 <tr>
-                                    <td>
-                                        <input type="text" class="form-control" @bind="host.HostName"
-                                               placeholder="smtp.example.com">
-                                        <small class="form-text text-muted">
-                                            SMTP server hostname or IP address
-                                        </small>
-                                    </td>
-                                    <td>
-                                        <input type="number" class="form-control" @bind="host.Port"
-                                               min="1" max="65535">
-                                        <small class="form-text text-muted">
-                                            Default: 25
-                                        </small>
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-danger" @onclick="() => RemoveHost(index)">
-                                            Remove
-                                        </button>
+                                    <td colspan="3" class="text-center text-muted">
+                                        No smart hosts configured. Direct delivery will be used.
+                                        Click "Add Host" to configure a smart host.
                                     </td>
                                 </tr>
                             }
-                        }
-                    </tbody>
-                </table>
+                            else
+                            {
+                                @foreach (var (host, index) in settings.SmtpServer.HostList.Select((h, i) => (h, i)))
+                                {
+                                    <tr>
+                                        <td>
+                                            <input type="text" class="form-control" @bind="host.HostName"
+                                                   placeholder="smtp.example.com">
+                                            <small class="form-text text-muted">
+                                                SMTP server hostname or IP address
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control" @bind="host.Port"
+                                                   min="1" max="65535">
+                                            <small class="form-text text-muted">
+                                                Default: 25
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-danger" @onclick="() => RemoveHost(index)">
+                                                Remove
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
 
-                <button class="btn btn-success btn-sm mt-2" @onclick="AddHost">
-                    + Add Host
-                </button>
-
-                <div class="alert alert-warning mt-3">
-                    <strong>Important Notes:</strong>
-                    <ul class="mb-0">
-                        <li>Hosts are tried in order until delivery succeeds</li>
-                        <li>If all smart hosts fail, the message will be queued for retry</li>
-                        <li>Smart hosts must allow relay from your server's IP address</li>
-                        <li>Port 25 is standard SMTP, port 587 is submission (often requires STARTTLS)</li>
-                        <li>Authentication to smart hosts can be configured separately</li>
-                    </ul>
-                </div>
-
-                <div class="alert alert-success mt-3">
-                    <strong>Common Smart Host Configurations:</strong>
-                    <ul class="mb-0">
-                        <li><strong>Gmail:</strong> smtp.gmail.com:587 (requires authentication and TLS)</li>
-                        <li><strong>Office 365:</strong> smtp.office365.com:587 (requires authentication and TLS)</li>
-                        <li><strong>ISP SMTP:</strong> Check with your ISP for their SMTP server details</li>
-                        <li><strong>Local Relay:</strong> Use another server on your network as relay</li>
-                    </ul>
-                </div>
-
-                <div class="border-top pt-3 mt-4">
-                    <button class="btn btn-primary me-2" @onclick="SaveSettings">
-                        Save Settings
+                    <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-info mt-2" @onclick="AddHost">
+                        + Add Host
                     </button>
-                    <button class="btn btn-secondary" @onclick="AddExampleHost">
-                        Add Example Host
-                    </button>
+
+                    <div class="alert alert-warning mt-3">
+                        <strong>Important Notes:</strong>
+                        <ul class="mb-0">
+                            <li>Hosts are tried in order until delivery succeeds</li>
+                            <li>If all smart hosts fail, the message will be queued for retry</li>
+                            <li>Smart hosts must allow relay from your server's IP address</li>
+                            <li>Port 25 is standard SMTP, port 587 is submission (often requires STARTTLS)</li>
+                            <li>Authentication to smart hosts can be configured separately</li>
+                        </ul>
+                    </div>
+
+                    <div class="alert alert-success mt-3">
+                        <strong>Common Smart Host Configurations:</strong>
+                        <ul class="mb-0">
+                            <li><strong>Gmail:</strong> smtp.gmail.com:587 (requires authentication and TLS)</li>
+                            <li><strong>Office 365:</strong> smtp.office365.com:587 (requires authentication and TLS)</li>
+                            <li><strong>ISP SMTP:</strong> Check with your ISP for their SMTP server details</li>
+                            <li><strong>Local Relay:</strong> Use another server on your network as relay</li>
+                        </ul>
+                    </div>
+
+                    <div class="border-top pt-3 mt-4">
+                        <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg me-2" @onclick="SaveSettings">
+                            Save Settings
+                        </button>
+                        <button class="btn btn-dashboard btn-dashboard-outline btn-dashboard-lg" @onclick="AddExampleHost">
+                            Add Example Host
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

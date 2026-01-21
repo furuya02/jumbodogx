@@ -6,15 +6,16 @@
 
 main {
     flex: 1;
+    background-color: #F7F8FA;
 }
 
 .sidebar {
-    background-color: #052767;
+    background-color: #1A202C;
 }
 
 .top-row {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #d6d5d5;
+    background-color: #FFFFFF;
+    border-bottom: 1px solid #E2E8F0;
     justify-content: flex-end;
     height: 3.5rem;
     display: flex;
@@ -25,10 +26,13 @@ main {
         white-space: nowrap;
         margin-left: 1.5rem;
         text-decoration: none;
+        color: #718096;
+        font-size: 0.875rem;
     }
 
     .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
-        text-decoration: underline;
+        text-decoration: none;
+        color: #1A202C;
     }
 
     .top-row ::deep a:first-child {
@@ -76,8 +80,12 @@ main {
     }
 
     .top-row, article {
-        padding-left: 2rem !important;
-        padding-right: 1.5rem !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    article.content {
+        padding: 0 !important;
     }
 }
 

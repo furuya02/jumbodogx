@@ -6,165 +6,170 @@
 
 <PageTitle>Proxy Cache Host/Extension Settings - JumboDogX</PageTitle>
 
-<h1>Proxy - Cache Settings (2/2)</h1>
-
-@if (saveMessage != null)
-{
-    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
-        @saveMessage
-        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+<div class="page-container">
+    <div class="page-header">
+        <h1>Proxy - Cache Settings (2/2)</h1>
+        <p class="subtitle">Configure cache host and extension filtering settings</p>
     </div>
-}
 
-<div class="row">
-    <div class="col-md-10">
-        @if (settings.ProxyServer.UseCache)
-        {
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">🌐 Cache Host Settings</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label">Enable Host Filtering</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="enableHost" id="enableHost0"
-                                       value="0" checked="@(settings.ProxyServer.EnableHost == 0)"
-                                       @onchange="@(() => settings.ProxyServer.EnableHost = 0)">
-                                <label class="form-check-label" for="enableHost0">
-                                    Cache all hosts
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="enableHost" id="enableHost1"
-                                       value="1" checked="@(settings.ProxyServer.EnableHost == 1)"
-                                       @onchange="@(() => settings.ProxyServer.EnableHost = 1)">
-                                <label class="form-check-label" for="enableHost1">
-                                    Cache only specified hosts
-                                </label>
-                            </div>
-                        </div>
+    @if (saveMessage != null)
+    {
+        <div class="alert-modern @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+            @saveMessage
+            <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-md-10">
+            @if (settings.ProxyServer.UseCache)
+            {
+                <div class="settings-card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Cache Host Settings</h5>
                     </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Enable Host Filtering</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="enableHost" id="enableHost0"
+                                           value="0" checked="@(settings.ProxyServer.EnableHost == 0)"
+                                           @onchange="@(() => settings.ProxyServer.EnableHost = 0)">
+                                    <label class="form-check-label" for="enableHost0">
+                                        Cache all hosts
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="enableHost" id="enableHost1"
+                                           value="1" checked="@(settings.ProxyServer.EnableHost == 1)"
+                                           @onchange="@(() => settings.ProxyServer.EnableHost = 1)">
+                                    <label class="form-check-label" for="enableHost1">
+                                        Cache only specified hosts
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
 
-                    @if (settings.ProxyServer.EnableHost == 1)
-                    {
-                        <div class="border-top pt-3">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 80%">Host</th>
-                                        <th style="width: 20%">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var (entry, index) in settings.ProxyServer.CacheHostList.Select((e, i) => (e, i)))
-                                    {
+                        @if (settings.ProxyServer.EnableHost == 1)
+                        {
+                            <div class="border-top pt-3">
+                                <table class="table table-sm">
+                                    <thead>
                                         <tr>
-                                            <td>
-                                                <input type="text" class="form-control form-control-sm"
-                                                       @bind="entry.Host" placeholder="example.com">
-                                            </td>
-                                            <td>
-                                                <button class="btn btn-danger btn-sm" @onclick="() => RemoveCacheHost(index)">
-                                                    <span class="bi bi-trash"></span>
-                                                </button>
-                                            </td>
+                                            <th style="width: 80%">Host</th>
+                                            <th style="width: 20%">Action</th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var (entry, index) in settings.ProxyServer.CacheHostList.Select((e, i) => (e, i)))
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <input type="text" class="form-control form-control-sm"
+                                                           @bind="entry.Host" placeholder="example.com">
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-danger" @onclick="() => RemoveCacheHost(index)">
+                                                        <span class="bi bi-trash"></span>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
 
-                            <button class="btn btn-success btn-sm" @onclick="AddCacheHost">
-                                <span class="bi bi-plus-circle me-1"></span> Add Host
-                            </button>
-                        </div>
-                    }
-                </div>
-            </div>
-
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">📄 Cache Extension Settings</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label">Enable Extension Filtering</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="enableExt" id="enableExt0"
-                                       value="0" checked="@(settings.ProxyServer.EnableExt == 0)"
-                                       @onchange="@(() => settings.ProxyServer.EnableExt = 0)">
-                                <label class="form-check-label" for="enableExt0">
-                                    Cache all extensions
-                                </label>
+                                <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-info" @onclick="AddCacheHost">
+                                    <span class="bi bi-plus-circle me-1"></span> Add Host
+                                </button>
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="enableExt" id="enableExt1"
-                                       value="1" checked="@(settings.ProxyServer.EnableExt == 1)"
-                                       @onchange="@(() => settings.ProxyServer.EnableExt = 1)">
-                                <label class="form-check-label" for="enableExt1">
-                                    Cache only specified extensions
-                                </label>
-                            </div>
-                        </div>
+                        }
                     </div>
+                </div>
 
-                    @if (settings.ProxyServer.EnableExt == 1)
-                    {
-                        <div class="border-top pt-3">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 80%">Extension</th>
-                                        <th style="width: 20%">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var (entry, index) in settings.ProxyServer.CacheExtList.Select((e, i) => (e, i)))
-                                    {
-                                        <tr>
-                                            <td>
-                                                <input type="text" class="form-control form-control-sm"
-                                                       @bind="entry.Ext" placeholder="jpg">
-                                            </td>
-                                            <td>
-                                                <button class="btn btn-danger btn-sm" @onclick="() => RemoveCacheExt(index)">
-                                                    <span class="bi bi-trash"></span>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-
-                            <button class="btn btn-success btn-sm" @onclick="AddCacheExt">
-                                <span class="bi bi-plus-circle me-1"></span> Add Extension
-                            </button>
-
-                            <div class="alert alert-info mt-3">
-                                <strong>ℹ️ Common extensions:</strong> jpg, jpeg, png, gif, css, js, pdf, zip, mp4, etc.
+                <div class="settings-card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Cache Extension Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Enable Extension Filtering</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="enableExt" id="enableExt0"
+                                           value="0" checked="@(settings.ProxyServer.EnableExt == 0)"
+                                           @onchange="@(() => settings.ProxyServer.EnableExt = 0)">
+                                    <label class="form-check-label" for="enableExt0">
+                                        Cache all extensions
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="enableExt" id="enableExt1"
+                                           value="1" checked="@(settings.ProxyServer.EnableExt == 1)"
+                                           @onchange="@(() => settings.ProxyServer.EnableExt = 1)">
+                                    <label class="form-check-label" for="enableExt1">
+                                        Cache only specified extensions
+                                    </label>
+                                </div>
                             </div>
                         </div>
-                    }
-                </div>
-            </div>
-        }
-        else
-        {
-            <div class="alert alert-warning">
-                <strong>⚠️ Cache is disabled</strong><br>
-                Please enable cache in <a href="/settings/proxy/cache1">Cache Settings (1/2)</a> to configure host and extension filtering.
-            </div>
-        }
 
-        <div class="border-top pt-3 mt-4">
-            <button class="btn btn-primary me-2" @onclick="SaveSettings">
-                <span class="bi bi-check-circle me-1"></span> Save Settings
-            </button>
-            <button class="btn btn-secondary" @onclick="ResetToDefault">
-                <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
-            </button>
+                        @if (settings.ProxyServer.EnableExt == 1)
+                        {
+                            <div class="border-top pt-3">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 80%">Extension</th>
+                                            <th style="width: 20%">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var (entry, index) in settings.ProxyServer.CacheExtList.Select((e, i) => (e, i)))
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <input type="text" class="form-control form-control-sm"
+                                                           @bind="entry.Ext" placeholder="jpg">
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-danger" @onclick="() => RemoveCacheExt(index)">
+                                                        <span class="bi bi-trash"></span>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+
+                                <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-info" @onclick="AddCacheExt">
+                                    <span class="bi bi-plus-circle me-1"></span> Add Extension
+                                </button>
+
+                                <div class="alert alert-info mt-3">
+                                    <strong>Common extensions:</strong> jpg, jpeg, png, gif, css, js, pdf, zip, mp4, etc.
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-warning">
+                    <strong>Cache is disabled</strong><br>
+                    Please enable cache in <a href="/settings/proxy/cache1">Cache Settings (1/2)</a> to configure host and extension filtering.
+                </div>
+            }
+
+            <div class="border-top pt-3 mt-4">
+                <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg me-2" @onclick="SaveSettings">
+                    <span class="bi bi-check-circle me-1"></span> Save Settings
+                </button>
+                <button class="btn btn-dashboard btn-dashboard-outline btn-dashboard-lg" @onclick="ResetToDefault">
+                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+                </button>
+            </div>
         </div>
     </div>
 </div>

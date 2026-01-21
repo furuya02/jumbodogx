@@ -6,106 +6,111 @@
 
 <PageTitle>Proxy Cache Settings - JumboDogX</PageTitle>
 
-<h1>Proxy - Cache Settings (1/2)</h1>
-
-@if (saveMessage != null)
-{
-    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
-        @saveMessage
-        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+<div class="page-container">
+    <div class="page-header">
+        <h1>Proxy - Cache Settings (1/2)</h1>
+        <p class="subtitle">Configure proxy caching for improved performance</p>
     </div>
-}
 
-<div class="row">
-    <div class="col-md-10">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">💾 Cache Configuration</h5>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="useCache"
-                                   @bind="settings.ProxyServer.UseCache">
-                            <label class="form-check-label" for="useCache">
-                                <strong>Use Cache</strong>
-                            </label>
-                        </div>
-                        <div class="form-text">Enable proxy caching for improved performance</div>
-                    </div>
-                </div>
-
-                @if (settings.ProxyServer.UseCache)
-                {
-                    <div class="border-top pt-3">
-                        <div class="row mb-3">
-                            <div class="col-md-12">
-                                <label for="cacheDir" class="form-label">Cache Directory</label>
-                                <input type="text" class="form-control" id="cacheDir"
-                                       @bind="settings.ProxyServer.CacheDir" placeholder="/var/cache/jumbodogx/proxy">
-                                <div class="form-text">Directory path for storing cached content</div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                <label for="testTime" class="form-label">Test Time (minutes)</label>
-                                <input type="number" class="form-control" id="testTime"
-                                       @bind="settings.ProxyServer.TestTime" min="1" max="1440">
-                                <div class="form-text">Interval to check cache validity</div>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="memorySize" class="form-label">Memory Size (KB)</label>
-                                <input type="number" class="form-control" id="memorySize"
-                                       @bind="settings.ProxyServer.MemorySize" min="0" max="1048576">
-                                <div class="form-text">Maximum memory cache size</div>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="diskSize" class="form-label">Disk Size (KB)</label>
-                                <input type="number" class="form-control" id="diskSize"
-                                       @bind="settings.ProxyServer.DiskSize" min="0" max="10485760">
-                                <div class="form-text">Maximum disk cache size</div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="expires" class="form-label">Expires (hours)</label>
-                                <input type="number" class="form-control" id="expires"
-                                       @bind="settings.ProxyServer.Expires" min="1" max="8760">
-                                <div class="form-text">Default cache expiration time</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="maxSize" class="form-label">Max Size (KB)</label>
-                                <input type="number" class="form-control" id="maxSize"
-                                       @bind="settings.ProxyServer.MaxSize" min="1" max="102400">
-                                <div class="form-text">Maximum size for a single cached item</div>
-                            </div>
-                        </div>
-
-                        <div class="alert alert-info">
-                            <strong>ℹ️ Cache Settings Explanation:</strong>
-                            <ul class="mb-0 mt-2">
-                                <li><strong>Test Time:</strong> How often to verify if cached content is still valid</li>
-                                <li><strong>Memory Size:</strong> RAM used for frequently accessed cache (faster)</li>
-                                <li><strong>Disk Size:</strong> Disk space used for less frequently accessed cache</li>
-                                <li><strong>Expires:</strong> How long cached content remains valid</li>
-                                <li><strong>Max Size:</strong> Maximum size of individual files to cache</li>
-                            </ul>
-                        </div>
-                    </div>
-                }
-            </div>
+    @if (saveMessage != null)
+    {
+        <div class="alert-modern @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+            @saveMessage
+            <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
         </div>
+    }
 
-        <div class="border-top pt-3 mt-4">
-            <button class="btn btn-primary me-2" @onclick="SaveSettings">
-                <span class="bi bi-check-circle me-1"></span> Save Settings
-            </button>
-            <button class="btn btn-secondary" @onclick="ResetToDefault">
-                <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
-            </button>
+    <div class="row">
+        <div class="col-md-10">
+            <div class="settings-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Cache Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="useCache"
+                                       @bind="settings.ProxyServer.UseCache">
+                                <label class="form-check-label" for="useCache">
+                                    <strong>Use Cache</strong>
+                                </label>
+                            </div>
+                            <div class="form-text">Enable proxy caching for improved performance</div>
+                        </div>
+                    </div>
+
+                    @if (settings.ProxyServer.UseCache)
+                    {
+                        <div class="border-top pt-3">
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label for="cacheDir" class="form-label">Cache Directory</label>
+                                    <input type="text" class="form-control" id="cacheDir"
+                                           @bind="settings.ProxyServer.CacheDir" placeholder="/var/cache/jumbodogx/proxy">
+                                    <div class="form-text">Directory path for storing cached content</div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="testTime" class="form-label">Test Time (minutes)</label>
+                                    <input type="number" class="form-control" id="testTime"
+                                           @bind="settings.ProxyServer.TestTime" min="1" max="1440">
+                                    <div class="form-text">Interval to check cache validity</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="memorySize" class="form-label">Memory Size (KB)</label>
+                                    <input type="number" class="form-control" id="memorySize"
+                                           @bind="settings.ProxyServer.MemorySize" min="0" max="1048576">
+                                    <div class="form-text">Maximum memory cache size</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="diskSize" class="form-label">Disk Size (KB)</label>
+                                    <input type="number" class="form-control" id="diskSize"
+                                           @bind="settings.ProxyServer.DiskSize" min="0" max="10485760">
+                                    <div class="form-text">Maximum disk cache size</div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="expires" class="form-label">Expires (hours)</label>
+                                    <input type="number" class="form-control" id="expires"
+                                           @bind="settings.ProxyServer.Expires" min="1" max="8760">
+                                    <div class="form-text">Default cache expiration time</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="maxSize" class="form-label">Max Size (KB)</label>
+                                    <input type="number" class="form-control" id="maxSize"
+                                           @bind="settings.ProxyServer.MaxSize" min="1" max="102400">
+                                    <div class="form-text">Maximum size for a single cached item</div>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-info">
+                                <strong>Cache Settings Explanation:</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li><strong>Test Time:</strong> How often to verify if cached content is still valid</li>
+                                    <li><strong>Memory Size:</strong> RAM used for frequently accessed cache (faster)</li>
+                                    <li><strong>Disk Size:</strong> Disk space used for less frequently accessed cache</li>
+                                    <li><strong>Expires:</strong> How long cached content remains valid</li>
+                                    <li><strong>Max Size:</strong> Maximum size of individual files to cache</li>
+                                </ul>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="border-top pt-3 mt-4">
+                <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg me-2" @onclick="SaveSettings">
+                    <span class="bi bi-check-circle me-1"></span> Save Settings
+                </button>
+                <button class="btn btn-dashboard btn-dashboard-outline btn-dashboard-lg" @onclick="ResetToDefault">
+                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+                </button>
+            </div>
         </div>
     </div>
 </div>
