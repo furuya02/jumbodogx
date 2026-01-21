@@ -18,6 +18,7 @@ namespace Jdx.Servers.Http;
 public class HttpServer : ServerBase
 {
     private readonly ISettingsService? _settingsService;
+    private readonly Action<LogLevel, string, string>? _logCallback;
     private readonly ReaderWriterLockSlim _settingsLock = new ReaderWriterLockSlim();
     private int _port;
     private string _name = "HttpServer";
@@ -44,9 +45,10 @@ public class HttpServer : ServerBase
     /// <summary>
     /// 通常モードのコンストラクタ（ISettingsServiceから全体設定を読み込む）
     /// </summary>
-    public HttpServer(ILogger<HttpServer> logger, ISettingsService settingsService) : base(logger)
+    public HttpServer(ILogger<HttpServer> logger, ISettingsService settingsService, Action<LogLevel, string, string>? logCallback = null) : base(logger)
     {
         _settingsService = settingsService;
+        _logCallback = logCallback;
         _isVirtualHostMode = false;
 
         // 初期設定を取得
@@ -64,9 +66,10 @@ public class HttpServer : ServerBase
     /// <summary>
     /// VirtualHost専用モードのコンストラクタ
     /// </summary>
-    public HttpServer(ILogger<HttpServer> logger, VirtualHostEntry virtualHostEntry, HttpServerSettings parentSettings, ISettingsService? settingsService = null) : base(logger)
+    public HttpServer(ILogger<HttpServer> logger, VirtualHostEntry virtualHostEntry, HttpServerSettings parentSettings, ISettingsService? settingsService = null, Action<LogLevel, string, string>? logCallback = null) : base(logger)
     {
         _settingsService = settingsService;
+        _logCallback = logCallback;
         _isVirtualHostMode = true;
         _virtualHostEntry = virtualHostEntry;
 
@@ -634,6 +637,12 @@ public class HttpServer : ServerBase
 
                     Logger.LogDebug("HTTP {StatusCode} {Method} {Path} - Keep-Alive: {KeepAlive}",
                         response.StatusCode, request.Method, request.Path, keepAlive);
+
+                    // LogServiceにリクエストログを送信
+                    _logCallback?.Invoke(
+                        response.StatusCode >= 400 ? LogLevel.Warning : LogLevel.Information,
+                        _name,
+                        $"{request.Method} {request.Path} - {response.StatusCode} ({bytesSent} bytes)");
                 }
                 catch (OperationCanceledException) when (keepAliveCts.Token.IsCancellationRequested)
                 {

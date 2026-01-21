@@ -56,7 +56,7 @@ public class ServerManager
                     }
 
                     var httpLogger = _loggerFactory.CreateLogger<HttpServer>();
-                    var httpServer = new HttpServer(httpLogger, vhost, settings.HttpServer, _settingsService);
+                    var httpServer = new HttpServer(httpLogger, vhost, settings.HttpServer, _settingsService, _logService.AddLog);
                     var serverId = $"http:{vhost.Host}";
                     _servers[serverId] = httpServer;
 
