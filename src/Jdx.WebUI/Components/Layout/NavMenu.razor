@@ -3,6 +3,7 @@
 @using Jdx.WebUI.Services
 @inject NavigationManager Navigation
 @inject ISettingsService SettingsService
+@implements IDisposable
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -54,7 +55,8 @@
                                     @foreach (var (vhost, index) in virtualHosts.Select((v, i) => (v, i)))
                                     {
                                         var vhostId = index.ToString();
-                                        var displayName = string.IsNullOrEmpty(vhost.Host) ? $"Virtual Host #{index + 1}" : vhost.Host;
+                                        var hostName = vhost.GetHostName();
+                                        var displayName = string.IsNullOrEmpty(hostName) ? $"Virtual Host #{index + 1}" : hostName;
                                         var isVhostExpanded = virtualHostExpandedStates.ContainsKey(vhostId) && virtualHostExpandedStates[vhostId];
 
                                         <div class="submenu-subsection">
@@ -223,8 +225,10 @@
     protected override void OnInitialized()
     {
         // Load Virtual Hosts from settings
-        var settings = SettingsService.GetSettings();
-        virtualHosts = settings.HttpServer.VirtualHosts;
+        LoadVirtualHosts();
+
+        // Subscribe to settings changes
+        SettingsService.SettingsChanged += OnSettingsChanged;
 
         // 現在のURLに基づいて適切なメニューを展開
         var currentPath = Navigation.ToBaseRelativePath(Navigation.Uri);
@@ -268,6 +272,26 @@
                 smtpExpanded = true;
             }
         }
+    }
+
+    private void LoadVirtualHosts()
+    {
+        var settings = SettingsService.GetSettings();
+        virtualHosts = settings.HttpServer.VirtualHosts;
+    }
+
+    private void OnSettingsChanged(object? sender, ApplicationSettings settings)
+    {
+        InvokeAsync(() =>
+        {
+            virtualHosts = settings.HttpServer.VirtualHosts;
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        SettingsService.SettingsChanged -= OnSettingsChanged;
     }
 
     private void ToggleSettings()

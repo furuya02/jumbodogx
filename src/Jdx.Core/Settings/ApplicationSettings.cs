@@ -177,19 +177,19 @@ public class VirtualHostEntry
 
     /// <summary>
     /// Hostからポート番号を取得（例: "example.com:8080" → 8080）
-    /// ポート番号が指定されていない場合は0を返す
+    /// ポート番号が指定されていない場合は8080を返す
     /// </summary>
     public int GetPort()
     {
         if (string.IsNullOrEmpty(Host))
-            return 0;
+            return 8080;
 
         var colonIndex = Host.LastIndexOf(':');
         if (colonIndex < 0)
-            return 0;
+            return 8080;
 
         var portString = Host.Substring(colonIndex + 1);
-        return int.TryParse(portString, out var port) ? port : 0;
+        return int.TryParse(portString, out var port) ? port : 8080;
     }
 }
 

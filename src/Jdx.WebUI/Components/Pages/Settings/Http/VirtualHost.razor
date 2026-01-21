@@ -6,76 +6,80 @@
 
 <PageTitle>HTTP Virtual Hosts - JumboDogX</PageTitle>
 
-<h1>HTTP/HTTPS - Virtual Hosts</h1>
-
-@if (saveMessage != null)
-{
-    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
-        @saveMessage
-        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+<div class="page-container">
+    <!-- Header -->
+    <div class="page-header">
+        <h1>HTTP/HTTPS - Virtual Hosts</h1>
+        <p class="subtitle">Configure multiple domain names on a single server instance</p>
     </div>
-}
 
-<div class="row">
-    <div class="col-md-10">
-        <!-- Virtual Hosts Settings -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">🌐 Virtual Hosts</h5>
-            </div>
-            <div class="card-body">
-                <p class="text-muted">Configure multiple domain names on a single server instance. Each virtual host represents a hostname:port combination that the server will respond to.</p>
+    @if (saveMessage != null)
+    {
+        <div class="alert-modern @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+            @saveMessage
+            <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+        </div>
+    }
 
-                @if (settings.HttpServer.VirtualHosts == null || settings.HttpServer.VirtualHosts.Count == 0)
+    <!-- Virtual Hosts Settings -->
+    <div class="settings-card">
+        <div class="card-header">
+            <h5>Virtual Hosts</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">Configure multiple domain names on a single server instance. Each virtual host represents a hostname that the server will respond to.</p>
+
+            @if (settings.HttpServer.VirtualHosts == null || settings.HttpServer.VirtualHosts.Count == 0)
+            {
+                <div class="alert-modern alert-info">
+                    No virtual hosts configured. Click "Add Virtual Host" to create one.
+                </div>
+            }
+            else
+            {
+                @foreach (var (vhost, index) in settings.HttpServer.VirtualHosts.Select((v, i) => (v, i)))
                 {
-                    <div class="alert alert-info">
-                        No virtual hosts configured. Click "Add Virtual Host" to create one.
-                    </div>
-                }
-                else
-                {
-                    @foreach (var (vhost, index) in settings.HttpServer.VirtualHosts.Select((v, i) => (v, i)))
-                    {
-                        <div class="card mb-3 border-secondary">
-                            <div class="card-header bg-light">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <strong>Virtual Host #@(index + 1)</strong>
-                                    <button class="btn btn-sm btn-danger" @onclick="() => RemoveVirtualHost(index)">
-                                        <span class="bi bi-trash"></span> Remove
-                                    </button>
-                                </div>
+                    var currentIndex = index;
+                    <div class="card mb-3 border-secondary">
+                        <div class="card-header bg-light">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <strong>Virtual Host #@(index + 1)</strong>
+                                <button class="btn btn-sm btn-danger" @onclick="() => RemoveVirtualHost(currentIndex)">
+                                    <span class="bi bi-trash"></span> Remove
+                                </button>
                             </div>
-                            <div class="card-body">
-                                <div class="row mb-3">
-                                    <div class="col-md-12">
-                                        <label class="form-label">Host (hostname:port)</label>
-                                        <input type="text" class="form-control"
-                                               @bind="vhost.Host"
-                                               placeholder="example.com:8080">
-                                        <div class="form-text">Example: example.com:8080 or 192.168.1.100:8080</div>
-                                    </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Host</label>
+                                    <input type="text" class="form-control"
+                                           value="@GetHostname(currentIndex)"
+                                           @onchange="@((ChangeEventArgs e) => SetHostname(currentIndex, e.Value?.ToString()))"
+                                           placeholder="example.com">
+                                    <div class="form-text">Example: example.com or 192.168.1.100 or MyHost</div>
                                 </div>
                             </div>
                         </div>
-                    }
+                    </div>
                 }
+            }
 
-                <button class="btn btn-success" @onclick="AddVirtualHost">
-                    <span class="bi bi-plus-circle me-1"></span> Add Virtual Host
-                </button>
-            </div>
+            <button class="btn btn-success" @onclick="AddVirtualHost">
+                <span class="bi bi-plus-circle me-1"></span> Add Virtual Host
+            </button>
         </div>
+    </div>
 
-        <!-- Save Buttons -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <button class="btn btn-primary btn-lg me-2" @onclick="SaveSettings">
-                    <span class="bi bi-check-circle me-1"></span> Save Settings
-                </button>
-                <button class="btn btn-secondary btn-lg" @onclick="ResetToDefault">
-                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
-                </button>
-            </div>
+    <!-- Save Buttons -->
+    <div class="settings-card">
+        <div class="card-body">
+            <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg me-2" @onclick="SaveSettings">
+                Save Settings
+            </button>
+            <button class="btn btn-dashboard btn-dashboard-outline btn-dashboard-lg" @onclick="ResetToDefault">
+                Reset to Default
+            </button>
         </div>
     </div>
 </div>
@@ -96,6 +100,50 @@
         }
     }
 
+    private string GetHostname(int index)
+    {
+        if (settings.HttpServer.VirtualHosts == null || index >= settings.HttpServer.VirtualHosts.Count)
+            return "";
+
+        return settings.HttpServer.VirtualHosts[index].GetHostName();
+    }
+
+    private void SetHostname(int index, string? hostname)
+    {
+        if (settings.HttpServer.VirtualHosts == null || index >= settings.HttpServer.VirtualHosts.Count)
+            return;
+
+        var vhost = settings.HttpServer.VirtualHosts[index];
+        var port = vhost.GetPort();
+
+        // Combine hostname with existing port
+        vhost.Host = string.IsNullOrEmpty(hostname) ? $":{port}" : $"{hostname}:{port}";
+    }
+
+    private int GetNextAvailablePort()
+    {
+        var usedPorts = new HashSet<int>();
+
+        if (settings.HttpServer.VirtualHosts != null)
+        {
+            foreach (var vhost in settings.HttpServer.VirtualHosts)
+            {
+                usedPorts.Add(vhost.GetPort());
+            }
+        }
+
+        // Find first available port starting from 8080
+        for (int port = 8080; port <= 65535; port++)
+        {
+            if (!usedPorts.Contains(port))
+            {
+                return port;
+            }
+        }
+
+        return 8080; // Fallback
+    }
+
     private void AddVirtualHost()
     {
         if (settings.HttpServer.VirtualHosts == null)
@@ -103,9 +151,13 @@
             settings.HttpServer.VirtualHosts = new List<VirtualHostEntry>();
         }
 
+        var nextPort = GetNextAvailablePort();
+
         settings.HttpServer.VirtualHosts.Add(new VirtualHostEntry
         {
-            Host = "",
+            Host = $":{nextPort}",
+            Enabled = true,
+            BindAddress = "127.0.0.1",
             Settings = SettingsService.GetDefaultVirtualHostSettings()
         });
     }
