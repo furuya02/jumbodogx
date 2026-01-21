@@ -37,68 +37,140 @@
     </div>
 }
 
-<div class="row">
-    @foreach (var server in servers)
-    {
-        <div class="col-md-6 mb-4">
-            <div class="card">
-                <div class="card-header @GetStatusClass(server.Status)">
-                    <h5 class="card-title mb-0">
-                        @GetServerIcon(server.Type) @server.Name
-                        <span class="badge @GetStatusBadgeClass(server.Status) float-end">
-                            @server.Status
-                        </span>
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <dl class="row mb-0">
-                        <dt class="col-sm-4">Type:</dt>
-                        <dd class="col-sm-8">@server.Type</dd>
+<!-- HTTP Virtual Hosts -->
+@if (httpServers.Any())
+{
+    <h3 class="mt-4 mb-3">🌐 HTTP/HTTPS Virtual Hosts</h3>
+    <div class="row">
+        @foreach (var server in httpServers)
+        {
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header @GetStatusClass(server.Status)">
+                        <h5 class="card-title mb-0">
+                            @GetServerIcon(server.Type) @server.Name
+                            <span class="badge @GetStatusBadgeClass(server.Status) float-end">
+                                @server.Status
+                            </span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Type:</dt>
+                            <dd class="col-sm-8">@server.Type</dd>
 
-                        <dt class="col-sm-4">Port:</dt>
-                        <dd class="col-sm-8">@server.Port</dd>
+                            <dt class="col-sm-4">Port:</dt>
+                            <dd class="col-sm-8">@server.Port</dd>
 
+                            @if (server.Status == ServerStatus.Running)
+                            {
+                                var stats = server.GetStatistics();
+                                <dt class="col-sm-4">Connections:</dt>
+                                <dd class="col-sm-8">@stats.ActiveConnections / @stats.TotalConnections</dd>
+
+                                <dt class="col-sm-4">Requests:</dt>
+                                <dd class="col-sm-8">@stats.TotalRequests</dd>
+
+                                <dt class="col-sm-4">Bytes Sent:</dt>
+                                <dd class="col-sm-8">@FormatBytes(stats.TotalBytesSent)</dd>
+
+                                <dt class="col-sm-4">Errors:</dt>
+                                <dd class="col-sm-8">@stats.TotalErrors</dd>
+
+                                <dt class="col-sm-4">Uptime:</dt>
+                                <dd class="col-sm-8">@stats.Uptime.ToString(@"hh\:mm\:ss")</dd>
+                            }
+                        </dl>
+                    </div>
+                    <div class="card-footer">
                         @if (server.Status == ServerStatus.Running)
                         {
-                            var stats = server.GetStatistics();
-                            <dt class="col-sm-4">Connections:</dt>
-                            <dd class="col-sm-8">@stats.ActiveConnections / @stats.TotalConnections</dd>
-
-                            <dt class="col-sm-4">Requests:</dt>
-                            <dd class="col-sm-8">@stats.TotalRequests</dd>
-
-                            <dt class="col-sm-4">Bytes Sent:</dt>
-                            <dd class="col-sm-8">@FormatBytes(stats.TotalBytesSent)</dd>
-
-                            <dt class="col-sm-4">Errors:</dt>
-                            <dd class="col-sm-8">@stats.TotalErrors</dd>
-
-                            <dt class="col-sm-4">Uptime:</dt>
-                            <dd class="col-sm-8">@stats.Uptime.ToString(@"hh\:mm\:ss")</dd>
+                            <button class="btn btn-sm btn-danger" @onclick="() => StopServer(GetServerId(server))" disabled="@isProcessing">
+                                ⏹️ Stop
+                            </button>
                         }
-                    </dl>
-                </div>
-                <div class="card-footer">
-                    @if (server.Status == ServerStatus.Running)
-                    {
-                        <button class="btn btn-sm btn-danger" @onclick="() => StopServer(GetServerId(server))" disabled="@isProcessing">
-                            ⏹️ Stop
-                        </button>
-                    }
-                    else
-                    {
-                        <button class="btn btn-sm btn-success" @onclick="() => StartServer(GetServerId(server))" disabled="@isProcessing">
-                            ▶️ Start
-                        </button>
-                    }
+                        else
+                        {
+                            <button class="btn btn-sm btn-success" @onclick="() => StartServer(GetServerId(server))" disabled="@isProcessing">
+                                ▶️ Start
+                            </button>
+                        }
+                    </div>
                 </div>
             </div>
-        </div>
-    }
-</div>
+        }
+    </div>
+}
+
+<!-- Other Servers -->
+@if (otherServers.Any())
+{
+    <h3 class="mt-4 mb-3">🖥️ Other Servers</h3>
+    <div class="row">
+        @foreach (var server in otherServers)
+        {
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header @GetStatusClass(server.Status)">
+                        <h5 class="card-title mb-0">
+                            @GetServerIcon(server.Type) @server.Name
+                            <span class="badge @GetStatusBadgeClass(server.Status) float-end">
+                                @server.Status
+                            </span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Type:</dt>
+                            <dd class="col-sm-8">@server.Type</dd>
+
+                            <dt class="col-sm-4">Port:</dt>
+                            <dd class="col-sm-8">@server.Port</dd>
+
+                            @if (server.Status == ServerStatus.Running)
+                            {
+                                var stats = server.GetStatistics();
+                                <dt class="col-sm-4">Connections:</dt>
+                                <dd class="col-sm-8">@stats.ActiveConnections / @stats.TotalConnections</dd>
+
+                                <dt class="col-sm-4">Requests:</dt>
+                                <dd class="col-sm-8">@stats.TotalRequests</dd>
+
+                                <dt class="col-sm-4">Bytes Sent:</dt>
+                                <dd class="col-sm-8">@FormatBytes(stats.TotalBytesSent)</dd>
+
+                                <dt class="col-sm-4">Errors:</dt>
+                                <dd class="col-sm-8">@stats.TotalErrors</dd>
+
+                                <dt class="col-sm-4">Uptime:</dt>
+                                <dd class="col-sm-8">@stats.Uptime.ToString(@"hh\:mm\:ss")</dd>
+                            }
+                        </dl>
+                    </div>
+                    <div class="card-footer">
+                        @if (server.Status == ServerStatus.Running)
+                        {
+                            <button class="btn btn-sm btn-danger" @onclick="() => StopServer(GetServerId(server))" disabled="@isProcessing">
+                                ⏹️ Stop
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-success" @onclick="() => StartServer(GetServerId(server))" disabled="@isProcessing">
+                                ▶️ Start
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
 
 @code {
     private List<IServer> servers = new();
+    private List<IServer> httpServers = new();
+    private List<IServer> otherServers = new();
     private bool isProcessing = false;
     private string? errorMessage;
     private System.Threading.Timer? refreshTimer;
@@ -122,6 +194,8 @@
     private void LoadServers()
     {
         servers = ServerManager.GetAllServers().ToList();
+        httpServers = servers.Where(s => s.Type == ServerType.Http).ToList();
+        otherServers = servers.Where(s => s.Type != ServerType.Http).ToList();
     }
 
     private string GetServerId(IServer server)
