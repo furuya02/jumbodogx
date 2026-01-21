@@ -58,3 +58,786 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/* ========================================
+   Dashboard - Modern Chic Design
+   ======================================== */
+
+:root {
+    --dashboard-bg: #F7F8FA;
+    --card-bg: #FFFFFF;
+    --card-border: #E2E8F0;
+    --text-primary: #1A202C;
+    --text-secondary: #718096;
+    --status-running: #48BB78;
+    --status-stopped: #A0AEC0;
+    --status-error: #E53E3E;
+    --status-warning: #ECC94B;
+    --btn-primary: #2D3748;
+    --btn-success: #38A169;
+    --btn-danger: #C53030;
+}
+
+/* Dashboard Container */
+.dashboard-container {
+    background-color: var(--dashboard-bg);
+    min-height: 100vh;
+    padding: 2rem;
+}
+
+/* Dashboard Header */
+.dashboard-header {
+    margin-bottom: 2rem;
+}
+
+.dashboard-header h1 {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.dashboard-header .subtitle {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* Control Bar */
+.dashboard-control-bar {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-control-bar .control-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.dashboard-control-bar .btn-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Section Title */
+.dashboard-section-title {
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--card-border);
+}
+
+/* Server Card */
+.server-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    margin-bottom: 1.5rem;
+}
+
+.server-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Status Bar */
+.server-card .status-bar {
+    height: 4px;
+    width: 100%;
+}
+
+.server-card .status-bar.running {
+    background-color: var(--status-running);
+}
+
+.server-card .status-bar.stopped {
+    background-color: var(--status-stopped);
+}
+
+.server-card .status-bar.error {
+    background-color: var(--status-error);
+}
+
+.server-card .status-bar.warning {
+    background-color: var(--status-warning);
+}
+
+/* Card Header */
+.server-card .card-header-custom {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--card-border);
+    background-color: transparent;
+}
+
+.server-card .card-header-custom .status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.server-card .card-header-custom .status-badge.running {
+    background-color: rgba(72, 187, 120, 0.15);
+    color: #276749;
+}
+
+.server-card .card-header-custom .status-badge.stopped {
+    background-color: rgba(160, 174, 192, 0.2);
+    color: #4A5568;
+}
+
+.server-card .card-header-custom .status-badge.error {
+    background-color: rgba(229, 62, 62, 0.15);
+    color: #C53030;
+}
+
+/* Card Title */
+.server-card .server-name {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* Card Body */
+.server-card .card-body-custom {
+    padding: 1.25rem;
+}
+
+.server-card .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #F0F0F0;
+}
+
+.server-card .stat-row:last-child {
+    border-bottom: none;
+}
+
+.server-card .stat-label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.server-card .stat-value {
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+/* Card Footer */
+.server-card .card-footer-custom {
+    padding: 1rem 1.25rem;
+    background-color: #FAFBFC;
+    border-top: 1px solid var(--card-border);
+}
+
+/* Dashboard Buttons */
+.btn-dashboard {
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.btn-dashboard-primary {
+    background-color: var(--btn-primary);
+    border-color: var(--btn-primary);
+    color: #FFFFFF;
+}
+
+.btn-dashboard-primary:hover {
+    background-color: #1A202C;
+    border-color: #1A202C;
+    color: #FFFFFF;
+}
+
+.btn-dashboard-success {
+    background-color: var(--btn-success);
+    border-color: var(--btn-success);
+    color: #FFFFFF;
+}
+
+.btn-dashboard-success:hover {
+    background-color: #2F855A;
+    border-color: #2F855A;
+    color: #FFFFFF;
+}
+
+.btn-dashboard-danger {
+    background-color: var(--btn-danger);
+    border-color: var(--btn-danger);
+    color: #FFFFFF;
+}
+
+.btn-dashboard-danger:hover {
+    background-color: #9B2C2C;
+    border-color: #9B2C2C;
+    color: #FFFFFF;
+}
+
+.btn-dashboard-outline {
+    background-color: transparent;
+    border: 1px solid var(--card-border);
+    color: var(--text-secondary);
+}
+
+.btn-dashboard-outline:hover {
+    background-color: var(--card-bg);
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+.btn-fullwidth {
+    width: 100%;
+}
+
+/* Alert Styles */
+.dashboard-alert {
+    border-radius: 8px;
+    border: none;
+    padding: 1rem 1.25rem;
+}
+
+.dashboard-alert.alert-info {
+    background-color: rgba(66, 153, 225, 0.1);
+    color: #2B6CB0;
+}
+
+.dashboard-alert.alert-danger {
+    background-color: rgba(229, 62, 62, 0.1);
+    color: #C53030;
+}
+
+.dashboard-alert.alert-success {
+    background-color: rgba(72, 187, 120, 0.1);
+    color: #276749;
+}
+
+.dashboard-alert.alert-warning {
+    background-color: rgba(236, 201, 75, 0.15);
+    color: #975A16;
+}
+
+/* ========================================
+   Page Container - Common Styles
+   ======================================== */
+
+.page-container {
+    background-color: var(--dashboard-bg);
+    min-height: 100vh;
+    padding: 2rem;
+}
+
+/* Page Header */
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.page-header .subtitle {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* ========================================
+   Settings Card - Modern Chic
+   ======================================== */
+
+.settings-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin-bottom: 1.5rem;
+}
+
+.settings-card .card-header {
+    background-color: transparent;
+    border-bottom: 1px solid var(--card-border);
+    padding: 1rem 1.25rem;
+}
+
+.settings-card .card-header h5 {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1rem;
+    margin: 0;
+}
+
+.settings-card .card-body {
+    padding: 1.25rem;
+}
+
+.settings-card .card-footer {
+    background-color: #FAFBFC;
+    border-top: 1px solid var(--card-border);
+    padding: 1rem 1.25rem;
+}
+
+/* ========================================
+   Form Elements - Modern Styling
+   ======================================== */
+
+.form-label {
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 0.875rem;
+    margin-bottom: 0.375rem;
+}
+
+.form-control {
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    background-color: var(--card-bg);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-control:focus {
+    border-color: #4299E1;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
+    outline: none;
+}
+
+.form-control::placeholder {
+    color: #A0AEC0;
+}
+
+.form-text {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+}
+
+.form-check-input {
+    border-color: var(--card-border);
+}
+
+.form-check-input:checked {
+    background-color: var(--btn-success);
+    border-color: var(--btn-success);
+}
+
+.form-check-label {
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.form-switch .form-check-input {
+    width: 2.5rem;
+    height: 1.25rem;
+}
+
+/* Form Row Spacing */
+.form-row {
+    margin-bottom: 1rem;
+}
+
+/* ========================================
+   Table - Modern Styling
+   ======================================== */
+
+.table-modern {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table-modern table {
+    margin-bottom: 0;
+}
+
+.table-modern thead {
+    background-color: #F7F8FA;
+}
+
+.table-modern thead th {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--card-border);
+    border-top: none;
+}
+
+.table-modern tbody td {
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #F0F0F0;
+    vertical-align: middle;
+}
+
+.table-modern tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.table-modern tbody tr:hover {
+    background-color: rgba(66, 153, 225, 0.05);
+}
+
+/* Table Actions */
+.table-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.table-actions .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* ========================================
+   Logs Page - Modern Styling
+   ======================================== */
+
+.logs-container {
+    background-color: var(--dashboard-bg);
+    min-height: 100vh;
+    padding: 2rem;
+}
+
+.logs-control-bar {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.logs-filter-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.logs-filter-btn {
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.8rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--card-border);
+    background-color: var(--card-bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.logs-filter-btn:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+.logs-filter-btn.active {
+    background-color: var(--btn-primary);
+    border-color: var(--btn-primary);
+    color: #FFFFFF;
+}
+
+.logs-filter-btn.info.active {
+    background-color: #3182CE;
+    border-color: #3182CE;
+}
+
+.logs-filter-btn.warning.active {
+    background-color: #D69E2E;
+    border-color: #D69E2E;
+}
+
+.logs-filter-btn.error.active {
+    background-color: var(--btn-danger);
+    border-color: var(--btn-danger);
+}
+
+.logs-table-container {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.logs-table-header {
+    background-color: transparent;
+    border-bottom: 1px solid var(--card-border);
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.logs-table-header h5 {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1rem;
+    margin: 0;
+}
+
+.logs-table-body {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.logs-empty {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+}
+
+/* Log Level Badges */
+.log-level-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.log-level-badge.info {
+    background-color: rgba(66, 153, 225, 0.15);
+    color: #2B6CB0;
+}
+
+.log-level-badge.warning {
+    background-color: rgba(236, 201, 75, 0.2);
+    color: #975A16;
+}
+
+.log-level-badge.error {
+    background-color: rgba(229, 62, 62, 0.15);
+    color: #C53030;
+}
+
+.log-level-badge.debug {
+    background-color: rgba(160, 174, 192, 0.2);
+    color: #4A5568;
+}
+
+/* ========================================
+   Button Variants - Additional
+   ======================================== */
+
+.btn-dashboard-secondary {
+    background-color: var(--text-secondary);
+    border-color: var(--text-secondary);
+    color: #FFFFFF;
+}
+
+.btn-dashboard-secondary:hover {
+    background-color: #4A5568;
+    border-color: #4A5568;
+    color: #FFFFFF;
+}
+
+.btn-dashboard-info {
+    background-color: #3182CE;
+    border-color: #3182CE;
+    color: #FFFFFF;
+}
+
+.btn-dashboard-info:hover {
+    background-color: #2B6CB0;
+    border-color: #2B6CB0;
+    color: #FFFFFF;
+}
+
+.btn-dashboard-warning {
+    background-color: #D69E2E;
+    border-color: #D69E2E;
+    color: #FFFFFF;
+}
+
+.btn-dashboard-warning:hover {
+    background-color: #B7791F;
+    border-color: #B7791F;
+    color: #FFFFFF;
+}
+
+/* Button Sizes */
+.btn-dashboard-lg {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+}
+
+.btn-dashboard-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* ========================================
+   Alert - Modern Styling Override
+   ======================================== */
+
+.alert-modern {
+    border-radius: 8px;
+    border: none;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.alert-modern.alert-success {
+    background-color: rgba(72, 187, 120, 0.1);
+    color: #276749;
+}
+
+.alert-modern.alert-danger {
+    background-color: rgba(229, 62, 62, 0.1);
+    color: #C53030;
+}
+
+.alert-modern.alert-warning {
+    background-color: rgba(236, 201, 75, 0.15);
+    color: #975A16;
+}
+
+.alert-modern.alert-info {
+    background-color: rgba(66, 153, 225, 0.1);
+    color: #2B6CB0;
+}
+
+.alert-modern .btn-close {
+    filter: none;
+    opacity: 0.7;
+}
+
+.alert-modern .btn-close:hover {
+    opacity: 1;
+}
+
+/* ========================================
+   Empty State
+   ======================================== */
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+}
+
+.empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state-text {
+    font-size: 0.9rem;
+}
+
+/* ========================================
+   Section Title
+   ======================================== */
+
+.section-title {
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--card-border);
+}
+
+/* ========================================
+   Modal - Modern Styling
+   ======================================== */
+
+.modal-content {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+    background-color: var(--card-bg);
+    border-bottom: 1px solid var(--card-border);
+    padding: 1rem 1.25rem;
+}
+
+.modal-title {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.modal-body {
+    padding: 1.25rem;
+}
+
+.modal-footer {
+    background-color: #FAFBFC;
+    border-top: 1px solid var(--card-border);
+    padding: 1rem 1.25rem;
+}
+
+/* ========================================
+   Badge - Modern Styling
+   ======================================== */
+
+.badge-modern {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge-modern.success {
+    background-color: rgba(72, 187, 120, 0.15);
+    color: #276749;
+}
+
+.badge-modern.danger {
+    background-color: rgba(229, 62, 62, 0.15);
+    color: #C53030;
+}
+
+.badge-modern.warning {
+    background-color: rgba(236, 201, 75, 0.2);
+    color: #975A16;
+}
+
+.badge-modern.info {
+    background-color: rgba(66, 153, 225, 0.15);
+    color: #2B6CB0;
+}
+
+.badge-modern.secondary {
+    background-color: rgba(160, 174, 192, 0.2);
+    color: #4A5568;
+}
