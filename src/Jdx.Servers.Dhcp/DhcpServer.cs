@@ -30,6 +30,7 @@ public class DhcpServer : ServerBase
     public override string Name => "DhcpServer";
     public override ServerType Type => ServerType.Dhcp;
     public override int Port => _settings.Port;
+    public override string BindAddress => _settings.BindAddress;
 
     protected override async Task StartListeningAsync(CancellationToken cancellationToken)
     {

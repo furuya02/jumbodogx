@@ -18,6 +18,7 @@ public class ProxyServer : ServerBase
 {
     private readonly ISettingsService _settingsService;
     private int _port;
+    private string _bindAddress = "0.0.0.0";
     private ServerTcpListener? _listener;
 
     // Proxyコンポーネント（スレッドセーフアクセスのためロック使用）
@@ -39,6 +40,7 @@ public class ProxyServer : ServerBase
         // 初期設定を取得
         var settings = _settingsService.GetSettings().ProxyServer;
         _port = settings.Port;
+        _bindAddress = settings.BindAddress;
 
         // コンポーネントを初期化
         InitializeComponents(settings);
@@ -50,6 +52,7 @@ public class ProxyServer : ServerBase
     public override string Name => "ProxyServer";
     public override ServerType Type => ServerType.Proxy;
     public override int Port => _port;
+    public override string BindAddress => _bindAddress;
 
     private void InitializeComponents(ProxyServerSettings settings)
     {
