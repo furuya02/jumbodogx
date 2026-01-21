@@ -1,0 +1,205 @@
+@page "/settings/http/{vhostId}/general"
+@rendermode InteractiveServer
+@using Jdx.Core.Settings
+@using Jdx.WebUI.Services
+@inject ISettingsService SettingsService
+
+<PageTitle>HTTP Virtual Host Settings - JumboDogX</PageTitle>
+
+<h1>HTTP/HTTPS - @virtualHostName - General Settings</h1>
+
+@if (saveMessage != null)
+{
+    <div class="alert @(saveSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-10">
+        <!-- Basic Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Basic Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="enabled"
+                                   @bind="currentVHostEntry.Enabled">
+                            <label class="form-check-label" for="enabled">
+                                Enable Server
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="bindAddress" class="form-label">Bind Address</label>
+                        <input type="text" class="form-control" id="bindAddress"
+                               @bind="currentVHostEntry.BindAddress" placeholder="0.0.0.0">
+                        <div class="form-text">IP address to bind to (0.0.0.0 for all interfaces)</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="port" class="form-label">Port</label>
+                        <input type="number" class="form-control" id="port"
+                               @bind="port" placeholder="8080">
+                        <div class="form-text">Port number (extracted from Host field)</div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="documentRoot" class="form-label">Document Root</label>
+                        <input type="text" class="form-control" id="documentRoot"
+                               @bind="currentVHostSettings.DocumentRoot" placeholder="/var/www/example.com">
+                        <div class="form-text">Root directory for serving files</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SSL/TLS Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">SSL/TLS Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger">
+                    <strong>Security Warning:</strong> Certificate passwords are stored in plaintext in the configuration file.
+                    For production use, consider using environment variables or ASP.NET Core User Secrets.
+                    Example: <code>Environment.GetEnvironmentVariable("HTTP_CERT_PASSWORD")</code>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="enableHttps"
+                                   checked="@enableHttps" @onchange="OnEnableHttpsChanged">
+                            <label class="form-check-label" for="enableHttps">
+                                Enable HTTPS
+                            </label>
+                        </div>
+                        <div class="form-text">Enable HTTP over SSL/TLS for this virtual host</div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="certificateFile" class="form-label">Certificate File (optional)</label>
+                        <input type="text" class="form-control" id="certificateFile"
+                               @bind="currentVHostSettings.CertificateFile" placeholder="/path/to/certificate.pfx">
+                        <div class="form-text">Path to SSL certificate file (PFX format)</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="certificatePassword" class="form-label">Certificate Password (optional)</label>
+                        <input type="password" class="form-control" id="certificatePassword"
+                               @bind="currentVHostSettings.CertificatePassword" placeholder="Enter password">
+                        <div class="form-text">Password for the certificate file</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Buttons -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <button class="btn btn-primary btn-lg me-2" @onclick="SaveSettings">
+                    <span class="bi bi-check-circle me-1"></span> Save Settings
+                </button>
+                <button class="btn btn-secondary btn-lg" @onclick="ResetToDefault">
+                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string VhostId { get; set; } = "";
+
+    private ApplicationSettings settings = new();
+    private VirtualHostEntry currentVHostEntry = new();
+    private VirtualHostSettings currentVHostSettings = new();
+    private string? saveMessage;
+    private bool saveSuccess;
+    private string virtualHostName = "";
+    private int port;
+    private bool enableHttps;
+
+    protected override void OnInitialized()
+    {
+        settings = SettingsService.GetSettings();
+
+        if (int.TryParse(VhostId, out var vhostIndex))
+        {
+            if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+            {
+                currentVHostEntry = settings.HttpServer.VirtualHosts[vhostIndex];
+                currentVHostSettings = currentVHostEntry.Settings;
+                virtualHostName = currentVHostEntry.Host;
+
+                // Extract port from Host (e.g., "example.com:8080" -> 8080)
+                port = currentVHostEntry.GetPort();
+
+                // Determine HTTPS from certificate presence
+                enableHttps = !string.IsNullOrEmpty(currentVHostSettings.CertificateFile);
+            }
+        }
+    }
+
+    private void OnEnableHttpsChanged(ChangeEventArgs e)
+    {
+        enableHttps = (bool)(e.Value ?? false);
+        // Note: Protocol is managed at the parent HttpServerSettings level
+        // Here we just manage the certificate files
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            if (int.TryParse(VhostId, out var vhostIndex))
+            {
+                if (vhostIndex >= 0 && vhostIndex < settings.HttpServer.VirtualHosts.Count)
+                {
+                    // Update Host field with new port (preserve hostname)
+                    var hostname = currentVHostEntry.GetHostName();
+                    currentVHostEntry.Host = $"{hostname}:{port}";
+
+                    // Update entry
+                    currentVHostEntry.Settings = currentVHostSettings;
+                    settings.HttpServer.VirtualHosts[vhostIndex] = currentVHostEntry;
+                }
+            }
+
+            await SettingsService.SaveSettingsAsync(settings);
+            saveMessage = "Virtual Host settings saved successfully! Restart the server to apply changes.";
+            saveSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Error saving settings: {ex.Message}";
+            saveSuccess = false;
+        }
+
+        // Clear message after 5 seconds
+        _ = Task.Delay(5000).ContinueWith(_ =>
+        {
+            saveMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ResetToDefault()
+    {
+        currentVHostEntry.Enabled = true;
+        currentVHostEntry.BindAddress = "0.0.0.0";
+        port = 8080;
+        currentVHostSettings = SettingsService.GetDefaultVirtualHostSettings();
+        enableHttps = false;
+
+        saveMessage = "Settings reset to default values. Click 'Save Settings' to apply.";
+        saveSuccess = true;
+    }
+}
