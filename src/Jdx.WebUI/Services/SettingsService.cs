@@ -10,6 +10,7 @@ namespace Jdx.WebUI.Services;
 public class SettingsService : ISettingsService
 {
     private readonly IConfiguration _configuration;
+    private readonly IWebHostEnvironment _environment;
     private readonly string _settingsFilePath;
     private ApplicationSettings _currentSettings;
 
@@ -18,6 +19,7 @@ public class SettingsService : ISettingsService
     public SettingsService(IConfiguration configuration, IWebHostEnvironment environment)
     {
         _configuration = configuration;
+        _environment = environment;
         _settingsFilePath = Path.Combine(environment.ContentRootPath, "appsettings.json");
         _currentSettings = LoadSettings();
     }
@@ -149,9 +151,14 @@ public class SettingsService : ISettingsService
     /// </summary>
     public VirtualHostSettings GetDefaultVirtualHostSettings()
     {
+        // ContentRootPath (src/Jdx.WebUI) から samples/www への絶対パスを生成
+        var defaultDocumentRoot = Path.GetFullPath(
+            Path.Combine(_environment.ContentRootPath, "../../samples/www")
+        );
+
         var settings = new VirtualHostSettings
         {
-            DocumentRoot = "",
+            DocumentRoot = defaultDocumentRoot,
             WelcomeFileName = "index.html",
             UseHidden = false,
             UseDot = false,
