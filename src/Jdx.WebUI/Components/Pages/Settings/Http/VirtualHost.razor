@@ -24,7 +24,7 @@
                 <h5 class="mb-0">🌐 Virtual Hosts</h5>
             </div>
             <div class="card-body">
-                <p class="text-muted">Configure multiple domain names on a single server instance. Each virtual host can have its own DocumentRoot and SSL certificate.</p>
+                <p class="text-muted">Configure multiple domain names on a single server instance. Each virtual host represents a hostname:port combination that the server will respond to.</p>
 
                 @if (settings.HttpServer.VirtualHosts == null || settings.HttpServer.VirtualHosts.Count == 0)
                 {
@@ -47,35 +47,12 @@
                             </div>
                             <div class="card-body">
                                 <div class="row mb-3">
-                                    <div class="col-md-6">
+                                    <div class="col-md-12">
                                         <label class="form-label">Host (hostname:port)</label>
                                         <input type="text" class="form-control"
                                                @bind="vhost.Host"
                                                placeholder="example.com:8080">
                                         <div class="form-text">Example: example.com:8080 or 192.168.1.100:8080</div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Document Root</label>
-                                        <input type="text" class="form-control"
-                                               @bind="vhost.Settings.DocumentRoot"
-                                               placeholder="/var/www/example.com">
-                                        <div class="form-text">Root directory for this virtual host</div>
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <label class="form-label">Certificate File (optional)</label>
-                                        <input type="text" class="form-control"
-                                               @bind="vhost.Settings.CertificateFile"
-                                               placeholder="/path/to/cert.pfx">
-                                        <div class="form-text">SSL certificate for this virtual host</div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Certificate Password (optional)</label>
-                                        <input type="password" class="form-control"
-                                               @bind="vhost.Settings.CertificatePassword"
-                                               placeholder="Enter password">
-                                        <div class="form-text">Password for the certificate</div>
                                     </div>
                                 </div>
                             </div>
