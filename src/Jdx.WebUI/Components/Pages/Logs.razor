@@ -29,6 +29,11 @@
                 Error
             </button>
         </div>
+        <div class="logs-options-group search-group">
+            <label class="filter-label">Search:</label>
+            <input type="text" class="filter-input" placeholder="Filter text..."
+                   @bind="searchText" @bind:event="oninput" @bind:after="ApplyFilter" />
+        </div>
         <div class="logs-options-group">
             <label class="filter-label">Category:</label>
             <select class="filter-select" @bind="selectedCategory" @bind:after="ApplyFilter">
@@ -211,6 +216,31 @@
         border-color: var(--btn-primary);
         box-shadow: 0 0 0 2px rgba(45, 55, 72, 0.1);
     }
+
+    .filter-input {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+        border: 1px solid var(--card-border);
+        border-radius: 6px;
+        background-color: white;
+        color: var(--text-primary);
+        min-width: 200px;
+    }
+
+    .filter-input:focus {
+        outline: none;
+        border-color: var(--btn-primary);
+        box-shadow: 0 0 0 2px rgba(45, 55, 72, 0.1);
+    }
+
+    .filter-input::placeholder {
+        color: var(--text-secondary);
+        opacity: 0.7;
+    }
+
+    .search-group {
+        margin-left: 1rem;
+    }
 </style>
 
 <script>
@@ -293,6 +323,9 @@
     private string selectedCategory = "";
     private List<string> availableCategories = new();
 
+    // Text search filter
+    private string searchText = "";
+
     protected override void OnInitialized()
     {
         LoadLogs();
@@ -346,6 +379,18 @@
         if (!string.IsNullOrEmpty(selectedCategory))
         {
             result = result.Where(l => l.Category == selectedCategory);
+        }
+
+        // Filter by text (partial match across all columns)
+        if (!string.IsNullOrEmpty(searchText))
+        {
+            var searchLower = searchText.ToLower();
+            result = result.Where(l =>
+                l.Timestamp.ToString(GetTimeFormat()).ToLower().Contains(searchLower) ||
+                l.Level.ToString().ToLower().Contains(searchLower) ||
+                (l.Category?.ToLower().Contains(searchLower) ?? false) ||
+                (l.Message?.ToLower().Contains(searchLower) ?? false)
+            );
         }
 
         filteredLogs = result;
