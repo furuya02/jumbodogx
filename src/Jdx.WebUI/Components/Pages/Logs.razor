@@ -54,7 +54,7 @@
             </select>
         </div>
         <div class="btn-group">
-            <button class="btn btn-dashboard btn-dashboard-secondary" @onclick="ClearLogs">
+            <button class="btn btn-dashboard btn-dashboard-secondary" @onclick="ShowClearConfirmDialog">
                 Clear Logs
             </button>
             <button class="btn btn-dashboard btn-dashboard-outline" @onclick="RefreshLogs">
@@ -62,6 +62,31 @@
             </button>
         </div>
     </div>
+
+    <!-- Clear Logs Confirmation Dialog -->
+    @if (showClearConfirmDialog)
+    {
+        <div class="confirm-dialog-overlay" @onclick="HideClearConfirmDialog" @onkeydown="HandleDialogKeyDown">
+            <div class="confirm-dialog" @onclick:stopPropagation="true"
+                 role="dialog" aria-labelledby="dialog-title" aria-modal="true">
+                <div class="confirm-dialog-header">
+                    <h5 id="dialog-title">Confirm Clear Logs</h5>
+                </div>
+                <div class="confirm-dialog-body">
+                    <p>Are you sure you want to clear all logs?</p>
+                    <p class="text-muted">This action cannot be undone.</p>
+                </div>
+                <div class="confirm-dialog-footer">
+                    <button class="btn btn-dashboard btn-dashboard-outline" @onclick="HideClearConfirmDialog">
+                        Cancel
+                    </button>
+                    <button class="btn btn-dashboard btn-dashboard-danger" @onclick="ConfirmClearLogs">
+                        Clear Logs
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
 
     <!-- Logs Table -->
     <div class="logs-table-container">
@@ -241,6 +266,78 @@
     .search-group {
         margin-left: 1rem;
     }
+
+    /* Confirmation Dialog */
+    .confirm-dialog-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: var(--z-index-modal, 1000);
+        overflow: hidden;
+    }
+
+    .confirm-dialog {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        min-width: min(400px, 90vw);
+        max-width: 500px;
+        margin: 1rem;
+    }
+
+    .confirm-dialog-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--card-border);
+    }
+
+    .confirm-dialog-header h5 {
+        margin: 0;
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    .confirm-dialog-body {
+        padding: 1.5rem;
+    }
+
+    .confirm-dialog-body p {
+        margin: 0 0 0.5rem 0;
+        color: var(--text-primary);
+    }
+
+    .confirm-dialog-body .text-muted {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .confirm-dialog-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--card-border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+
+    .btn-dashboard-danger {
+        background-color: #E53E3E;
+        color: white;
+        border: none;
+    }
+
+    .btn-dashboard-danger:hover {
+        background-color: #C53030;
+    }
+
+    .btn-dashboard-danger:focus {
+        outline: 2px solid #E53E3E;
+        outline-offset: 2px;
+    }
 </style>
 
 <script>
@@ -326,6 +423,9 @@
     // Text search filter
     private string searchText = "";
 
+    // Clear confirmation dialog
+    private bool showClearConfirmDialog = false;
+
     protected override void OnInitialized()
     {
         LoadLogs();
@@ -396,10 +496,29 @@
         filteredLogs = result;
     }
 
-    private void ClearLogs()
+    private void ShowClearConfirmDialog()
+    {
+        showClearConfirmDialog = true;
+    }
+
+    private void HideClearConfirmDialog()
+    {
+        showClearConfirmDialog = false;
+    }
+
+    private void HandleDialogKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            HideClearConfirmDialog();
+        }
+    }
+
+    private void ConfirmClearLogs()
     {
         LogService.ClearLogs();
         LoadLogs();
+        showClearConfirmDialog = false;
     }
 
     private void RefreshLogs()
