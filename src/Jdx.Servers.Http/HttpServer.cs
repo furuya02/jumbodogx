@@ -124,7 +124,7 @@ public class HttpServer : ServerBase
         }
 
         // SSL/TLS初期化
-        _sslManager = new HttpSslManager(settings.CertificateFile, settings.CertificatePassword, Logger);
+        _sslManager = new HttpSslManager(settings.Protocol, settings.CertificateFile, settings.CertificatePassword, Logger);
         if (_sslManager.IsEnabled)
         {
             Logger.LogInformation("HTTPS/SSL enabled with certificate: {Subject}", _sslManager.Certificate?.Subject ?? "unknown");
@@ -231,7 +231,7 @@ public class HttpServer : ServerBase
         {
             // サーバー基本設定（VirtualHostで個別化）
             Enabled = virtualHostEntry.Enabled,
-            Protocol = parentSettings.Protocol,  // 親設定を使用
+            Protocol = vhostSettings.Protocol,  // VirtualHostの設定を使用
             Port = virtualHostEntry.GetPort(),    // VirtualHostのポート
             BindAddress = virtualHostEntry.BindAddress ?? parentSettings.BindAddress,  // VirtualHostで指定がなければ親を使用
             UseResolve = parentSettings.UseResolve,

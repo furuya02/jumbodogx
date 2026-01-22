@@ -199,6 +199,9 @@ public class VirtualHostEntry
 /// </summary>
 public class VirtualHostSettings
 {
+    // プロトコル設定
+    public string Protocol { get; set; } = "HTTP";  // HTTP or HTTPS
+
     // ドキュメント設定 (Document)
     public string DocumentRoot { get; set; } = "";
     public string WelcomeFileName { get; set; } = "index.html";

@@ -19,14 +19,21 @@ public class HttpSslManager
     public bool IsEnabled => _isEnabled;
     public X509Certificate2? Certificate => _certificate;
 
-    public HttpSslManager(string? certificateFile, string? certificatePassword, ILogger logger)
+    public HttpSslManager(string? protocol, string? certificateFile, string? certificatePassword, ILogger logger)
     {
         _logger = logger;
         _isEnabled = false;
 
+        // Protocolが"HTTPS"でない場合、SSL/TLSを無効化
+        if (protocol != "HTTPS")
+        {
+            _logger.LogInformation("SSL/TLS disabled (Protocol is set to {Protocol})", protocol ?? "HTTP");
+            return;
+        }
+
         if (string.IsNullOrEmpty(certificateFile))
         {
-            _logger.LogInformation("SSL/TLS not configured (no certificate file specified)");
+            _logger.LogWarning("SSL/TLS cannot be enabled: Protocol is HTTPS but no certificate file specified");
             return;
         }
 
