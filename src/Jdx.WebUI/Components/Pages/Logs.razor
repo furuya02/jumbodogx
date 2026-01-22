@@ -66,10 +66,11 @@
     <!-- Clear Logs Confirmation Dialog -->
     @if (showClearConfirmDialog)
     {
-        <div class="confirm-dialog-overlay" @onclick="HideClearConfirmDialog">
-            <div class="confirm-dialog" @onclick:stopPropagation="true">
+        <div class="confirm-dialog-overlay" @onclick="HideClearConfirmDialog" @onkeydown="HandleDialogKeyDown">
+            <div class="confirm-dialog" @onclick:stopPropagation="true"
+                 role="dialog" aria-labelledby="dialog-title" aria-modal="true">
                 <div class="confirm-dialog-header">
-                    <h5>Confirm Clear Logs</h5>
+                    <h5 id="dialog-title">Confirm Clear Logs</h5>
                 </div>
                 <div class="confirm-dialog-body">
                     <p>Are you sure you want to clear all logs?</p>
@@ -277,15 +278,17 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        z-index: 1000;
+        z-index: var(--z-index-modal, 1000);
+        overflow: hidden;
     }
 
     .confirm-dialog {
         background-color: white;
         border-radius: 8px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-        min-width: 400px;
+        min-width: min(400px, 90vw);
         max-width: 500px;
+        margin: 1rem;
     }
 
     .confirm-dialog-header {
@@ -329,6 +332,11 @@
 
     .btn-dashboard-danger:hover {
         background-color: #C53030;
+    }
+
+    .btn-dashboard-danger:focus {
+        outline: 2px solid #E53E3E;
+        outline-offset: 2px;
     }
 </style>
 
@@ -496,6 +504,14 @@
     private void HideClearConfirmDialog()
     {
         showClearConfirmDialog = false;
+    }
+
+    private void HandleDialogKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            HideClearConfirmDialog();
+        }
     }
 
     private void ConfirmClearLogs()
