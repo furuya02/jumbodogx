@@ -29,6 +29,15 @@
                 Error
             </button>
         </div>
+        <div class="logs-options-group">
+            <label class="time-format-label">Time:</label>
+            <select class="time-format-select" @bind="selectedTimeFormat">
+                @foreach (var format in timeFormats)
+                {
+                    <option value="@format.Key">@format.Key</option>
+                }
+            </select>
+        </div>
         <div class="btn-group">
             <button class="btn btn-dashboard btn-dashboard-secondary" @onclick="ClearLogs">
                 Clear Logs
@@ -82,7 +91,7 @@
                         {
                             <tr>
                                 <td class="text-nowrap">
-                                    <small>@log.Timestamp.ToString("HH:mm:ss.fff")</small>
+                                    <small>@log.Timestamp.ToString(GetTimeFormat())</small>
                                 </td>
                                 <td>
                                     <span class="log-level-badge @GetLevelBadgeClass(log.Level)">
@@ -160,6 +169,38 @@
     .resize-handle:active {
         background-color: rgba(66, 153, 225, 0.5);
     }
+
+    .logs-options-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-left: auto;
+        margin-right: 1rem;
+    }
+
+    .time-format-label {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin: 0;
+    }
+
+    .time-format-select {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+        border: 1px solid var(--card-border);
+        border-radius: 6px;
+        background-color: white;
+        color: var(--text-primary);
+        cursor: pointer;
+        min-width: 180px;
+    }
+
+    .time-format-select:focus {
+        outline: none;
+        border-color: var(--btn-primary);
+        box-shadow: 0 0 0 2px rgba(45, 55, 72, 0.1);
+    }
 </style>
 
 <script>
@@ -228,6 +269,15 @@
     private int timeWidth = 150;
     private int levelWidth = 100;
     private int categoryWidth = 250;
+
+    // Time format options
+    private static readonly Dictionary<string, string> timeFormats = new()
+    {
+        { "yyyy/MM/dd HH:mm:ss.fff", "yyyy/MM/dd HH:mm:ss.fff" },
+        { "yyyy/MM/dd HH:mm:ss", "yyyy/MM/dd HH:mm:ss" },
+        { "HH:mm:ss.fff", "HH:mm:ss.fff" }
+    };
+    private string selectedTimeFormat = "HH:mm:ss.fff";
 
     protected override void OnInitialized()
     {
@@ -301,6 +351,11 @@
             LogLevel.Trace => "debug",
             _ => "secondary"
         };
+    }
+
+    private string GetTimeFormat()
+    {
+        return timeFormats.TryGetValue(selectedTimeFormat, out var format) ? format : "HH:mm:ss.fff";
     }
 
     public void Dispose()
