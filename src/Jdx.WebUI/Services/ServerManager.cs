@@ -10,14 +10,16 @@ namespace Jdx.WebUI.Services;
 /// <summary>
 /// サーバーインスタンスのライフサイクル管理サービス
 /// </summary>
-public class ServerManager
+public class ServerManager : IDisposable
 {
     private readonly ILogger<ServerManager> _logger;
     private readonly ILoggerFactory _loggerFactory;
     private readonly LogService _logService;
     private readonly ISettingsService _settingsService;
     private readonly Dictionary<string, IServer> _servers;
+    private readonly Dictionary<string, VirtualHostInfo> _virtualHostInfos; // VirtualHostの情報を保持
     private readonly object _lock = new();
+    private bool _disposed;
 
     public event EventHandler<ServerEventArgs>? ServerStateChanged;
 
@@ -32,9 +34,13 @@ public class ServerManager
         _logService = logService;
         _settingsService = settingsService;
         _servers = new Dictionary<string, IServer>();
+        _virtualHostInfos = new Dictionary<string, VirtualHostInfo>();
 
         // 初期サーバーを作成
         InitializeServers();
+
+        // 設定変更イベントを購読
+        _settingsService.SettingsChanged += OnSettingsChanged;
     }
 
     private void InitializeServers()
@@ -59,6 +65,9 @@ public class ServerManager
                     var httpServer = new HttpServer(httpLogger, vhost, settings.HttpServer, _settingsService, _logService.AddLog);
                     var serverId = $"http:{vhost.Host}";
                     _servers[serverId] = httpServer;
+
+                    // VirtualHost情報を保存（変更検出用）
+                    _virtualHostInfos[serverId] = new VirtualHostInfo(vhost.Host, vhost.BindAddress ?? "0.0.0.0");
 
                     _logger.LogInformation("HTTP VirtualHost server registered: {ServerId}", serverId);
                 }
@@ -247,6 +256,240 @@ public class ServerManager
     protected virtual void OnServerStateChanged(ServerEventArgs e)
     {
         ServerStateChanged?.Invoke(this, e);
+    }
+
+    private void OnSettingsChanged(object? sender, ApplicationSettings settings)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await SyncVirtualHostsAsync(settings);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error synchronizing VirtualHosts after settings change");
+            }
+        });
+    }
+
+    private async Task SyncVirtualHostsAsync(ApplicationSettings settings)
+    {
+        var newVirtualHosts = settings.HttpServer.VirtualHosts ?? new List<VirtualHostEntry>();
+
+        // 現在のHTTPサーバーIDを取得
+        List<string> currentHttpServerIds;
+        lock (_lock)
+        {
+            currentHttpServerIds = _servers.Keys.Where(k => k.StartsWith("http:")).ToList();
+        }
+
+        // 新しいVirtualHostsのサーバーIDを生成
+        var newServerIds = newVirtualHosts
+            .Where(v => v.GetPort() > 0)
+            .Select(v => $"http:{v.Host}")
+            .ToHashSet();
+
+        // 削除されたVirtualHostsを検出して停止・削除
+        foreach (var serverId in currentHttpServerIds)
+        {
+            if (!newServerIds.Contains(serverId))
+            {
+                await RemoveVirtualHostServerAsync(serverId);
+            }
+        }
+
+        // 新規または変更されたVirtualHostsを処理
+        foreach (var vhost in newVirtualHosts)
+        {
+            var port = vhost.GetPort();
+            if (port == 0) continue;
+
+            var serverId = $"http:{vhost.Host}";
+            var bindAddress = vhost.BindAddress ?? "0.0.0.0";
+
+            bool serverExists;
+            bool needsRecreate = false;
+            bool wasRunning = false;
+
+            lock (_lock)
+            {
+                serverExists = _servers.ContainsKey(serverId);
+
+                if (serverExists && _virtualHostInfos.TryGetValue(serverId, out var info))
+                {
+                    // HostまたはBindAddressが変更された場合は再作成が必要
+                    if (info.Host != vhost.Host || info.BindAddress != bindAddress)
+                    {
+                        needsRecreate = true;
+                        wasRunning = _servers[serverId].Status == ServerStatus.Running;
+                    }
+                }
+            }
+
+            if (!serverExists)
+            {
+                // 新規追加
+                await AddVirtualHostServerAsync(vhost, settings.HttpServer);
+            }
+            else if (needsRecreate)
+            {
+                // ポートまたはBindAddressが変更された場合は再作成
+                await RecreateVirtualHostServerAsync(serverId, vhost, settings.HttpServer, wasRunning);
+            }
+        }
+
+        // 状態変更を通知
+        OnServerStateChanged(new ServerEventArgs("virtualhost-sync", ServerStatus.Running));
+    }
+
+    private async Task AddVirtualHostServerAsync(VirtualHostEntry vhost, HttpServerSettings parentSettings)
+    {
+        var serverId = $"http:{vhost.Host}";
+        var bindAddress = vhost.BindAddress ?? "0.0.0.0";
+
+        lock (_lock)
+        {
+            if (_servers.ContainsKey(serverId))
+            {
+                _logger.LogWarning("Server {ServerId} already exists, skipping add", serverId);
+                return;
+            }
+
+            var httpLogger = _loggerFactory.CreateLogger<HttpServer>();
+            var httpServer = new HttpServer(httpLogger, vhost, parentSettings, _settingsService, _logService.AddLog);
+            _servers[serverId] = httpServer;
+            _virtualHostInfos[serverId] = new VirtualHostInfo(vhost.Host, bindAddress);
+
+            _logger.LogInformation("HTTP VirtualHost server added: {ServerId}", serverId);
+            _logService.AddLog(LogLevel.Information, "ServerManager", $"VirtualHost {serverId} added");
+        }
+
+        // 有効な場合は自動起動
+        if (vhost.Enabled)
+        {
+            try
+            {
+                await StartServerAsync(serverId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to start new VirtualHost {ServerId}", serverId);
+            }
+        }
+    }
+
+    private async Task RemoveVirtualHostServerAsync(string serverId)
+    {
+        IServer? server;
+        lock (_lock)
+        {
+            if (!_servers.TryGetValue(serverId, out server))
+            {
+                return;
+            }
+        }
+
+        // サーバーを停止
+        if (server.Status == ServerStatus.Running)
+        {
+            try
+            {
+                await StopServerAsync(serverId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to stop VirtualHost {ServerId} before removal", serverId);
+            }
+        }
+
+        // サーバーを削除
+        lock (_lock)
+        {
+            _servers.Remove(serverId);
+            _virtualHostInfos.Remove(serverId);
+            server.Dispose();
+
+            _logger.LogInformation("HTTP VirtualHost server removed: {ServerId}", serverId);
+            _logService.AddLog(LogLevel.Information, "ServerManager", $"VirtualHost {serverId} removed");
+        }
+    }
+
+    private async Task RecreateVirtualHostServerAsync(string serverId, VirtualHostEntry vhost, HttpServerSettings parentSettings, bool wasRunning)
+    {
+        _logger.LogInformation("Recreating VirtualHost server {ServerId} due to configuration change", serverId);
+        _logService.AddLog(LogLevel.Information, "ServerManager", $"Recreating VirtualHost {serverId} due to configuration change");
+
+        // 古いサーバーを削除
+        await RemoveVirtualHostServerAsync(serverId);
+
+        // 新しいサーバーを作成
+        var newServerId = $"http:{vhost.Host}";
+        var bindAddress = vhost.BindAddress ?? "0.0.0.0";
+
+        lock (_lock)
+        {
+            var httpLogger = _loggerFactory.CreateLogger<HttpServer>();
+            var httpServer = new HttpServer(httpLogger, vhost, parentSettings, _settingsService, _logService.AddLog);
+            _servers[newServerId] = httpServer;
+            _virtualHostInfos[newServerId] = new VirtualHostInfo(vhost.Host, bindAddress);
+
+            _logger.LogInformation("HTTP VirtualHost server recreated: {ServerId}", newServerId);
+        }
+
+        // 元々起動中だった場合は再起動
+        if (wasRunning || vhost.Enabled)
+        {
+            try
+            {
+                await StartServerAsync(newServerId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to restart recreated VirtualHost {ServerId}", newServerId);
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+
+        _settingsService.SettingsChanged -= OnSettingsChanged;
+
+        lock (_lock)
+        {
+            foreach (var server in _servers.Values)
+            {
+                try
+                {
+                    server.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error disposing server {ServerName}", server.Name);
+                }
+            }
+            _servers.Clear();
+            _virtualHostInfos.Clear();
+        }
+
+        _disposed = true;
+    }
+}
+
+/// <summary>
+/// VirtualHostの情報を保持するクラス（変更検出用）
+/// </summary>
+public class VirtualHostInfo
+{
+    public string Host { get; }
+    public string BindAddress { get; }
+
+    public VirtualHostInfo(string host, string bindAddress)
+    {
+        Host = host;
+        BindAddress = bindAddress;
     }
 }
 
