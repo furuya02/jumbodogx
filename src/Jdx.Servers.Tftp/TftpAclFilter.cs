@@ -27,18 +27,16 @@ public class TftpAclFilter
     /// <returns>True if allowed, false if denied</returns>
     public bool IsAllowed(string remoteAddress)
     {
-        // EnableAcl: 0=無効, 1=許可リスト, 2=拒否リスト
-        // ACL無効の場合は全て許可
-        if (_settings.EnableAcl == 0)
-        {
-            return true;
-        }
-
-        // ACL有効だがリストが空/null: fail-secure (deny all)
+        // ACL list is empty
         if (_settings.AclList == null || _settings.AclList.Count == 0)
         {
-            _logger.LogDebug("ACL enabled but list is empty, denying all connections (fail-secure default)");
-            return false;
+            // EnableAcl: 0=Allow list, 1=Deny list
+            // Allow list + empty → deny all (fail-secure)
+            // Deny list + empty → allow all (no one is denied)
+            var result = _settings.EnableAcl != 0;
+            _logger.LogDebug("ACL list is empty, {Action} all connections (EnableAcl={Mode})",
+                result ? "allowing" : "denying", _settings.EnableAcl);
+            return result;
         }
 
         // Parse IP address from endpoint format if necessary
@@ -53,38 +51,28 @@ public class TftpAclFilter
             }
         }
 
-        bool isInList = false;
+        // Check if IP matches any ACL entry
+        bool matches = false;
         foreach (var aclEntry in _settings.AclList)
         {
             if (IpAddressMatcher.Matches(ipAddress, aclEntry.Address))
             {
-                isInList = true;
+                matches = true;
                 _logger.LogDebug("IP {IP} matched ACL entry: {Name} ({Address})",
                     remoteAddress, aclEntry.Name, aclEntry.Address);
                 break;
             }
         }
 
-        // EnableAcl == 1: 許可リスト（リストにあるIPのみ許可）
-        if (_settings.EnableAcl == 1)
+        // Allow mode (0): only listed IPs are allowed
+        // Deny mode (1): listed IPs are denied
+        var allowed = _settings.EnableAcl == 0 ? matches : !matches;
+
+        if (!allowed)
         {
-            if (!isInList)
-            {
-                _logger.LogWarning("Connection denied by ACL: {RemoteAddress}", remoteAddress);
-            }
-            return isInList;
+            _logger.LogWarning("Connection denied by ACL: {RemoteAddress}", remoteAddress);
         }
 
-        // EnableAcl == 2: 拒否リスト（リストにあるIPを拒否）
-        if (_settings.EnableAcl == 2)
-        {
-            if (isInList)
-            {
-                _logger.LogWarning("Connection denied by ACL: {RemoteAddress}", remoteAddress);
-            }
-            return !isInList;
-        }
-
-        return true;
+        return allowed;
     }
 }
