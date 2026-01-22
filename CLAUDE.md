@@ -17,6 +17,7 @@
 - 開発環境セットアップ @docs/01_development_docs/02_development_setup.md
 - テスト戦略 @docs/01_development_docs/03_test_strategy.md
 - ロギング設計 @docs/01_development_docs/04_logging_design.md
+- 証明書セットアップ @docs/01_development_docs/05_certificate_setup.md
 
 ### サーバープロトコル
 
