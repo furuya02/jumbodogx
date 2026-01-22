@@ -21,11 +21,13 @@ public class DnsServer : ServerBase
     private readonly Dictionary<string, RrDb> _cacheList; // Domain caches
     private readonly List<string> _sortedDomains; // Pre-sorted domain list by length (descending)
     private readonly RrDb? _rootCache; // Root nameserver cache
+    private readonly DnsAclFilter _aclFilter; // ACL filter
     private ServerUdpListener? _listener;
 
     public DnsServer(ILogger<DnsServer> logger, DnsServerSettings settings) : base(logger)
     {
         _settings = settings;
+        _aclFilter = new DnsAclFilter(settings, logger);
         _port = settings.Port;
         _bindAddress = settings.BindAddress;
         _cacheList = new Dictionary<string, RrDb>(StringComparer.OrdinalIgnoreCase);
@@ -132,6 +134,14 @@ public class DnsServer : ServerBase
     private async Task HandleDnsQueryAsync(byte[] data, EndPoint remoteEndPoint, CancellationToken cancellationToken)
     {
         var remoteAddress = remoteEndPoint.ToString() ?? "unknown";
+
+        // ACL check
+        if (!_aclFilter.IsAllowed(remoteAddress))
+        {
+            Logger.LogWarning("DNS query denied by ACL from {RemoteAddress}", remoteAddress);
+            Statistics.TotalErrors++;
+            return;
+        }
 
         try
         {
