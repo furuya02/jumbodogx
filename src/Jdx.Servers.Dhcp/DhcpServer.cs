@@ -19,12 +19,14 @@ public class DhcpServer : ServerBase
     private readonly DhcpServerSettings _settings;
     private LeasePool? _leasePool;
     private readonly ConnectionLimiter _connectionLimiter;
+    private readonly DhcpMacAclFilter _macAclFilter;
 
     public DhcpServer(ILogger<DhcpServer> logger, DhcpServerSettings settings)
         : base(logger)
     {
         _settings = settings;
         _connectionLimiter = new ConnectionLimiter(settings.MaxConnections);
+        _macAclFilter = new DhcpMacAclFilter(settings, logger);
     }
 
     public override string Name => "DhcpServer";
@@ -146,8 +148,8 @@ public class DhcpServer : ServerBase
             Logger.LogDebug("DHCP {MessageType} from {Mac} ({RemoteEndPoint})",
                 packet.MessageType, packet.ClientMac, ipEndPoint);
 
-            // Check MAC ACL if enabled
-            if (_settings.UseMacAcl && !_leasePool.IsMacAllowed(packet.ClientMac))
+            // Check MAC ACL
+            if (!_macAclFilter.IsAllowed(packet.ClientMac))
             {
                 Logger.LogWarning("DHCP request denied by MAC ACL: {Mac}", packet.ClientMac);
                 return;
