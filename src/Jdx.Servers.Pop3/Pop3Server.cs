@@ -17,12 +17,14 @@ public class Pop3Server : ServerBase
 {
     private readonly Pop3ServerSettings _settings;
     private readonly ConnectionLimiter _connectionLimiter;
+    private readonly Pop3AclFilter _aclFilter;
 
     public Pop3Server(ILogger<Pop3Server> logger, Pop3ServerSettings settings)
         : base(logger)
     {
         _settings = settings;
         _connectionLimiter = new ConnectionLimiter(settings.MaxConnections);
+        _aclFilter = new Pop3AclFilter(settings, logger);
     }
 
     public override string Name => "Pop3Server";
@@ -64,6 +66,15 @@ public class Pop3Server : ServerBase
     {
         using (client)
         {
+            var remoteAddress = client.Client.RemoteEndPoint?.ToString() ?? "unknown";
+
+            // ACL check
+            if (!_aclFilter.IsAllowed(remoteAddress))
+            {
+                Logger.LogWarning("POP3 connection denied by ACL from {RemoteAddress}", remoteAddress);
+                return;
+            }
+
             try
             {
                 var stream = client.GetStream();
