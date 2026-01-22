@@ -2,7 +2,9 @@
 @rendermode InteractiveServer
 @using Jdx.WebUI.Services
 @using Jdx.Core.Abstractions
+@using Jdx.Core.Settings
 @inject ServerManager ServerManager
+@inject ISettingsService SettingsService
 @implements IDisposable
 
 <PageTitle>Dashboard - JumboDogX</PageTitle>
@@ -87,6 +89,14 @@
                                 <div class="stat-row">
                                     <span class="stat-label">Uptime</span>
                                     <span class="stat-value">@stats.Uptime.ToString(@"hh\:mm\:ss")</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Access URL</span>
+                                    <span class="stat-value">
+                                        <a href="@GetHttpServerUrl(server)" target="_blank" rel="noopener noreferrer" class="access-link">
+                                            @GetHttpServerUrl(server)
+                                        </a>
+                                    </span>
                                 </div>
                             }
                         </div>
@@ -365,6 +375,37 @@
             len = len / 1024;
         }
         return $"{len:0.##} {sizes[order]}";
+    }
+
+    private string GetHttpServerUrl(IServer server)
+    {
+        var serverId = GetServerId(server);
+        var settings = SettingsService.GetSettings();
+
+        // サーバーIDからVirtualHostを特定（例: "http:example.com"）
+        VirtualHostEntry? vhost = null;
+        if (serverId.StartsWith("http:") && settings.HttpServer.VirtualHosts != null)
+        {
+            var hostName = serverId.Substring(5); // "http:" を除去
+            vhost = settings.HttpServer.VirtualHosts.FirstOrDefault(v => v.Host == hostName);
+        }
+
+        // SSL判定（VirtualHostの設定からCertificateFileの有無をチェック）
+        var useSsl = false;
+        if (vhost?.Settings != null)
+        {
+            useSsl = !string.IsNullOrEmpty(vhost.Settings.CertificateFile);
+        }
+
+        // ホスト名の決定
+        var host = server.BindAddress;
+        if (host == "0.0.0.0" || host == "127.0.0.1" || string.IsNullOrEmpty(host))
+        {
+            host = "localhost";
+        }
+
+        var protocol = useSsl ? "https" : "http";
+        return $"{protocol}://{host}:{server.Port}/";
     }
 
     public void Dispose()
