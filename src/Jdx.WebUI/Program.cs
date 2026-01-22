@@ -31,6 +31,17 @@ builder.Host.UseSerilog();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Add API Controllers support
+builder.Services.AddControllers();
+
+// Add HttpClient for internal API calls
+builder.Services.AddScoped(sp =>
+{
+    var client = new HttpClient();
+    client.BaseAddress = new Uri("http://localhost:5001");
+    return client;
+});
+
 // Add JumboDogX services
 builder.Services.AddSingleton<LogService>();
 builder.Services.AddSingleton<ISettingsService, SettingsService>();
@@ -57,6 +68,7 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAntiforgery();
 
+app.MapControllers();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

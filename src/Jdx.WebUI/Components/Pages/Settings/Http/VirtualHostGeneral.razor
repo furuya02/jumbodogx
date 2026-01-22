@@ -2,7 +2,10 @@
 @rendermode InteractiveServer
 @using Jdx.Core.Settings
 @using Jdx.WebUI.Services
+@using System.Net.Http.Json
 @inject ISettingsService SettingsService
+@inject HttpClient HttpClient
+@inject IJSRuntime JSRuntime
 
 <PageTitle>HTTP Virtual Host Settings - JumboDogX</PageTitle>
 
@@ -77,7 +80,7 @@
                 <div class="col-md-6">
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" id="enableHttps"
-                               checked="@enableHttps" @onchange="OnEnableHttpsChanged">
+                               checked="@enableHttps" @onclick="OnEnableHttpsClicked" @onclick:preventDefault="true">
                         <label class="form-check-label" for="enableHttps">
                             Enable HTTPS
                         </label>
@@ -143,15 +146,72 @@
                 // Extract port from Host (e.g., "example.com:8080" -> 8080)
                 port = currentVHostEntry.GetPort();
 
-                // Determine HTTPS from certificate presence
-                enableHttps = !string.IsNullOrEmpty(currentVHostSettings.CertificateFile);
+                // Determine HTTPS from Protocol property
+                enableHttps = currentVHostSettings.Protocol == "HTTPS";
             }
         }
     }
 
-    private void OnEnableHttpsChanged(ChangeEventArgs e)
+    private async Task OnEnableHttpsClicked()
     {
-        enableHttps = (bool)(e.Value ?? false);
+        // 現在の状態を確認
+        // クリックにより、OFFからONにしようとしている場合
+        if (!enableHttps)
+        {
+            // HTTPSを有効にしようとしている場合、証明書を検証
+            try
+            {
+                var validationRequest = new
+                {
+                    certificateFile = currentVHostSettings.CertificateFile,
+                    certificatePassword = currentVHostSettings.CertificatePassword
+                };
+
+                var response = await HttpClient.PostAsJsonAsync("/api/CertificateValidation/validate", validationRequest);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<CertificateValidationResponse>();
+
+                    if (result != null && result.IsValid)
+                    {
+                        // 検証成功 - HTTPSを有効化
+                        enableHttps = true;
+                        currentVHostSettings.Protocol = "HTTPS";
+                    }
+                    else
+                    {
+                        // 検証失敗 - エラーをポップアップ表示
+                        await JSRuntime.InvokeVoidAsync("alert", result?.ErrorMessage ?? "証明書の検証に失敗しました。");
+
+                        // スイッチはOFFのまま（enableHttpsを変更しない）
+                    }
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "証明書の検証APIの呼び出しに失敗しました。");
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"証明書の検証中にエラーが発生しました: {ex.Message}");
+            }
+        }
+        else
+        {
+            // ONからOFFにする場合は検証不要
+            enableHttps = false;
+            currentVHostSettings.Protocol = "HTTP";
+        }
+
+        StateHasChanged();
+    }
+
+    // 証明書検証レスポンス用のクラス
+    private class CertificateValidationResponse
+    {
+        public bool IsValid { get; set; }
+        public string? ErrorMessage { get; set; }
     }
 
     private async Task SaveSettings()
