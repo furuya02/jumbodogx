@@ -17,12 +17,14 @@ public class TftpServer : ServerBase
 {
     private readonly TftpServerSettings _settings;
     private readonly ConnectionLimiter _connectionLimiter;
+    private readonly TftpAclFilter _aclFilter;
 
     public TftpServer(ILogger<TftpServer> logger, TftpServerSettings settings)
         : base(logger)
     {
         _settings = settings;
         _connectionLimiter = new ConnectionLimiter(settings.MaxConnections);
+        _aclFilter = new TftpAclFilter(settings, logger);
     }
 
     public override string Name => "TftpServer";
@@ -78,6 +80,15 @@ public class TftpServer : ServerBase
     private async Task HandleRequestAsync(byte[] data, EndPoint remoteEndPoint, CancellationToken cancellationToken)
     {
         var ipEndPoint = (IPEndPoint)remoteEndPoint;
+        var remoteAddress = ipEndPoint.ToString();
+
+        // ACL check
+        if (!_aclFilter.IsAllowed(remoteAddress))
+        {
+            Logger.LogWarning("TFTP request denied by ACL from {RemoteAddress}", remoteAddress);
+            await SendErrorAsync(ipEndPoint, TftpErrorCode.AccessViolation, "Access denied by ACL", cancellationToken);
+            return;
+        }
 
         try
         {
