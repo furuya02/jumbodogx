@@ -151,7 +151,7 @@ public class DhcpServer : ServerBase
             // Check MAC ACL
             if (!_macAclFilter.IsAllowed(packet.ClientMac))
             {
-                Logger.LogWarning("DHCP request denied by MAC ACL: {Mac}", packet.ClientMac);
+                // ACL denied - log already output in DhcpMacAclFilter
                 return;
             }
 

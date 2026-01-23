@@ -467,8 +467,7 @@ public class HttpServer : ServerBase
         var remoteIp = clientSocket.RemoteEndPoint?.ToString()?.Split(':')[0] ?? "";
         if (!string.IsNullOrEmpty(remoteIp) && !aclFilter.IsAllowed(remoteIp))
         {
-            Logger.LogWarning("Connection from {RemoteIP} rejected by ACL", remoteIp);
-
+            // ACL denied - log already output in HttpAclFilter
             // 403 Forbidden を送信してクローズ（ベストエフォート、短いタイムアウト）
             try
             {
