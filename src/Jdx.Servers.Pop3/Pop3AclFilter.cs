@@ -1,28 +1,30 @@
-using System.Linq;
 using System.Net;
 using Jdx.Core.Network;
 using Jdx.Core.Settings;
 using Microsoft.Extensions.Logging;
 
-namespace Jdx.Servers.Http;
+namespace Jdx.Servers.Pop3;
 
 /// <summary>
-/// HTTP ACL (Access Control List) フィルタリング
+/// POP3 ACL (Access Control List) filtering
+/// Filters incoming POP3 connections based on IP address allow/deny rules
 /// </summary>
-public class HttpAclFilter
+public class Pop3AclFilter
 {
-    private readonly HttpServerSettings _settings;
+    private readonly Pop3ServerSettings _settings;
     private readonly ILogger _logger;
 
-    public HttpAclFilter(HttpServerSettings settings, ILogger logger)
+    public Pop3AclFilter(Pop3ServerSettings settings, ILogger logger)
     {
         _settings = settings;
         _logger = logger;
     }
 
     /// <summary>
-    /// 接続元IPアドレスをチェック
+    /// Check if a POP3 connection from the given IP address is allowed
     /// </summary>
+    /// <param name="remoteAddress">Remote IP address (can be in endpoint format)</param>
+    /// <returns>True if allowed, false if denied</returns>
     public bool IsAllowed(string remoteAddress)
     {
         // ACL list is empty
@@ -37,11 +39,16 @@ public class HttpAclFilter
             return result;
         }
 
-        // IPアドレスをパース
-        if (!IPAddress.TryParse(remoteAddress, out var ipAddress))
+        // Parse IP address from endpoint format if necessary
+        IPAddress? ipAddress;
+        if (!IpAddressMatcher.TryParseFromEndpoint(remoteAddress, out ipAddress) || ipAddress == null)
         {
-            _logger.LogWarning("Invalid remote address: {RemoteAddress}", remoteAddress);
-            return false;
+            // Try direct parsing
+            if (!IPAddress.TryParse(remoteAddress, out ipAddress))
+            {
+                _logger.LogWarning("Invalid remote address: {RemoteAddress}", remoteAddress);
+                return false;
+            }
         }
 
         // Check if IP matches any ACL entry
