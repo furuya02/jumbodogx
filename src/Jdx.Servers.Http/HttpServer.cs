@@ -464,7 +464,9 @@ public class HttpServer : ServerBase
         }
 
         // ACLチェック（接続元IPアドレス）
-        var remoteIp = clientSocket.RemoteEndPoint?.ToString()?.Split(':')[0] ?? "";
+        var remoteIp = clientSocket.RemoteEndPoint is IPEndPoint ipEndPoint
+            ? ipEndPoint.Address.ToString()
+            : "";
         if (!string.IsNullOrEmpty(remoteIp) && !aclFilter.IsAllowed(remoteIp))
         {
             // ACL denied - log already output in HttpAclFilter
@@ -490,7 +492,7 @@ public class HttpServer : ServerBase
             _logCallback?.Invoke(
                 LogLevel.Warning,
                 _name,
-                $"ACL denied connection from {remoteIp}",
+                "ACL denied connection",
                 remoteIp);
 
             Statistics.TotalErrors++;
