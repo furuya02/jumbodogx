@@ -28,7 +28,7 @@ public class HttpAclFilterTests
     }
 
     [Fact]
-    public void IsAllowed_WithNullAclList_ReturnsFalse_FailSecure()
+    public void IsAllowed_WithNullAclList_InAllowMode_ReturnsFalse_FailSecure()
     {
         // Arrange
         var settings = new HttpServerSettings
