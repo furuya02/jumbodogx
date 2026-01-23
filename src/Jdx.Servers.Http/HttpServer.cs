@@ -486,6 +486,12 @@ public class HttpServer : ServerBase
                 clientSocket.Dispose();
             }
 
+            // LogServiceにACL拒否ログを送信
+            _logCallback?.Invoke(
+                LogLevel.Warning,
+                _name,
+                $"ACL denied connection from {remoteIp}");
+
             Statistics.TotalErrors++;
             Metrics.IncrementErrors();
             return;
