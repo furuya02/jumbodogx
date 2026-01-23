@@ -12,14 +12,15 @@ public class LogService
 
     public event EventHandler<LogEntry>? LogAdded;
 
-    public void AddLog(LogLevel level, string category, string message)
+    public void AddLog(LogLevel level, string category, string message, string? ipAddress = null)
     {
         var entry = new LogEntry
         {
             Timestamp = DateTime.Now,
             Level = level,
             Category = category,
-            Message = message
+            Message = message,
+            IpAddress = ipAddress
         };
 
         _logs.Enqueue(entry);
@@ -59,6 +60,7 @@ public class LogEntry
     public DateTime Timestamp { get; set; }
     public LogLevel Level { get; set; }
     public string Category { get; set; } = "";
+    public string? IpAddress { get; set; }
     public string Message { get; set; } = "";
 
     public string LevelClass => Level switch
