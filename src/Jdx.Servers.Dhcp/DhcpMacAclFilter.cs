@@ -53,7 +53,8 @@ public class DhcpMacAclFilter
         // MAC ACL有効だがリストが空: fail-secure (deny all)
         if (_allowedMacs.Count == 0)
         {
-            _logger.LogDebug("MAC ACL enabled but list is empty, denying all connections (fail-secure default)");
+            _logger.LogWarning("MAC ACL denied connection from {MacAddress} (Matched: {MatchedRule})",
+                macAddress, "EmptyList");
             return false;
         }
 
@@ -62,14 +63,17 @@ public class DhcpMacAclFilter
 
         // Check if MAC is in allow list
         var allowed = _allowedMacs.Contains(macString);
+        string? matchedRule = allowed ? macString : null;
 
-        if (!allowed)
+        if (allowed)
         {
-            _logger.LogWarning("Connection denied by MAC ACL: {Mac}", macAddress);
+            _logger.LogDebug("MAC ACL allowed connection from {MacAddress} (Matched: {MatchedRule})",
+                macAddress, matchedRule ?? "NoMatch");
         }
         else
         {
-            _logger.LogDebug("MAC {Mac} matched ACL entry", macAddress);
+            _logger.LogWarning("MAC ACL denied connection from {MacAddress} (Matched: {MatchedRule})",
+                macAddress, matchedRule ?? "NotInList");
         }
 
         return allowed;

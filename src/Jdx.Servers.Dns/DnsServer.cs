@@ -138,7 +138,7 @@ public class DnsServer : ServerBase
         // ACL check
         if (!_aclFilter.IsAllowed(remoteAddress))
         {
-            Logger.LogWarning("DNS query denied by ACL from {RemoteAddress}", remoteAddress);
+            // ACL denied - log already output in DnsAclFilter
             Statistics.TotalErrors++;
             return;
         }

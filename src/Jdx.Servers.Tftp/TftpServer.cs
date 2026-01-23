@@ -85,7 +85,7 @@ public class TftpServer : ServerBase
         // ACL check
         if (!_aclFilter.IsAllowed(remoteAddress))
         {
-            Logger.LogWarning("TFTP request denied by ACL from {RemoteAddress}", remoteAddress);
+            // ACL denied - log already output in TftpAclFilter
             await SendErrorAsync(ipEndPoint, TftpErrorCode.AccessViolation, "Access denied by ACL", cancellationToken);
             return;
         }

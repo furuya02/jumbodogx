@@ -78,7 +78,7 @@ public class FtpServer : ServerBase
         // ACL check
         if (_aclFilter != null && !_aclFilter.IsAllowed(remoteAddress))
         {
-            Logger.LogWarning("Connection rejected by ACL: {RemoteAddress}", remoteAddress);
+            // ACL denied - log already output in FtpAclFilter
             socket.Close();
             return;
         }

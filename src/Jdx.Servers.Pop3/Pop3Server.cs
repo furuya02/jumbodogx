@@ -71,7 +71,7 @@ public class Pop3Server : ServerBase
             // ACL check
             if (!_aclFilter.IsAllowed(remoteAddress))
             {
-                Logger.LogWarning("POP3 connection denied by ACL from {RemoteAddress}", remoteAddress);
+                // ACL denied - log already output in Pop3AclFilter
                 return;
             }
 
