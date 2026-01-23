@@ -1,0 +1,246 @@
+@* MessageDialog.razor - 汎用メッセージダイアログコンポーネント *@
+
+@if (IsVisible)
+{
+    <div class="message-dialog-overlay" @onclick="HandleOverlayClick" @onkeydown="HandleKeyDown">
+        <div class="message-dialog" @onclick:stopPropagation="true"
+             role="dialog" aria-labelledby="dialog-title" aria-modal="true">
+            <div class="message-dialog-header">
+                <h5 id="dialog-title">@Title</h5>
+            </div>
+            <div class="message-dialog-body">
+                @if (!string.IsNullOrEmpty(Message))
+                {
+                    <p>@Message</p>
+                }
+                @if (!string.IsNullOrEmpty(SubMessage))
+                {
+                    <p class="text-muted">@SubMessage</p>
+                }
+                @if (BodyContent != null)
+                {
+                    @BodyContent
+                }
+            </div>
+            <div class="message-dialog-footer">
+                @if (ShowCancelButton)
+                {
+                    <button class="btn btn-dashboard btn-dashboard-outline" @onclick="HandleCancel">
+                        @CancelButtonText
+                    </button>
+                }
+                <button class="btn btn-dashboard @GetConfirmButtonClass()" @onclick="HandleConfirm">
+                    @ConfirmButtonText
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .message-dialog-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: var(--z-index-modal, 1000);
+        overflow: hidden;
+    }
+
+    .message-dialog {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        min-width: min(400px, 90vw);
+        max-width: 500px;
+        margin: 1rem;
+    }
+
+    .message-dialog-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--card-border);
+    }
+
+    .message-dialog-header h5 {
+        margin: 0;
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    .message-dialog-body {
+        padding: 1.5rem;
+    }
+
+    .message-dialog-body p {
+        margin: 0 0 0.5rem 0;
+        color: var(--text-primary);
+    }
+
+    .message-dialog-body p:last-child {
+        margin-bottom: 0;
+    }
+
+    .message-dialog-body .text-muted {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .message-dialog-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--card-border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+
+    .btn-dashboard-danger {
+        background-color: #E53E3E;
+        color: white;
+        border: none;
+    }
+
+    .btn-dashboard-danger:hover {
+        background-color: #C53030;
+    }
+
+    .btn-dashboard-danger:focus {
+        outline: 2px solid #E53E3E;
+        outline-offset: 2px;
+    }
+
+    .btn-dashboard-primary {
+        background-color: #4299E1;
+        color: white;
+        border: none;
+    }
+
+    .btn-dashboard-primary:hover {
+        background-color: #3182CE;
+    }
+
+    .btn-dashboard-primary:focus {
+        outline: 2px solid #4299E1;
+        outline-offset: 2px;
+    }
+</style>
+
+@code {
+    /// <summary>
+    /// ダイアログの表示状態
+    /// </summary>
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    /// <summary>
+    /// ダイアログのタイトル
+    /// </summary>
+    [Parameter]
+    public string Title { get; set; } = "Confirm";
+
+    /// <summary>
+    /// メッセージ本文
+    /// </summary>
+    [Parameter]
+    public string? Message { get; set; }
+
+    /// <summary>
+    /// サブメッセージ（補足情報）
+    /// </summary>
+    [Parameter]
+    public string? SubMessage { get; set; }
+
+    /// <summary>
+    /// カスタムボディコンテンツ
+    /// </summary>
+    [Parameter]
+    public RenderFragment? BodyContent { get; set; }
+
+    /// <summary>
+    /// 確認ボタンのテキスト
+    /// </summary>
+    [Parameter]
+    public string ConfirmButtonText { get; set; } = "OK";
+
+    /// <summary>
+    /// キャンセルボタンのテキスト
+    /// </summary>
+    [Parameter]
+    public string CancelButtonText { get; set; } = "Cancel";
+
+    /// <summary>
+    /// キャンセルボタンを表示するか
+    /// </summary>
+    [Parameter]
+    public bool ShowCancelButton { get; set; } = false;
+
+    /// <summary>
+    /// ダイアログの種類（ボタンスタイルに影響）
+    /// </summary>
+    [Parameter]
+    public DialogType Type { get; set; } = DialogType.Info;
+
+    /// <summary>
+    /// 確認ボタンがクリックされたときのコールバック
+    /// </summary>
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+
+    /// <summary>
+    /// キャンセルボタンがクリックされたとき、またはオーバーレイクリック時のコールバック
+    /// </summary>
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private async Task HandleConfirm()
+    {
+        await OnConfirm.InvokeAsync();
+    }
+
+    private async Task HandleCancel()
+    {
+        await OnCancel.InvokeAsync();
+    }
+
+    private async Task HandleOverlayClick()
+    {
+        if (ShowCancelButton)
+        {
+            await OnCancel.InvokeAsync();
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" && ShowCancelButton)
+        {
+            await OnCancel.InvokeAsync();
+        }
+    }
+
+    private string GetConfirmButtonClass()
+    {
+        return Type switch
+        {
+            DialogType.Danger => "btn-dashboard-danger",
+            DialogType.Warning => "btn-dashboard-danger",
+            _ => "btn-dashboard-primary"
+        };
+    }
+
+    /// <summary>
+    /// ダイアログの種類
+    /// </summary>
+    public enum DialogType
+    {
+        Info,
+        Warning,
+        Error,
+        Danger,
+        Confirm
+    }
+}
