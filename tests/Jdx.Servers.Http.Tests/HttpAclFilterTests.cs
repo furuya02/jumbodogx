@@ -9,12 +9,12 @@ namespace Jdx.Servers.Http.Tests;
 public class HttpAclFilterTests
 {
     [Fact]
-    public void IsAllowed_WithDisabledAcl_ReturnsTrue()
+    public void IsAllowed_WithEmptyAllowList_ReturnsFalse()
     {
         // Arrange
         var settings = new HttpServerSettings
         {
-            EnableAcl = 0,  // ACL disabled
+            EnableAcl = 0,  // Allow mode
             AclList = new List<AclEntry>()
         };
         var mockLogger = new Mock<ILogger>();
@@ -23,8 +23,8 @@ public class HttpAclFilterTests
         // Act
         var result = filter.IsAllowed("192.168.1.1");
 
-        // Assert - ACL disabled: allow all regardless of list content
-        Assert.True(result);
+        // Assert - Allow mode with empty list: deny all (fail-secure)
+        Assert.False(result);
     }
 
     [Fact]
@@ -33,8 +33,8 @@ public class HttpAclFilterTests
         // Arrange
         var settings = new HttpServerSettings
         {
-            EnableAcl = 1,
-            AclList = null
+            EnableAcl = 0,  // Allow mode
+            AclList = null!  // Null suppression for testing null behavior
         };
         var mockLogger = new Mock<ILogger>();
         var filter = new HttpAclFilter(settings, mockLogger.Object);
@@ -42,7 +42,7 @@ public class HttpAclFilterTests
         // Act
         var result = filter.IsAllowed("192.168.1.1");
 
-        // Assert - Fail-secure: deny all when ACL list is null
+        // Assert - Allow mode with null list: deny all (fail-secure)
         Assert.False(result);
     }
 
@@ -52,7 +52,7 @@ public class HttpAclFilterTests
         // Arrange
         var settings = new HttpServerSettings
         {
-            EnableAcl = 1,
+            EnableAcl = 0,  // Allow mode
             AclList = new List<AclEntry>
             {
                 new AclEntry { Name = "Allowed", Address = "192.168.1.1" }
@@ -74,7 +74,7 @@ public class HttpAclFilterTests
         // Arrange
         var settings = new HttpServerSettings
         {
-            EnableAcl = 1,
+            EnableAcl = 0,  // Allow mode
             AclList = new List<AclEntry>
             {
                 new AclEntry { Name = "Allowed", Address = "192.168.1.1" }
@@ -96,7 +96,7 @@ public class HttpAclFilterTests
         // Arrange
         var settings = new HttpServerSettings
         {
-            EnableAcl = 2,
+            EnableAcl = 1,  // Deny mode
             AclList = new List<AclEntry>
             {
                 new AclEntry { Name = "Denied", Address = "10.0.0.1" }
@@ -118,7 +118,7 @@ public class HttpAclFilterTests
         // Arrange
         var settings = new HttpServerSettings
         {
-            EnableAcl = 2,
+            EnableAcl = 1,  // Deny mode
             AclList = new List<AclEntry>
             {
                 new AclEntry { Name = "Denied", Address = "192.168.1.1" }
@@ -140,7 +140,7 @@ public class HttpAclFilterTests
         // Arrange
         var settings = new HttpServerSettings
         {
-            EnableAcl = 1,
+            EnableAcl = 0,  // Allow mode
             AclList = new List<AclEntry>
             {
                 new AclEntry { Name = "Local Network", Address = "192.168.1.0/24" }
@@ -162,7 +162,7 @@ public class HttpAclFilterTests
         // Arrange
         var settings = new HttpServerSettings
         {
-            EnableAcl = 1,
+            EnableAcl = 0,  // Allow mode
             AclList = new List<AclEntry>
             {
                 new AclEntry { Name = "Local Network", Address = "192.168.1.0/24" }
@@ -184,7 +184,7 @@ public class HttpAclFilterTests
         // Arrange
         var settings = new HttpServerSettings
         {
-            EnableAcl = 1,
+            EnableAcl = 0,  // Allow mode
             AclList = new List<AclEntry>
             {
                 new AclEntry { Name = "Test", Address = "192.168.1.1" }
@@ -206,7 +206,7 @@ public class HttpAclFilterTests
         // Arrange
         var settings = new HttpServerSettings
         {
-            EnableAcl = 1,
+            EnableAcl = 0,  // Allow mode
             AclList = new List<AclEntry>
             {
                 new AclEntry { Name = "Range1", Address = "192.168.1.0/24" },
