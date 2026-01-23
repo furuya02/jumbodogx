@@ -11,6 +11,7 @@ JumboDogX DHCPサーバーは、IPアドレスの自動割り当てを行いま�
 - 静的IPアドレス予約
 - DHCPオプション
 - リース管理
+- ACL (アクセス制御 - MACアドレスベース)
 
 ## 2. プロジェクト構造
 
@@ -63,6 +64,31 @@ Jdx.Servers.Dhcp/
   ]
 }
 ```
+
+### 3.4 ACL設定
+
+MACアドレスベースのアクセス制御が可能です。
+
+```json
+{
+  "Dhcp": {
+    "EnableAcl": true,
+    "AclRules": [
+      {
+        "Allow": ["00:11:22:33:44:55", "AA:BB:CC:*"],
+        "Deny": ["*"]
+      }
+    ]
+  }
+}
+```
+
+**ACL設定:**
+- `EnableAcl`: ACL機能の有効/無効
+- `Allow`: 許可するMACアドレス（ワイルドカード対応）
+- `Deny`: 拒否するMACアドレス（ワイルドカード対応）
+- ルールは上から順に評価
+- 許可されないMACアドレスからのDHCP要求は無視される
 
 ## 4. DHCPメッセージタイプ
 
@@ -134,3 +160,7 @@ Client                Server
 ```bash
 dotnet test tests/Jdx.Servers.Dhcp.Tests
 ```
+
+## 更新履歴
+
+- 2026-01-24: ACL（アクセス制御リスト - MACアドレスベース）機能の追加

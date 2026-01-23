@@ -54,18 +54,18 @@ jdx/
 - Server refactoring Phase 1-3 completed (PR #13, #14)
 
 ### Server Implementations
-- HTTP/HTTPS server implemented (Range Requests, Keep-Alive, Virtual Host, SSL/TLS structure)
-- DNS server implemented (A, AAAA, CNAME, MX, NS, PTR, SOA records)
+- HTTP/HTTPS server implemented (Range Requests, Keep-Alive, Virtual Host, SSL/TLS, ACL, certificate validation)
+- DNS server implemented (A, AAAA, CNAME, MX, NS, PTR, SOA records, ACL)
 - SMTP server implemented (mail sending with authentication)
-- POP3 server implemented (mail retrieval with authentication)
+- POP3 server implemented (mail retrieval with authentication, ACL)
 - FTP server implemented (file transfer, user management, ACL)
-- DHCP server implemented (IP address assignment, lease management)
-- TFTP server implemented (simple file transfer)
+- DHCP server implemented (IP address assignment, lease management, MAC-based ACL)
+- TFTP server implemented (simple file transfer, ACL)
 - Proxy server implemented (HTTP proxy with cache, URL filtering)
 
 ### Web UI (Blazor Server)
 - Dashboard implemented (server status monitoring)
-- Logs viewer implemented (real-time log display)
+- Logs viewer implemented (real-time log display with IP address tracking)
 - Settings pages for all servers implemented (100% coverage)
   - HTTP/HTTPS: General, Document, CGI, SSI, WebDAV, Alias & MIME, Authentication, Template, ACL, Virtual Hosts, SSL/TLS, Advanced
   - DNS: General, Records management
@@ -79,7 +79,9 @@ jdx/
 - Virtual Host implemented (host header-based routing)
 - SSL/TLS basic structure implemented (certificate management)
 - SSL/TLS full integration completed (actual SSL communication - PR #20)
+- SSL/TLS certificate validation implemented (automatic certificate verification)
 - AttackDb ACL auto-addition completed (PR #18)
+- ACL (Access Control List) implemented for all major servers (HTTP, DNS, POP3, FTP, TFTP, DHCP)
 
 ### Phase 2: Next-Generation Features and Enterprise Support
 

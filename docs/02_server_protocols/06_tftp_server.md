@@ -10,6 +10,7 @@ JumboDogX TFTPサーバーは、シンプルなファイル転送サービスを
 - ブロックサイズオプション (RFC 2348)
 - タイムアウトオプション (RFC 2349)
 - 転送サイズオプション (RFC 2349)
+- ACL (アクセス制御)
 
 ### 1.2 用途
 
@@ -52,10 +53,23 @@ Jdx.Servers.Tftp/
     "RootDirectory": "./tftp",
     "AllowRead": true,
     "AllowWrite": true,
-    "MaxBlockSize": 65464
+    "MaxBlockSize": 65464,
+    "EnableAcl": true,
+    "AclRules": [
+      {
+        "Allow": ["192.168.1.0/24", "10.0.0.0/8"],
+        "Deny": ["*"]
+      }
+    ]
   }
 }
 ```
+
+**ACL設定:**
+- `EnableAcl`: ACL機能の有効/無効
+- `Allow`: 許可するIPアドレス/ネットワーク
+- `Deny`: 拒否するIPアドレス/ネットワーク
+- ルールは上から順に評価
 
 ## 4. TFTPパケット
 
@@ -142,3 +156,7 @@ tftp localhost
 tftp> get testfile.txt
 tftp> put upload.txt
 ```
+
+## 更新履歴
+
+- 2026-01-24: ACL（アクセス制御リスト）機能の追加
