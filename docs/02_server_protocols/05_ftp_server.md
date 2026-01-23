@@ -12,6 +12,7 @@ JumboDogX FTPサーバーは、ファイル転送サービスを提供します�
 - TLS/FTPS
 - 仮想ディレクトリ
 - ユーザー認証
+- ACL (アクセス制御)
 
 ## 2. プロジェクト構造
 
@@ -134,6 +135,29 @@ C: AUTH TLS
 S: 234 Using authentication type TLS
 ```
 
+### 6.2 ACL設定
+
+IPアドレスベースのアクセス制御が可能です。
+
+```json
+{
+  "Ftp": {
+    "EnableAcl": true,
+    "AclRules": [
+      {
+        "Allow": ["192.168.1.0/24", "10.0.0.0/8"],
+        "Deny": ["*"]
+      }
+    ]
+  }
+}
+```
+
+**ACLの動作:**
+- 許可リストに一致するIPアドレスからの接続を許可
+- 拒否リストに一致する場合は接続を拒否
+- ルールは上から順に評価
+
 ## 7. テスト
 
 ```bash
@@ -143,3 +167,7 @@ ftp localhost
 # curlでテスト
 curl ftp://localhost/file.txt -u user:pass
 ```
+
+## 更新履歴
+
+- 2026-01-24: ACL（アクセス制御リスト）機能の追加

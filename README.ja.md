@@ -53,18 +53,18 @@ jdx/
 - サーバーリファクタリング Phase 1-3 完了（PR #13, #14）
 
 ### サーバー実装
-- HTTP/HTTPS サーバー実装済み（Range Requests、Keep-Alive、Virtual Host、SSL/TLS構造）
-- DNS サーバー実装済み（A、AAAA、CNAME、MX、NS、PTR、SOAレコード）
+- HTTP/HTTPS サーバー実装済み（Range Requests、Keep-Alive、Virtual Host、SSL/TLS、ACL、証明書検証）
+- DNS サーバー実装済み（A、AAAA、CNAME、MX、NS、PTR、SOAレコード、ACL）
 - SMTP サーバー実装済み（認証付きメール送信）
-- POP3 サーバー実装済み（認証付きメール受信）
+- POP3 サーバー実装済み（認証付きメール受信、ACL）
 - FTP サーバー実装済み（ファイル転送、ユーザー管理、ACL）
-- DHCP サーバー実装済み（IPアドレス割り当て、リース管理）
-- TFTP サーバー実装済み（簡易ファイル転送）
+- DHCP サーバー実装済み（IPアドレス割り当て、リース管理、MACベースACL）
+- TFTP サーバー実装済み（簡易ファイル転送、ACL）
 - Proxy サーバー実装済み（HTTPプロキシ、キャッシュ、URLフィルタリング）
 
 ### Web UI（Blazor Server）
 - Dashboard実装済み（サーバー状態監視）
-- Logs実装済み（リアルタイムログ表示）
+- Logs実装済み（IPアドレス追跡機能付きリアルタイムログ表示）
 - 全サーバーの設定ページ実装済み（100%カバレッジ）
   - HTTP/HTTPS: General、Document、CGI、SSI、WebDAV、Alias & MIME、Authentication、Template、ACL、Virtual Hosts、SSL/TLS、Advanced
   - DNS: General、Recordsマネージメント
@@ -77,8 +77,10 @@ jdx/
 - Keep-Alive実装済み（HTTP持続的接続）
 - Virtual Host実装済み（Hostヘッダーベースのルーティング）
 - SSL/TLS基本構造実装済み（証明書管理）
-- SSL/TLS完全統合（実際のSSL通信）は未実装
-- AttackDb ACL自動追加機能は未実装
+- SSL/TLS完全統合完了（実際のSSL通信 - PR #20）
+- SSL/TLS証明書検証実装済み（自動証明書検証）
+- AttackDb ACL自動追加完了（PR #18）
+- ACL（アクセス制御リスト）実装済み（HTTP、DNS、POP3、FTP、TFTP、DHCPの全主要サーバー）
 
 ## 必要環境
 
