@@ -57,11 +57,34 @@ Jdx.Servers.Http/
     {
       "HostName": "example.local",
       "DocumentRoot": "./www/example",
-      "Port": 80
+      "Port": 80,
+      "Protocol": "HTTP"
     }
   ]
 }
 ```
+
+**Protocol属性:**
+- `"HTTP"`: HTTP接続のみ（デフォルト）
+- `"HTTPS"`: HTTPS接続（SSL/TLS有効化）
+
+### 3.3 SSL/TLS証明書設定
+
+```json
+{
+  "Http": {
+    "CertificatePath": "./certs/server.pfx",
+    "CertificatePassword": "password"
+  }
+}
+```
+
+**証明書検証:**
+- Web UIでHTTPSを有効化する際、証明書の自動検証を実施
+- 証明書ファイルの存在確認
+- パスワードの検証
+- 有効期限チェック（NotBefore/NotAfter）
+- 検証失敗時はHTTPSを有効化できない
 
 ## 4. 機能詳細
 
@@ -130,3 +153,8 @@ Basic認証とDigest認証をサポート。
 ```bash
 dotnet test tests/Jdx.Servers.Http.Tests
 ```
+
+## 更新履歴
+
+- 2026-01-24: HTTPS有効化時の証明書検証機能を実装
+- 2026-01-24: Virtual HostにProtocol属性を追加しHTTP/HTTPS制御を改善
