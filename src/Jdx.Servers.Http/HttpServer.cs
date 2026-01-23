@@ -18,7 +18,7 @@ namespace Jdx.Servers.Http;
 public class HttpServer : ServerBase
 {
     private readonly ISettingsService? _settingsService;
-    private readonly Action<LogLevel, string, string>? _logCallback;
+    private readonly Action<LogLevel, string, string, string?>? _logCallback;
     private readonly ReaderWriterLockSlim _settingsLock = new ReaderWriterLockSlim();
     private int _port;
     private string _bindAddress = "0.0.0.0";
@@ -46,7 +46,7 @@ public class HttpServer : ServerBase
     /// <summary>
     /// 通常モードのコンストラクタ（ISettingsServiceから全体設定を読み込む）
     /// </summary>
-    public HttpServer(ILogger<HttpServer> logger, ISettingsService settingsService, Action<LogLevel, string, string>? logCallback = null) : base(logger)
+    public HttpServer(ILogger<HttpServer> logger, ISettingsService settingsService, Action<LogLevel, string, string, string?>? logCallback = null) : base(logger)
     {
         _settingsService = settingsService;
         _logCallback = logCallback;
@@ -68,7 +68,7 @@ public class HttpServer : ServerBase
     /// <summary>
     /// VirtualHost専用モードのコンストラクタ
     /// </summary>
-    public HttpServer(ILogger<HttpServer> logger, VirtualHostEntry virtualHostEntry, HttpServerSettings parentSettings, ISettingsService? settingsService = null, Action<LogLevel, string, string>? logCallback = null) : base(logger)
+    public HttpServer(ILogger<HttpServer> logger, VirtualHostEntry virtualHostEntry, HttpServerSettings parentSettings, ISettingsService? settingsService = null, Action<LogLevel, string, string, string?>? logCallback = null) : base(logger)
     {
         _settingsService = settingsService;
         _logCallback = logCallback;
@@ -490,7 +490,8 @@ public class HttpServer : ServerBase
             _logCallback?.Invoke(
                 LogLevel.Warning,
                 _name,
-                $"ACL denied connection from {remoteIp}");
+                $"ACL denied connection from {remoteIp}",
+                remoteIp);
 
             Statistics.TotalErrors++;
             Metrics.IncrementErrors();
@@ -651,7 +652,8 @@ public class HttpServer : ServerBase
                     _logCallback?.Invoke(
                         response.StatusCode >= 400 ? LogLevel.Warning : LogLevel.Information,
                         _name,
-                        $"{request.Method} {request.Path} - {response.StatusCode} ({bytesSent} bytes)");
+                        $"{request.Method} {request.Path} - {response.StatusCode} ({bytesSent} bytes)",
+                        remoteIp);
                 }
                 catch (OperationCanceledException) when (keepAliveCts.Token.IsCancellationRequested)
                 {
