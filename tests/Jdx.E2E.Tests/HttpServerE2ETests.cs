@@ -28,6 +28,8 @@ public class HttpServerE2ETests : IAsyncLifetime
             settings.DocumentRoot = _testDocRoot;
             settings.WelcomeFileName = "index.html";
             settings.MaxConnections = 10;
+            settings.EnableAcl = 1;  // Deny mode with empty list = allow all
+            settings.AclList = new List<Core.Settings.AclEntry>();
         });
 
         var logger = TestLoggerFactory.CreateNullLogger<HttpServer>();

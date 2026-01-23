@@ -23,6 +23,8 @@ public class DnsServerE2ETests : IAsyncLifetime
             Port = _testPort,
             BindAddress = "127.0.0.1",
             UseRecursion = false,
+            EnableAcl = 1,  // Deny mode with empty list = allow all
+            AclList = new List<AclEntry>(),
             DomainList = new List<DnsDomainEntry>
             {
                 new DnsDomainEntry { Name = _testDomain }
