@@ -1,4 +1,5 @@
 @page "/settings/dns/resources"
+@page "/settings/dns/{DomainIndex}/resources"
 @rendermode InteractiveServer
 @using Jdx.Core.Settings
 @using Jdx.WebUI.Services
@@ -8,8 +9,8 @@
 
 <div class="page-container">
     <div class="page-header">
-        <h1>DNS - Resource Records</h1>
-        <p class="subtitle">Configure DNS resource records for authoritative domains</p>
+        <h1>DNS - Resource Records@(currentDomain != null ? $" for {currentDomain.Name}" : "")</h1>
+        <p class="subtitle">Configure DNS resource records@(currentDomain != null ? $" for {currentDomain.Name}" : " for authoritative domains")</p>
     </div>
 
     @if (saveMessage != null)
@@ -24,7 +25,7 @@
         <div class="col-md-12">
             <div class="settings-card mb-4">
                 <div class="card-header">
-                    <h5 class="mb-0">DNS Resource Records</h5>
+                    <h5 class="mb-0">DNS Resource Records@(currentDomain != null ? $" for {currentDomain.Name}" : "")</h5>
                 </div>
                 <div class="card-body">
                     <p class="text-muted">
@@ -43,7 +44,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var (resource, index) in settings.DnsServer.ResourceList.Select((r, i) => (r, i)))
+                            @foreach (var (resource, index) in filteredResources.Select((r, i) => (r, i)))
                             {
                                 <tr>
                                     <td>
@@ -90,7 +91,7 @@
                                         }
                                     </td>
                                     <td>
-                                        <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-danger" @onclick="() => RemoveResource(index)">
+                                        <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-danger" @onclick="() => RemoveResource(resource)">
                                             Remove
                                         </button>
                                     </td>
@@ -131,90 +132,183 @@
 </div>
 
 @code {
+    [Parameter]
+    public string? DomainIndex { get; set; }
+
     private ApplicationSettings settings = new();
+    private DnsDomainEntry? currentDomain;
+    private List<DnsResourceEntry> filteredResources = new();
     private string? saveMessage;
     private bool saveSuccess;
 
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
+        LoadDomainAndFilter();
+    }
+
+    protected override void OnParametersSet()
+    {
+        LoadDomainAndFilter();
+    }
+
+    private void LoadDomainAndFilter()
+    {
+        if (!string.IsNullOrEmpty(DomainIndex) &&
+            int.TryParse(DomainIndex, out var index) &&
+            index >= 0 && index < settings.DnsServer.DomainList.Count)
+        {
+            // Specific domain - filter resources
+            currentDomain = settings.DnsServer.DomainList[index];
+            FilterResources();
+        }
+        else
+        {
+            // All domains - show all resources
+            currentDomain = null;
+            filteredResources = settings.DnsServer.ResourceList;
+        }
+    }
+
+    private void FilterResources()
+    {
+        if (currentDomain != null && !string.IsNullOrEmpty(currentDomain.Name))
+        {
+            filteredResources = settings.DnsServer.ResourceList
+                .Where(r => r.Name == currentDomain.Name || r.Name.EndsWith("." + currentDomain.Name))
+                .ToList();
+        }
+        else
+        {
+            filteredResources = settings.DnsServer.ResourceList;
+        }
     }
 
     private void AddResource()
     {
-        settings.DnsServer.ResourceList.Add(new DnsResourceEntry
+        var newResource = new DnsResourceEntry
         {
             Type = DnsType.A,
-            Name = "",
+            Name = currentDomain?.Name ?? "",
             Alias = "",
             Address = "",
             Priority = 0
-        });
+        };
+        settings.DnsServer.ResourceList.Add(newResource);
+        LoadDomainAndFilter();
     }
 
-    private void RemoveResource(int index)
+    private void RemoveResource(DnsResourceEntry resource)
     {
-        if (index >= 0 && index < settings.DnsServer.ResourceList.Count)
-        {
-            settings.DnsServer.ResourceList.RemoveAt(index);
-        }
+        settings.DnsServer.ResourceList.Remove(resource);
+        LoadDomainAndFilter();
     }
 
     private void AddExampleRecords()
     {
-        // Add localhost A record
-        if (!settings.DnsServer.ResourceList.Any(r => r.Name == "localhost" && r.Type == DnsType.A))
+        if (currentDomain != null)
         {
-            settings.DnsServer.ResourceList.Add(new DnsResourceEntry
+            // Add examples for specific domain
+            var domainName = currentDomain.Name;
+
+            // Add A record for domain
+            if (!settings.DnsServer.ResourceList.Any(r => r.Name == domainName && r.Type == DnsType.A))
             {
-                Type = DnsType.A,
-                Name = "localhost",
-                Address = "127.0.0.1",
-                Priority = 0
-            });
+                settings.DnsServer.ResourceList.Add(new DnsResourceEntry
+                {
+                    Type = DnsType.A,
+                    Name = domainName,
+                    Address = "192.0.2.1",
+                    Priority = 0
+                });
+            }
+
+            // Add www CNAME record
+            var wwwName = "www." + domainName;
+            if (!settings.DnsServer.ResourceList.Any(r => r.Name == wwwName && r.Type == DnsType.Cname))
+            {
+                settings.DnsServer.ResourceList.Add(new DnsResourceEntry
+                {
+                    Type = DnsType.Cname,
+                    Name = wwwName,
+                    Alias = domainName,
+                    Priority = 0
+                });
+            }
+
+            // Add MX record
+            var mailName = "mail." + domainName;
+            if (!settings.DnsServer.ResourceList.Any(r => r.Name == domainName && r.Type == DnsType.Mx))
+            {
+                settings.DnsServer.ResourceList.Add(new DnsResourceEntry
+                {
+                    Type = DnsType.Mx,
+                    Name = domainName,
+                    Address = mailName,
+                    Priority = 10
+                });
+            }
+        }
+        else
+        {
+            // Add general examples
+            // Add localhost A record
+            if (!settings.DnsServer.ResourceList.Any(r => r.Name == "localhost" && r.Type == DnsType.A))
+            {
+                settings.DnsServer.ResourceList.Add(new DnsResourceEntry
+                {
+                    Type = DnsType.A,
+                    Name = "localhost",
+                    Address = "127.0.0.1",
+                    Priority = 0
+                });
+            }
+
+            // Add localhost AAAA record
+            if (!settings.DnsServer.ResourceList.Any(r => r.Name == "localhost" && r.Type == DnsType.Aaaa))
+            {
+                settings.DnsServer.ResourceList.Add(new DnsResourceEntry
+                {
+                    Type = DnsType.Aaaa,
+                    Name = "localhost",
+                    Address = "::1",
+                    Priority = 0
+                });
+            }
+
+            // Add test.local A record
+            if (!settings.DnsServer.ResourceList.Any(r => r.Name == "test.local" && r.Type == DnsType.A))
+            {
+                settings.DnsServer.ResourceList.Add(new DnsResourceEntry
+                {
+                    Type = DnsType.A,
+                    Name = "test.local",
+                    Address = "192.168.1.100",
+                    Priority = 0
+                });
+            }
         }
 
-        // Add localhost AAAA record
-        if (!settings.DnsServer.ResourceList.Any(r => r.Name == "localhost" && r.Type == DnsType.Aaaa))
-        {
-            settings.DnsServer.ResourceList.Add(new DnsResourceEntry
-            {
-                Type = DnsType.Aaaa,
-                Name = "localhost",
-                Address = "::1",
-                Priority = 0
-            });
-        }
-
-        // Add test.local A record
-        if (!settings.DnsServer.ResourceList.Any(r => r.Name == "test.local" && r.Type == DnsType.A))
-        {
-            settings.DnsServer.ResourceList.Add(new DnsResourceEntry
-            {
-                Type = DnsType.A,
-                Name = "test.local",
-                Address = "192.168.1.100",
-                Priority = 0
-            });
-        }
-
+        LoadDomainAndFilter();
         saveMessage = "Example resource records added. Click Save to apply.";
         saveSuccess = true;
     }
 
     private string GetPlaceholder(DnsType type, string field)
     {
+        var exampleDomain = currentDomain?.Name ?? "example.com";
+
         if (field == "name")
         {
             return type switch
             {
-                DnsType.A => "example.com",
-                DnsType.Aaaa => "example.com",
-                DnsType.Cname => "www.example.com",
-                DnsType.Mx => "example.com",
-                DnsType.Ns => "example.com",
+                DnsType.A => exampleDomain,
+                DnsType.Aaaa => exampleDomain,
+                DnsType.Cname => "www." + exampleDomain,
+                DnsType.Mx => exampleDomain,
+                DnsType.Ns => exampleDomain,
                 DnsType.Ptr => "1.0.168.192.in-addr.arpa",
-                DnsType.Soa => "example.com",
+                DnsType.Soa => exampleDomain,
                 _ => "hostname"
             };
         }
@@ -224,10 +318,10 @@
             {
                 DnsType.A => "192.0.2.1",
                 DnsType.Aaaa => "2001:db8::1",
-                DnsType.Mx => "mail.example.com",
-                DnsType.Ns => "ns1.example.com",
-                DnsType.Ptr => "example.com",
-                DnsType.Soa => "ns1.example.com",
+                DnsType.Mx => "mail." + exampleDomain,
+                DnsType.Ns => "ns1." + exampleDomain,
+                DnsType.Ptr => exampleDomain,
+                DnsType.Soa => "ns1." + exampleDomain,
                 _ => ""
             };
         }
