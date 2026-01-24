@@ -177,7 +177,7 @@
 
 .submenu-subtitle {
     flex-grow: 1;
-    font-size: 1.1rem !important;
+    font-size: 0.85rem !important;
     font-weight: 600 !important;
 }
 
@@ -198,6 +198,68 @@
 }
 
 .submenu-subitem:hover {
+    background-color: rgba(255,255,255,0.08) !important;
+}
+
+/* Virtual Hosts clickable subtitle */
+.submenu-subtitle-clickable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.submenu-subtitle-clickable:hover {
+    color: white;
+}
+
+/* Fourth level - Individual Virtual Host items */
+.submenu-subsubsection {
+    margin-bottom: 0.25rem;
+    margin-left: 1rem;
+}
+
+.submenu-subsubheader {
+    color: #d7d7d7 !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    min-height: 2.5rem;
+}
+
+.submenu-subsubheader:hover {
+    background-color: rgba(255,255,255,0.05);
+    border-radius: 4px;
+}
+
+.submenu-subsubtitle {
+    flex-grow: 1;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    color: #d7d7d7 !important;
+}
+
+.submenu-subsubitems {
+    margin-left: 1rem;
+}
+
+.submenu-subsubitem {
+    font-size: 0.8rem !important;
+    height: 2.5rem !important;
+    line-height: 2.5rem !important;
+    padding-left: 4.5rem !important;
+}
+
+.submenu-subsubitem.active {
+    background-color: rgba(255,255,255,0.25) !important;
+    border-left: 3px solid #fff;
+}
+
+.submenu-subsubitem:hover {
     background-color: rgba(255,255,255,0.08) !important;
 }
 
