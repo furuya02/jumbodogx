@@ -21,131 +21,42 @@
         </div>
     }
 
-    <!-- ACL Mode Selection -->
-    <div class="settings-card">
-        <div class="card-header">
-            <h5>ACL Mode</h5>
-        </div>
-        <div class="card-body">
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label class="form-label">Access Control Mode</label>
-                    <select class="form-select" @bind="EnableAcl">
-                        <option value="0">Allow Mode (Allowlist)</option>
-                        <option value="1">Deny Mode (Denylist)</option>
-                    </select>
-                    <div class="form-text">
-                        <strong>Allow Mode:</strong> Only listed IP addresses are allowed (default deny)<br>
-                        <strong>Deny Mode:</strong> Only listed IP addresses are denied (default allow)
+    <div class="row">
+        <div class="col-md-10">
+            <!-- Use Shared ACL Manager -->
+            <AclManager ServerName="http"
+                        IsVirtualHost="@isVirtualHost"
+                        VirtualHostName="@virtualHostName"
+                        EnableAcl="@EnableAcl"
+                        EnableAclChanged="@OnEnableAclChanged"
+                        AclList="@CurrentAclList"
+                        AclListChanged="@OnAclListChanged">
+                <HelpSection>
+                    <div class="alert alert-info">
+                        <strong>Supported Address Formats:</strong>
+                        <ul class="mb-0">
+                            <li><strong>Single IP:</strong> 192.168.1.100</li>
+                            <li><strong>IP Range (CIDR):</strong> 192.168.1.0/24</li>
+                            <li><strong>IP Range (Start-End):</strong> 192.168.1.1-192.168.1.254</li>
+                            <li><strong>Wildcard:</strong> 192.168.1.* (matches 192.168.1.0-192.168.1.255)</li>
+                        </ul>
                     </div>
-                </div>
+                    <div class="alert alert-warning">
+                        <strong>Important:</strong> ACL changes require server restart to take effect.
+                        Be careful when using Allow Mode - ensure you add your own IP address first!
+                    </div>
+                </HelpSection>
+            </AclManager>
+
+            <!-- Save Buttons -->
+            <div class="border-top pt-3 mt-4">
+                <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg me-2" @onclick="SaveSettings">
+                    Save Settings
+                </button>
+                <button class="btn btn-dashboard btn-dashboard-outline btn-dashboard-lg" @onclick="ResetToDefault">
+                    Reset to Default
+                </button>
             </div>
-        </div>
-    </div>
-
-    <!-- ACL List -->
-    <div class="settings-card">
-        <div class="card-header">
-            <h5>ACL Entries</h5>
-        </div>
-        <div class="card-body">
-            <p class="text-muted">
-                Configure IP address-based access control rules.
-                @if ((isVirtualHost ? currentVHostSettings.EnableAcl : settings.HttpServer.EnableAcl) == 0)
-                {
-                    <text><strong>Current mode: Allow Mode</strong> - Only listed addresses are permitted.</text>
-                }
-                else
-                {
-                    <text><strong>Current mode: Deny Mode</strong> - Only listed addresses are blocked.</text>
-                }
-            </p>
-
-            @if ((isVirtualHost ? currentVHostSettings.AclList : settings.HttpServer.AclList) == null || (isVirtualHost ? currentVHostSettings.AclList : settings.HttpServer.AclList).Count == 0)
-            {
-                <div class="alert-modern alert-info">
-                    No ACL entries configured. Click "Add ACL Entry" to create one.
-                </div>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th style="width: 30%">Name</th>
-                                <th style="width: 50%">IP Address / Range</th>
-                                <th style="width: 20%">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var (acl, index) in (isVirtualHost ? currentVHostSettings.AclList : settings.HttpServer.AclList).Select((a, i) => (a, i)))
-                            {
-                                <tr>
-                                    <td>
-                                        <input type="text" class="form-control form-control-sm"
-                                               @bind="acl.Name"
-                                               placeholder="Entry name">
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control form-control-sm"
-                                               @bind="acl.Address"
-                                               placeholder="192.168.1.0/24 or 192.168.1.100">
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-danger" @onclick="() => RemoveAclEntry(index)">
-                                            <span class="bi bi-trash"></span> Remove
-                                        </button>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-
-            <button class="btn btn-success" @onclick="AddAclEntry">
-                <span class="bi bi-plus-circle me-1"></span> Add ACL Entry
-            </button>
-        </div>
-    </div>
-
-    <!-- Information -->
-    <div class="settings-card">
-        <div class="card-header">
-            <h5>ACL Configuration Guide</h5>
-        </div>
-        <div class="card-body">
-            <h6>Supported Address Formats:</h6>
-            <ul>
-                <li><strong>Single IP:</strong> 192.168.1.100</li>
-                <li><strong>IP Range (CIDR):</strong> 192.168.1.0/24</li>
-                <li><strong>IP Range (Start-End):</strong> 192.168.1.1-192.168.1.254</li>
-                <li><strong>Wildcard:</strong> 192.168.1.* (matches 192.168.1.0-192.168.1.255)</li>
-            </ul>
-
-            <h6 class="mt-3">Examples:</h6>
-            <ul>
-                <li><strong>Allow Mode:</strong> Add trusted IP addresses to allow access (all others denied)</li>
-                <li><strong>Deny Mode:</strong> Add malicious IP addresses to block access (all others allowed)</li>
-            </ul>
-
-            <div class="alert-modern alert-warning mt-3">
-                <strong>Important:</strong> ACL changes require server restart to take effect.
-                Be careful when using Allow Mode - ensure you add your own IP address first!
-            </div>
-        </div>
-    </div>
-
-    <!-- Save Buttons -->
-    <div class="settings-card">
-        <div class="card-body">
-            <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg me-2" @onclick="SaveSettings">
-                Save Settings
-            </button>
-            <button class="btn btn-dashboard btn-dashboard-outline btn-dashboard-lg" @onclick="ResetToDefault">
-                Reset to Default
-            </button>
         </div>
     </div>
 </div>
@@ -161,6 +72,7 @@
     private bool isVirtualHost => !string.IsNullOrEmpty(VhostId);
     private string virtualHostName = "";
 
+    // Smart property for EnableAcl (handles VHost vs Main)
     private int EnableAcl
     {
         get => isVirtualHost ? currentVHostSettings.EnableAcl : settings.HttpServer.EnableAcl;
@@ -170,6 +82,19 @@
                 currentVHostSettings.EnableAcl = value;
             else
                 settings.HttpServer.EnableAcl = value;
+        }
+    }
+
+    // Smart property for AclList (handles VHost vs Main)
+    private List<AclEntry> CurrentAclList
+    {
+        get => isVirtualHost ? (currentVHostSettings.AclList ?? new()) : (settings.HttpServer.AclList ?? new());
+        set
+        {
+            if (isVirtualHost)
+                currentVHostSettings.AclList = value;
+            else
+                settings.HttpServer.AclList = value;
         }
     }
 
@@ -190,65 +115,23 @@
         if (isVirtualHost)
         {
             if (currentVHostSettings.AclList == null)
-            {
                 currentVHostSettings.AclList = new List<AclEntry>();
-            }
         }
         else
         {
             if (settings.HttpServer.AclList == null)
-            {
                 settings.HttpServer.AclList = new List<AclEntry>();
-            }
         }
     }
 
-    private void AddAclEntry()
+    private void OnEnableAclChanged(int value)
     {
-        if (isVirtualHost)
-        {
-            if (currentVHostSettings.AclList == null)
-            {
-                currentVHostSettings.AclList = new List<AclEntry>();
-            }
-
-            currentVHostSettings.AclList.Add(new AclEntry
-            {
-                Name = "",
-                Address = ""
-            });
-        }
-        else
-        {
-            if (settings.HttpServer.AclList == null)
-            {
-                settings.HttpServer.AclList = new List<AclEntry>();
-            }
-
-            settings.HttpServer.AclList.Add(new AclEntry
-            {
-                Name = "",
-                Address = ""
-            });
-        }
+        EnableAcl = value;
     }
 
-    private void RemoveAclEntry(int index)
+    private void OnAclListChanged(List<AclEntry> list)
     {
-        if (isVirtualHost)
-        {
-            if (currentVHostSettings.AclList != null && index >= 0 && index < currentVHostSettings.AclList.Count)
-            {
-                currentVHostSettings.AclList.RemoveAt(index);
-            }
-        }
-        else
-        {
-            if (settings.HttpServer.AclList != null && index >= 0 && index < settings.HttpServer.AclList.Count)
-            {
-                settings.HttpServer.AclList.RemoveAt(index);
-            }
-        }
+        CurrentAclList = list;
     }
 
     private async Task SaveSettings()

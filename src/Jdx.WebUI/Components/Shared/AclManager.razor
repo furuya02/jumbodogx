@@ -1,0 +1,198 @@
+@* ACL Manager - Shared Component for Access Control List Management *@
+@using Jdx.Core.Settings
+
+<!-- ACL Mode Selection -->
+<div class="settings-card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">ACL Mode</h5>
+    </div>
+    <div class="card-body">
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="@GetRadioGroupName()" id="@GetAllowModeId()"
+                   checked="@(EnableAcl == 0)"
+                   @onchange="() => OnEnableAclChange(0)">
+            <label class="form-check-label" for="@GetAllowModeId()">
+                <strong>Allow Mode</strong> - Only listed addresses are permitted
+            </label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="@GetRadioGroupName()" id="@GetDenyModeId()"
+                   checked="@(EnableAcl == 1)"
+                   @onchange="() => OnEnableAclChange(1)">
+            <label class="form-check-label" for="@GetDenyModeId()">
+                <strong>Deny Mode</strong> - Listed addresses are blocked
+            </label>
+        </div>
+        <div class="alert alert-info mt-3">
+            @if (EnableAcl == 0)
+            {
+                <text><strong>Current mode: Allow Mode</strong> - Only listed addresses are permitted.</text>
+            }
+            else
+            {
+                <text><strong>Current mode: Deny Mode</strong> - Listed addresses are blocked.</text>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Warning Section (if provided) -->
+@if (WarningSection != null)
+{
+    @WarningSection
+}
+
+<!-- ACL List -->
+<div class="settings-card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Access Control List</h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">
+            Define IP addresses or ranges to allow/deny. Supports individual IPs (192.168.1.1) and CIDR notation (192.168.1.0/24).
+        </p>
+
+        @if (AclList.Count == 0)
+        {
+            <div class="alert alert-warning">
+                @if (!string.IsNullOrEmpty(EmptyListWarning))
+                {
+                    @EmptyListWarning
+                }
+                else
+                {
+                    <text>No ACL entries configured.</text>
+                    @if (EnableAcl == 0)
+                    {
+                        <text> In Allow Mode, this means no connections will be accepted!</text>
+                    }
+                }
+            </div>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>IP Address / Range</th>
+                        <th style="width: 100px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var (acl, index) in AclList.Select((a, i) => (a, i)))
+                    {
+                        <tr>
+                            <td>
+                                <input type="text" class="form-control" @bind="acl.Name"
+                                       placeholder="Description">
+                            </td>
+                            <td>
+                                <input type="text" class="form-control" @bind="acl.Address"
+                                       placeholder="192.168.1.0/24 or 192.168.1.1">
+                            </td>
+                            <td>
+                                <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-danger"
+                                        @onclick="() => RemoveAcl(index)">
+                                    @RemoveButtonText
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-primary" @onclick="AddAcl">
+            @AddButtonText
+        </button>
+
+        <!-- Additional Buttons (if provided) -->
+        @if (AdditionalButtons != null)
+        {
+            <span class="ms-2">
+                @AdditionalButtons
+            </span>
+        }
+
+        <!-- Help Section (if provided) -->
+        @if (HelpSection != null)
+        {
+            <div class="mt-3">
+                @HelpSection
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    // Required Parameters
+    [Parameter, EditorRequired]
+    public string ServerName { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public int EnableAcl { get; set; }
+
+    [Parameter, EditorRequired]
+    public EventCallback<int> EnableAclChanged { get; set; }
+
+    [Parameter, EditorRequired]
+    public List<AclEntry> AclList { get; set; } = new();
+
+    [Parameter, EditorRequired]
+    public EventCallback<List<AclEntry>> AclListChanged { get; set; }
+
+    // Optional Parameters
+    [Parameter]
+    public RenderFragment? AdditionalButtons { get; set; }
+
+    [Parameter]
+    public RenderFragment? HelpSection { get; set; }
+
+    [Parameter]
+    public RenderFragment? WarningSection { get; set; }
+
+    [Parameter]
+    public string? EmptyListWarning { get; set; }
+
+    [Parameter]
+    public string AddButtonText { get; set; } = "+ Add ACL Entry";
+
+    [Parameter]
+    public string RemoveButtonText { get; set; } = "Delete";
+
+    // Optional - Virtual Host Support
+    [Parameter]
+    public bool IsVirtualHost { get; set; } = false;
+
+    [Parameter]
+    public string? VirtualHostName { get; set; }
+
+    // Private Methods
+    private async Task OnEnableAclChange(int value)
+    {
+        await EnableAclChanged.InvokeAsync(value);
+    }
+
+    private void AddAcl()
+    {
+        AclList.Add(new AclEntry
+        {
+            Name = "",
+            Address = ""
+        });
+    }
+
+    private void RemoveAcl(int index)
+    {
+        if (index >= 0 && index < AclList.Count)
+        {
+            AclList.RemoveAt(index);
+        }
+    }
+
+    // Unique ID generation for radio buttons
+    private string GetRadioGroupName() => $"aclMode_{ServerName}";
+    private string GetAllowModeId() => $"allowMode_{ServerName}";
+    private string GetDenyModeId() => $"denyMode_{ServerName}";
+}
