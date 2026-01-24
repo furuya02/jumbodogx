@@ -22,119 +22,38 @@
 
     <div class="row">
         <div class="col-md-10">
-            <!-- ACL Mode Selection -->
-            <div class="settings-card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">ACL Mode</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Access Control Mode</label>
-                            <select class="form-select" @bind="settings.ProxyServer.EnableAcl">
-                                <option value="0">Allow Mode (Allowlist)</option>
-                                <option value="1">Deny Mode (Denylist)</option>
-                            </select>
-                            <div class="form-text">
-                                <strong>Allow Mode:</strong> Only listed IP addresses can use the proxy (default deny)<br>
-                                <strong>Deny Mode:</strong> Listed IP addresses cannot use the proxy (default allow)
+            <!-- Use Shared ACL Manager -->
+            <AclManager ServerName="proxy"
+                        EnableAcl="@settings.ProxyServer.EnableAcl"
+                        EnableAclChanged="@OnEnableAclChanged"
+                        AclList="@settings.ProxyServer.AclList"
+                        AclListChanged="@OnAclListChanged">
+                <HelpSection>
+                    <div class="settings-card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">IP Address Format Help</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-2">Supported formats for IP address entries:</p>
+                            <ul>
+                                <li><strong>Single IP:</strong> <code>192.168.1.100</code></li>
+                                <li><strong>CIDR Range:</strong> <code>192.168.1.0/24</code> (matches 192.168.1.0 - 192.168.1.255)</li>
+                                <li><strong>Wildcard:</strong> <code>192.168.*.*</code> (matches all 192.168.x.x)</li>
+                                <li><strong>Range:</strong> <code>192.168.1.1-192.168.1.50</code></li>
+                            </ul>
+
+                            <div class="alert alert-warning mt-3 mb-0">
+                                <strong>Important:</strong>
+                                <ul class="mb-0">
+                                    <li>In <strong>Allow Mode</strong>, if no entries exist, ALL connections are denied</li>
+                                    <li>In <strong>Deny Mode</strong>, if no entries exist, ALL connections are allowed</li>
+                                    <li>Test your ACL configuration carefully to avoid locking yourself out</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- ACL List -->
-            <div class="settings-card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">ACL Entries</h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted">
-                        Configure IP address-based access control rules for the proxy server.
-                        @if (settings.ProxyServer.EnableAcl == 0)
-                        {
-                            <text><strong>Current mode: Allow Mode</strong> - Only listed addresses can use the proxy.</text>
-                        }
-                        else
-                        {
-                            <text><strong>Current mode: Deny Mode</strong> - Listed addresses are blocked from using the proxy.</text>
-                        }
-                    </p>
-
-                    @if (settings.ProxyServer.AclList == null || settings.ProxyServer.AclList.Count == 0)
-                    {
-                        <div class="alert alert-info">
-                            No ACL entries configured. Click "Add ACL Entry" to create one.
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 30%">Name</th>
-                                        <th style="width: 50%">IP Address / Range</th>
-                                        <th style="width: 20%">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var (acl, index) in settings.ProxyServer.AclList.Select((a, i) => (a, i)))
-                                    {
-                                        <tr>
-                                            <td>
-                                                <input type="text" class="form-control form-control-sm"
-                                                       @bind="acl.Name"
-                                                       placeholder="Entry name">
-                                            </td>
-                                            <td>
-                                                <input type="text" class="form-control form-control-sm"
-                                                       @bind="acl.Address"
-                                                       placeholder="192.168.1.0/24 or 192.168.1.100">
-                                            </td>
-                                            <td>
-                                                <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-danger" @onclick="() => RemoveAclEntry(index)">
-                                                    <span class="bi bi-trash"></span> Remove
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-
-                    <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-info mt-3" @onclick="AddAclEntry">
-                        <span class="bi bi-plus-circle me-1"></span> Add ACL Entry
-                    </button>
-                </div>
-            </div>
-
-            <!-- Help Information -->
-            <div class="settings-card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">IP Address Format Help</h5>
-                </div>
-                <div class="card-body">
-                    <p class="mb-2">Supported formats for IP address entries:</p>
-                    <ul>
-                        <li><strong>Single IP:</strong> <code>192.168.1.100</code></li>
-                        <li><strong>CIDR Range:</strong> <code>192.168.1.0/24</code> (matches 192.168.1.0 - 192.168.1.255)</li>
-                        <li><strong>Wildcard:</strong> <code>192.168.*.*</code> (matches all 192.168.x.x)</li>
-                        <li><strong>Range:</strong> <code>192.168.1.1-192.168.1.50</code></li>
-                    </ul>
-
-                    <div class="alert alert-warning mt-3 mb-0">
-                        <strong>Important:</strong>
-                        <ul class="mb-0">
-                            <li>In <strong>Allow Mode</strong>, if no entries exist, ALL connections are denied</li>
-                            <li>In <strong>Deny Mode</strong>, if no entries exist, ALL connections are allowed</li>
-                            <li>Test your ACL configuration carefully to avoid locking yourself out</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
+                </HelpSection>
+            </AclManager>
 
             <div class="border-top pt-3 mt-4">
                 <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg me-2" @onclick="SaveSettings">
@@ -164,21 +83,14 @@
         }
     }
 
-    private void AddAclEntry()
+    private void OnEnableAclChanged(int value)
     {
-        settings.ProxyServer.AclList.Add(new AclEntry
-        {
-            Name = "",
-            Address = ""
-        });
+        settings.ProxyServer.EnableAcl = value;
     }
 
-    private void RemoveAclEntry(int index)
+    private void OnAclListChanged(List<AclEntry> list)
     {
-        if (index >= 0 && index < settings.ProxyServer.AclList.Count)
-        {
-            settings.ProxyServer.AclList.RemoveAt(index);
-        }
+        settings.ProxyServer.AclList = list;
     }
 
     private async Task SaveSettings()

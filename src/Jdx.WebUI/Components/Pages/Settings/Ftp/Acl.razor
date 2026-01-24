@@ -22,99 +22,12 @@
 
     <div class="row">
         <div class="col-md-10">
-            <!-- ACL Mode Settings -->
-            <div class="settings-card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">ACL Mode</h5>
-                </div>
-                <div class="card-body">
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="aclMode" id="allowMode"
-                               checked="@(settings.FtpServer.EnableAcl == 0)"
-                               @onchange="() => settings.FtpServer.EnableAcl = 0">
-                        <label class="form-check-label" for="allowMode">
-                            <strong>Allow Mode</strong> - Only listed addresses are permitted
-                        </label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="aclMode" id="denyMode"
-                               checked="@(settings.FtpServer.EnableAcl == 1)"
-                               @onchange="() => settings.FtpServer.EnableAcl = 1">
-                        <label class="form-check-label" for="denyMode">
-                            <strong>Deny Mode</strong> - Listed addresses are blocked
-                        </label>
-                    </div>
-                    <div class="alert alert-info mt-3">
-                        @if (settings.FtpServer.EnableAcl == 0)
-                        {
-                            <text><strong>Current mode: Allow Mode</strong> - Only listed addresses are permitted.</text>
-                        }
-                        else
-                        {
-                            <text><strong>Current mode: Deny Mode</strong> - Listed addresses are blocked.</text>
-                        }
-                    </div>
-                </div>
-            </div>
-
-            <!-- ACL List Settings -->
-            <div class="settings-card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">Access Control List</h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted">
-                        Define IP addresses or ranges to allow/deny. Supports individual IPs (192.168.1.1) and CIDR notation (192.168.1.0/24).
-                    </p>
-
-                    @if (settings.FtpServer.AclList.Count == 0)
-                    {
-                        <div class="alert alert-warning">
-                            No ACL entries configured.
-                            @if (settings.FtpServer.EnableAcl == 0)
-                            {
-                                <text>In Allow Mode, this means no connections will be accepted!</text>
-                            }
-                        </div>
-                    }
-                    else
-                    {
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>IP Address / Range</th>
-                                    <th style="width: 100px;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var (acl, index) in settings.FtpServer.AclList.Select((a, i) => (a, i)))
-                                {
-                                    <tr>
-                                        <td>
-                                            <input type="text" class="form-control" @bind="acl.Name"
-                                                   placeholder="Description">
-                                        </td>
-                                        <td>
-                                            <input type="text" class="form-control" @bind="acl.Address"
-                                                   placeholder="192.168.1.0/24 or 192.168.1.1">
-                                        </td>
-                                        <td>
-                                            <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-danger" @onclick="() => RemoveAcl(index)">
-                                                Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-
-                    <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-primary" @onclick="AddAcl">
-                        + Add ACL Entry
-                    </button>
-                </div>
-            </div>
+            <!-- Use Shared ACL Manager -->
+            <AclManager ServerName="ftp"
+                        EnableAcl="@settings.FtpServer.EnableAcl"
+                        EnableAclChanged="@OnEnableAclChanged"
+                        AclList="@settings.FtpServer.AclList"
+                        AclListChanged="@OnAclListChanged" />
 
             <!-- Save Buttons -->
             <div class="border-top pt-3 mt-4">
@@ -137,23 +50,22 @@
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
-    }
 
-    private void AddAcl()
-    {
-        settings.FtpServer.AclList.Add(new AclEntry
+        // Initialize AclList if null
+        if (settings.FtpServer.AclList == null)
         {
-            Name = "",
-            Address = ""
-        });
-    }
-
-    private void RemoveAcl(int index)
-    {
-        if (index >= 0 && index < settings.FtpServer.AclList.Count)
-        {
-            settings.FtpServer.AclList.RemoveAt(index);
+            settings.FtpServer.AclList = new List<AclEntry>();
         }
+    }
+
+    private void OnEnableAclChanged(int value)
+    {
+        settings.FtpServer.EnableAcl = value;
+    }
+
+    private void OnAclListChanged(List<AclEntry> list)
+    {
+        settings.FtpServer.AclList = list;
     }
 
     private async Task SaveSettings()
@@ -170,8 +82,8 @@
             saveSuccess = false;
         }
 
-        // Clear message after 5 seconds
-        _ = Task.Delay(5000).ContinueWith(_ =>
+        // Clear message after 3 seconds
+        _ = Task.Delay(3000).ContinueWith(_ =>
         {
             saveMessage = null;
             InvokeAsync(StateHasChanged);
