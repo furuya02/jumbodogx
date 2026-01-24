@@ -137,6 +137,15 @@ Then, open http://localhost:5001 in your browser.
 
 For detailed instructions, see [startup.md](startup.md).
 
+## Documentation
+
+Comprehensive user manuals are available in the [manual](manual/README.md) directory:
+
+- **[User Manuals](manual/README.md)** - Server-specific guides and tutorials
+  - [HTTP/HTTPS Server Quick Start](manual/http/getting-started.md)
+  - DNS, FTP, SMTP, POP3, DHCP, TFTP, and Proxy server guides
+  - Common guides (Installation, ACL configuration, Logging, Security)
+
 ## Metrics
 
 JumboDogX provides Prometheus-compatible metrics for monitoring server performance.
