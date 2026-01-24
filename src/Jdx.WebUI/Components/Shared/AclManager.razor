@@ -161,12 +161,26 @@
     [Parameter]
     public string RemoveButtonText { get; set; } = "Delete";
 
+    // Optional - Validation
+    [Parameter]
+    public Func<List<AclEntry>, (bool IsValid, string? ErrorMessage)>? ValidationFunc { get; set; }
+
     // Optional - Virtual Host Support
     [Parameter]
     public bool IsVirtualHost { get; set; } = false;
 
     [Parameter]
     public string? VirtualHostName { get; set; }
+
+    // Public Methods
+    public (bool IsValid, string? ErrorMessage) ValidateAclList()
+    {
+        if (ValidationFunc != null)
+        {
+            return ValidationFunc(AclList);
+        }
+        return (true, null);
+    }
 
     // Private Methods
     private async Task OnEnableAclChange(int value)
@@ -192,7 +206,11 @@
     }
 
     // Unique ID generation for radio buttons
-    private string GetRadioGroupName() => $"aclMode_{ServerName}";
-    private string GetAllowModeId() => $"allowMode_{ServerName}";
-    private string GetDenyModeId() => $"denyMode_{ServerName}";
+    private string GetUniquePrefix() => IsVirtualHost && !string.IsNullOrEmpty(VirtualHostName)
+        ? $"{ServerName}_{VirtualHostName}"
+        : ServerName;
+
+    private string GetRadioGroupName() => $"aclMode_{GetUniquePrefix()}";
+    private string GetAllowModeId() => $"allowMode_{GetUniquePrefix()}";
+    private string GetDenyModeId() => $"denyMode_{GetUniquePrefix()}";
 }

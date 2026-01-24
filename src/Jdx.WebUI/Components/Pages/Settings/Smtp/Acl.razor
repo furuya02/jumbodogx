@@ -27,7 +27,8 @@
                         EnableAcl="@settings.SmtpServer.EnableAcl"
                         EnableAclChanged="@OnEnableAclChanged"
                         AclList="@settings.SmtpServer.AclList"
-                        AclListChanged="@OnAclListChanged">
+                        AclListChanged="@OnAclListChanged"
+                        ValidationFunc="@ValidateAclEntries">
                 <WarningSection>
                     <div class="alert alert-danger">
                         <strong>Open Relay Warning:</strong>
@@ -85,6 +86,12 @@
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
+
+        // Initialize AclList if null
+        if (settings.SmtpServer.AclList == null)
+        {
+            settings.SmtpServer.AclList = new List<AclEntry>();
+        }
     }
 
     private void OnEnableAclChanged(int value)
@@ -95,6 +102,18 @@
     private void OnAclListChanged(List<AclEntry> list)
     {
         settings.SmtpServer.AclList = list;
+    }
+
+    private (bool IsValid, string? ErrorMessage) ValidateAclEntries(List<AclEntry> aclList)
+    {
+        var emptyAcls = aclList.Where(a => string.IsNullOrWhiteSpace(a.Address)).ToList();
+
+        if (emptyAcls.Any())
+        {
+            return (false, "Error: ACL address cannot be empty. Please remove or fill in all entries.");
+        }
+
+        return (true, null);
     }
 
     private void AddDefaultAcl()
@@ -128,13 +147,10 @@
         try
         {
             // Validate ACL entries
-            var emptyAcls = settings.SmtpServer.AclList
-                .Where(a => string.IsNullOrWhiteSpace(a.Address))
-                .ToList();
-
-            if (emptyAcls.Any())
+            var validationResult = ValidateAclEntries(settings.SmtpServer.AclList);
+            if (!validationResult.IsValid)
             {
-                saveMessage = "Error: ACL address cannot be empty. Please remove or fill in all entries.";
+                saveMessage = validationResult.ErrorMessage;
                 saveSuccess = false;
                 return;
             }

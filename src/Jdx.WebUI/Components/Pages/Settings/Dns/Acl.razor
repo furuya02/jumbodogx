@@ -27,7 +27,8 @@
                         EnableAcl="@settings.DnsServer.EnableAcl"
                         EnableAclChanged="@OnEnableAclChanged"
                         AclList="@settings.DnsServer.AclList"
-                        AclListChanged="@OnAclListChanged">
+                        AclListChanged="@OnAclListChanged"
+                        ValidationFunc="@ValidateAclEntries">
                 <HelpSection>
                     <div class="alert alert-info">
                         <strong>Supported Formats:</strong>
@@ -61,6 +62,12 @@
     protected override void OnInitialized()
     {
         settings = SettingsService.GetSettings();
+
+        // Initialize AclList if null
+        if (settings.DnsServer.AclList == null)
+        {
+            settings.DnsServer.AclList = new List<AclEntry>();
+        }
     }
 
     private void OnEnableAclChanged(int value)
@@ -71,6 +78,18 @@
     private void OnAclListChanged(List<AclEntry> list)
     {
         settings.DnsServer.AclList = list;
+    }
+
+    private (bool IsValid, string? ErrorMessage) ValidateAclEntries(List<AclEntry> aclList)
+    {
+        var emptyAcls = aclList.Where(a => string.IsNullOrWhiteSpace(a.Address)).ToList();
+
+        if (emptyAcls.Any())
+        {
+            return (false, "Error: ACL address cannot be empty. Please remove or fill in all entries.");
+        }
+
+        return (true, null);
     }
 
     private void AddDefaultAcl()
@@ -104,13 +123,10 @@
         try
         {
             // Validate ACL entries
-            var emptyAcls = settings.DnsServer.AclList
-                .Where(a => string.IsNullOrWhiteSpace(a.Address))
-                .ToList();
-
-            if (emptyAcls.Any())
+            var validationResult = ValidateAclEntries(settings.DnsServer.AclList);
+            if (!validationResult.IsValid)
             {
-                saveMessage = "Error: ACL address cannot be empty. Please remove or fill in all entries.";
+                saveMessage = validationResult.ErrorMessage;
                 saveSuccess = false;
                 return;
             }
