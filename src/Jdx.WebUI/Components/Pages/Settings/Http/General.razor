@@ -3,9 +3,9 @@
 @using Jdx.Core.Settings
 @using Jdx.WebUI.Services
 @using System.Net.Http.Json
+@using Jdx.WebUI.Components.Shared
 @inject ISettingsService SettingsService
 @inject HttpClient HttpClient
-@inject IJSRuntime JSRuntime
 
 <PageTitle>HTTP General Settings - JumboDogX</PageTitle>
 
@@ -119,11 +119,24 @@
     </div>
 </div>
 
+<MessageDialog IsVisible="@showErrorDialog"
+               Title="@errorDialogTitle"
+               Message="@errorDialogMessage"
+               ConfirmButtonText="OK"
+               ShowCancelButton="false"
+               Type="MessageDialog.DialogType.Error"
+               OnConfirm="CloseErrorDialog" />
+
 @code {
     private ApplicationSettings settings = new();
     private string? saveMessage;
     private bool saveSuccess;
     private bool enableHttps;
+
+    // エラーダイアログ用
+    private bool showErrorDialog = false;
+    private string errorDialogTitle = "Error";
+    private string errorDialogMessage = "";
 
     protected override void OnInitialized()
     {
@@ -160,20 +173,20 @@
                     }
                     else
                     {
-                        // 検証失敗 - エラーをポップアップ表示
-                        await JSRuntime.InvokeVoidAsync("alert", result?.ErrorMessage ?? "証明書の検証に失敗しました。");
+                        // 検証失敗 - エラーダイアログを表示
+                        ShowErrorDialog("証明書の検証エラー", result?.ErrorMessage ?? "証明書の検証に失敗しました。");
 
                         // スイッチはOFFのまま（enableHttpsを変更しない）
                     }
                 }
                 else
                 {
-                    await JSRuntime.InvokeVoidAsync("alert", "証明書の検証APIの呼び出しに失敗しました。");
+                    ShowErrorDialog("証明書の検証エラー", "証明書の検証APIの呼び出しに失敗しました。");
                 }
             }
             catch (Exception ex)
             {
-                await JSRuntime.InvokeVoidAsync("alert", $"証明書の検証中にエラーが発生しました: {ex.Message}");
+                ShowErrorDialog("証明書の検証エラー", $"証明書の検証中にエラーが発生しました: {ex.Message}");
             }
         }
         else
@@ -232,5 +245,17 @@
 
         saveMessage = "HTTP general settings reset to default values. Click 'Save Settings' to apply.";
         saveSuccess = true;
+    }
+
+    private void ShowErrorDialog(string title, string message)
+    {
+        errorDialogTitle = title;
+        errorDialogMessage = message;
+        showErrorDialog = true;
+    }
+
+    private void CloseErrorDialog()
+    {
+        showErrorDialog = false;
     }
 }
