@@ -1,93 +1,44 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Welcome - Modern Sample Page</title>
-    <link rel="stylesheet" href="style.css" />
-    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  </head>
-  <body>
-    <header class="header">
-      <nav class="nav">
-        <div class="logo">Sample Page</div>
-        <ul class="nav-links">
-          <li><a href="#home">Home</a></li>
-          <li><a href="#features">Features</a></li>
-          <li><a href="#about">About</a></li>
-          <li><a href="#contact">Contact</a></li>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JumboDogX Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #4299E1;
+        }
+        .success {
+            color: #48BB78;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 JumboDogX HTTP Server</h1>
+        <p class="success">✓ サーバーは正常に動作しています！</p>
+        <p>このページが表示されていれば、HTTPサーバーの設定は成功です。</p>
+        <hr>
+        <h2>次のステップ</h2>
+        <ul>
+            <li>このディレクトリにHTMLファイルを追加</li>
+            <li>CSS、JavaScript、画像ファイルの配置</li>
+            <li>HTTPS設定（SSL/TLS）の追加</li>
         </ul>
-      </nav>
-    </header>
-
-    <main>
-      <section id="home" class="hero">
-        <div class="hero-content">
-          <h1 class="hero-title">Welcome to JumboDogX</h1>
-          <p class="hero-subtitle">
-            Your Virtual Host is working! This sample page is served from samples/www.
-          </p>
-          <button class="cta-button">Get Started</button>
-        </div>
-      </section>
-
-      <section id="features" class="features">
-        <h2 class="section-title">Features</h2>
-        <div class="cards">
-          <div class="card">
-            <div class="card-icon">🚀</div>
-            <h3>Fast Performance</h3>
-            <p>
-              Lightning-fast load times and optimized performance for the best
-              user experience.
-            </p>
-          </div>
-          <div class="card">
-            <div class="card-icon">📱</div>
-            <h3>Responsive Design</h3>
-            <p>
-              Perfectly adapts to any screen size, from mobile phones to desktop
-              monitors.
-            </p>
-          </div>
-          <div class="card">
-            <div class="card-icon">🎨</div>
-            <h3>Beautiful UI</h3>
-            <p>
-              Modern and elegant design with smooth animations and vibrant
-              colors.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section id="about" class="about">
-        <div class="about-content">
-          <h2>About This Page</h2>
-          <p>
-            This is a demonstration of modern web design principles using HTML5
-            and CSS3. The page features responsive layouts, gradient
-            backgrounds, smooth animations, and a clean user interface.
-          </p>
-        </div>
-      </section>
-
-      <section id="contact" class="contact">
-        <h2>Get In Touch</h2>
-        <form class="contact-form">
-          <input type="text" placeholder="Your Name" class="input-field" />
-          <input type="email" placeholder="Your Email" class="input-field" />
-          <textarea
-            placeholder="Your Message"
-            class="input-field textarea"
-          ></textarea>
-          <button type="submit" class="submit-button">Send Message</button>
-        </form>
-      </section>
-    </main>
-
-    <footer class="footer">
-      <p>&copy; 2026 MySite. All rights reserved.</p>
-    </footer>
-  </body>
+    </div>
+</body>
 </html>
