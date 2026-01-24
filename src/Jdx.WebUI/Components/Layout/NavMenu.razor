@@ -104,8 +104,27 @@
                             <div class="submenu-items">
                                 <NavLink class="nav-link submenu-item" href="settings/dns/general">General</NavLink>
                                 <NavLink class="nav-link submenu-item" href="settings/dns/acl">ACL</NavLink>
-                                <NavLink class="nav-link submenu-item" href="settings/dns/domains">Domains</NavLink>
-                                <NavLink class="nav-link submenu-item" href="settings/dns/resources">Resources</NavLink>
+
+                                <!-- Domains subsection -->
+                                <div class="submenu-subsection">
+                                    <div class="submenu-subheader" @onclick:stopPropagation="true">
+                                        <span class="submenu-subtitle submenu-subtitle-clickable" @onclick="NavigateToDomains" @onclick:stopPropagation="true">Domains</span>
+                                        <span class="submenu-arrow @(domainsExpanded ? "expanded" : "")" @onclick="ToggleDomainsSection" @onclick:stopPropagation="true">▼</span>
+                                    </div>
+                                    @if (domainsExpanded && dnsDomains != null && dnsDomains.Count > 0)
+                                    {
+                                        <div class="submenu-subitems">
+                                            <!-- Individual Domains -->
+                                            @foreach (var (domain, index) in dnsDomains.Select((d, i) => (d, i)))
+                                            {
+                                                var domainId = index.ToString();
+                                                var domainName = string.IsNullOrEmpty(domain.Name) ? $"Domain #{index + 1}" : domain.Name;
+
+                                                <NavLink class="nav-link submenu-subsubitem" href="@($"settings/dns/{domainId}/resources")">@domainName</NavLink>
+                                            }
+                                        </div>
+                                    }
+                                </div>
                             </div>
                         }
                     </div>
@@ -225,14 +244,17 @@
     private bool pop3Expanded = false;
     private bool smtpExpanded = false;
     private bool virtualHostsExpanded = false;
+    private bool domainsExpanded = false;
 
     private List<VirtualHostEntry>? virtualHosts;
     private Dictionary<string, bool> virtualHostExpandedStates = new();
+    private List<DnsDomainEntry>? dnsDomains;
 
     protected override void OnInitialized()
     {
-        // Load Virtual Hosts from settings
+        // Load Virtual Hosts and DNS Domains from settings
         LoadVirtualHosts();
+        LoadDnsDomains();
 
         // Subscribe to settings changes
         SettingsService.SettingsChanged += OnSettingsChanged;
@@ -271,6 +293,23 @@
             else if (currentPath.StartsWith("settings/dns/"))
             {
                 dnsExpanded = true;
+
+                // Check if URL is Domains management page or a specific Domain page
+                if (currentPath == "settings/dns/domains")
+                {
+                    // Domains management page - expand Domains section
+                    domainsExpanded = true;
+                }
+                else
+                {
+                    // Check if URL matches a Domain path pattern
+                    var parts = currentPath.Split('/');
+                    if (parts.Length >= 3 && int.TryParse(parts[2], out var domainIndex))
+                    {
+                        // URL is like settings/dns/0/resources - expand Domains section
+                        domainsExpanded = true;
+                    }
+                }
             }
             else if (currentPath.StartsWith("settings/tftp/"))
             {
@@ -297,11 +336,18 @@
         virtualHosts = settings.HttpServer.VirtualHosts;
     }
 
+    private void LoadDnsDomains()
+    {
+        var settings = SettingsService.GetSettings();
+        dnsDomains = settings.DnsServer.DomainList;
+    }
+
     private void OnSettingsChanged(object? sender, ApplicationSettings settings)
     {
         InvokeAsync(() =>
         {
             virtualHosts = settings.HttpServer.VirtualHosts;
+            dnsDomains = settings.DnsServer.DomainList;
             StateHasChanged();
         });
     }
@@ -359,6 +405,16 @@
     private void NavigateToVirtualHosts()
     {
         Navigation.NavigateTo("settings/http/virtualhost");
+    }
+
+    private void ToggleDomainsSection()
+    {
+        domainsExpanded = !domainsExpanded;
+    }
+
+    private void NavigateToDomains()
+    {
+        Navigation.NavigateTo("settings/dns/domains");
     }
 
     private void ToggleVirtualHost(string vhostId)
