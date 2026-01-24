@@ -120,6 +120,15 @@ dotnet run
 
 詳細は [startup.md](startup.md) を参照してください。
 
+## ドキュメント
+
+[manual](manual/README.md) ディレクトリに包括的なユーザーマニュアルがあります：
+
+- **[ユーザーマニュアル](manual/README.md)** - サーバー別のガイドとチュートリアル
+  - [HTTP/HTTPSサーバー クイックスタート](manual/http/getting-started.md)
+  - DNS、FTP、SMTP、POP3、DHCP、TFTP、Proxyサーバーガイド
+  - 共通ガイド（インストール、ACL設定、ロギング、セキュリティ）
+
 ## メトリクス
 
 JumboDogXは、サーバーパフォーマンスを監視するためのPrometheus互換メトリクスを提供します。
