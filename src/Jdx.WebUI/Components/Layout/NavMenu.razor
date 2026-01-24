@@ -47,41 +47,48 @@
                         @if (httpExpanded)
                         {
                             <div class="submenu-items">
-                                <NavLink class="nav-link submenu-item" href="settings/http/virtualhost">Virtual Hosts</NavLink>
-
-                                @if (virtualHosts != null && virtualHosts.Count > 0)
-                                {
-                                    <!-- Virtual Hosts with individual settings -->
-                                    @foreach (var (vhost, index) in virtualHosts.Select((v, i) => (v, i)))
+                                <!-- Virtual Hosts subsection -->
+                                <div class="submenu-subsection">
+                                    <div class="submenu-subheader" @onclick:stopPropagation="true">
+                                        <span class="submenu-subtitle submenu-subtitle-clickable" @onclick="NavigateToVirtualHosts" @onclick:stopPropagation="true">Virtual Hosts</span>
+                                        <span class="submenu-arrow @(virtualHostsExpanded ? "expanded" : "")" @onclick="ToggleVirtualHostsSection" @onclick:stopPropagation="true">▼</span>
+                                    </div>
+                                    @if (virtualHostsExpanded && virtualHosts != null && virtualHosts.Count > 0)
                                     {
-                                        var vhostId = index.ToString();
-                                        var hostName = vhost.GetHostName();
-                                        var displayName = string.IsNullOrEmpty(hostName) ? $"Virtual Host #{index + 1}" : hostName;
-                                        var isVhostExpanded = virtualHostExpandedStates.ContainsKey(vhostId) && virtualHostExpandedStates[vhostId];
-
-                                        <div class="submenu-subsection">
-                                            <div class="submenu-subheader" @onclick="() => ToggleVirtualHost(vhostId)" @onclick:stopPropagation="true">
-                                                <span class="submenu-subtitle">@displayName</span>
-                                                <span class="submenu-arrow @(isVhostExpanded ? "expanded" : "")">▼</span>
-                                            </div>
-                                            @if (isVhostExpanded)
+                                        <div class="submenu-subitems">
+                                            <!-- Individual Virtual Hosts -->
+                                            @foreach (var (vhost, index) in virtualHosts.Select((v, i) => (v, i)))
                                             {
-                                                <div class="submenu-subitems">
-                                                    <NavLink class="nav-link submenu-subitem" href="@($"settings/http/{vhostId}/general")">General</NavLink>
-                                                    <NavLink class="nav-link submenu-subitem" href="@($"settings/http/{vhostId}/acl")">ACL</NavLink>
-                                                    <NavLink class="nav-link submenu-subitem" href="@($"settings/http/{vhostId}/document")">Document</NavLink>
-                                                    <NavLink class="nav-link submenu-subitem" href="@($"settings/http/{vhostId}/cgi")">CGI</NavLink>
-                                                    <NavLink class="nav-link submenu-subitem" href="@($"settings/http/{vhostId}/ssi")">SSI</NavLink>
-                                                    <NavLink class="nav-link submenu-subitem" href="@($"settings/http/{vhostId}/webdav")">WebDAV</NavLink>
-                                                    <NavLink class="nav-link submenu-subitem" href="@($"settings/http/{vhostId}/alias-mime")">Alias & MIME</NavLink>
-                                                    <NavLink class="nav-link submenu-subitem" href="@($"settings/http/{vhostId}/authentication")">Authentication</NavLink>
-                                                    <NavLink class="nav-link submenu-subitem" href="@($"settings/http/{vhostId}/template")">Template</NavLink>
-                                                    <NavLink class="nav-link submenu-subitem" href="@($"settings/http/{vhostId}/advanced")">Advanced</NavLink>
+                                                var vhostId = index.ToString();
+                                                var hostName = vhost.GetHostName();
+                                                var displayName = string.IsNullOrEmpty(hostName) ? $"Virtual Host #{index + 1}" : hostName;
+                                                var isVhostExpanded = virtualHostExpandedStates.ContainsKey(vhostId) && virtualHostExpandedStates[vhostId];
+
+                                                <div class="submenu-subsubsection">
+                                                    <div class="submenu-subsubheader" @onclick="() => ToggleVirtualHost(vhostId)" @onclick:stopPropagation="true">
+                                                        <span class="submenu-subsubtitle">@displayName</span>
+                                                        <span class="submenu-arrow @(isVhostExpanded ? "expanded" : "")">▼</span>
+                                                    </div>
+                                                    @if (isVhostExpanded)
+                                                    {
+                                                        <div class="submenu-subsubitems">
+                                                            <NavLink class="nav-link submenu-subsubitem" href="@($"settings/http/{vhostId}/general")">General</NavLink>
+                                                            <NavLink class="nav-link submenu-subsubitem" href="@($"settings/http/{vhostId}/acl")">ACL</NavLink>
+                                                            <NavLink class="nav-link submenu-subsubitem" href="@($"settings/http/{vhostId}/document")">Document</NavLink>
+                                                            <NavLink class="nav-link submenu-subsubitem" href="@($"settings/http/{vhostId}/cgi")">CGI</NavLink>
+                                                            <NavLink class="nav-link submenu-subsubitem" href="@($"settings/http/{vhostId}/ssi")">SSI</NavLink>
+                                                            <NavLink class="nav-link submenu-subsubitem" href="@($"settings/http/{vhostId}/webdav")">WebDAV</NavLink>
+                                                            <NavLink class="nav-link submenu-subsubitem" href="@($"settings/http/{vhostId}/alias-mime")">Alias & MIME</NavLink>
+                                                            <NavLink class="nav-link submenu-subsubitem" href="@($"settings/http/{vhostId}/authentication")">Authentication</NavLink>
+                                                            <NavLink class="nav-link submenu-subsubitem" href="@($"settings/http/{vhostId}/template")">Template</NavLink>
+                                                            <NavLink class="nav-link submenu-subsubitem" href="@($"settings/http/{vhostId}/advanced")">Advanced</NavLink>
+                                                        </div>
+                                                    }
                                                 </div>
                                             }
                                         </div>
                                     }
-                                }
+                                </div>
                             </div>
                         }
                     </div>
@@ -217,6 +224,7 @@
     private bool dhcpExpanded = false;
     private bool pop3Expanded = false;
     private bool smtpExpanded = false;
+    private bool virtualHostsExpanded = false;
 
     private List<VirtualHostEntry>? virtualHosts;
     private Dictionary<string, bool> virtualHostExpandedStates = new();
@@ -238,12 +246,22 @@
             {
                 httpExpanded = true;
 
-                // Check if URL matches a Virtual Host path pattern
-                var parts = currentPath.Split('/');
-                if (parts.Length >= 3 && int.TryParse(parts[2], out var vhostIndex))
+                // Check if URL is Virtual Hosts management page or a specific Virtual Host page
+                if (currentPath == "settings/http/virtualhost")
                 {
-                    // URL is like settings/http/0/general - expand that Virtual Host
-                    virtualHostExpandedStates[vhostIndex.ToString()] = true;
+                    // Virtual Hosts management page - expand Virtual Hosts section
+                    virtualHostsExpanded = true;
+                }
+                else
+                {
+                    // Check if URL matches a Virtual Host path pattern
+                    var parts = currentPath.Split('/');
+                    if (parts.Length >= 3 && int.TryParse(parts[2], out var vhostIndex))
+                    {
+                        // URL is like settings/http/0/general - expand Virtual Hosts section and that Virtual Host
+                        virtualHostsExpanded = true;
+                        virtualHostExpandedStates[vhostIndex.ToString()] = true;
+                    }
                 }
             }
             else if (currentPath.StartsWith("settings/ftp/"))
@@ -331,6 +349,16 @@
     private void ToggleSmtp()
     {
         smtpExpanded = !smtpExpanded;
+    }
+
+    private void ToggleVirtualHostsSection()
+    {
+        virtualHostsExpanded = !virtualHostsExpanded;
+    }
+
+    private void NavigateToVirtualHosts()
+    {
+        Navigation.NavigateTo("settings/http/virtualhost");
     }
 
     private void ToggleVirtualHost(string vhostId)
