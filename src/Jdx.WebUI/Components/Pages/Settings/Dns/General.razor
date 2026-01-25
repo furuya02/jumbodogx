@@ -9,7 +9,7 @@
 <div class="page-container">
     <div class="page-header">
         <h1>DNS - General Settings</h1>
-        <p class="subtitle">Configure DNS server settings and SOA parameters</p>
+        <p class="subtitle">Configure DNS server settings</p>
     </div>
 
     @if (saveMessage != null)
@@ -81,59 +81,6 @@
                     <div class="alert alert-info">
                         <strong>Note:</strong> DNS server requires system privileges to bind to port 53.
                         For testing purposes, you can use port 5300 or higher.
-                    </div>
-                </div>
-            </div>
-
-            <!-- SOA設定 -->
-            <div class="settings-card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">SOA (Start of Authority) Settings</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="soaMail" class="form-label">Email Address</label>
-                            <input type="text" class="form-control" id="soaMail"
-                                   @bind="settings.DnsServer.SoaMail">
-                            <div class="form-text">Responsible person's email (e.g., postmaster)</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="soaSerial" class="form-label">Serial Number</label>
-                            <input type="number" class="form-control" id="soaSerial"
-                                   @bind="settings.DnsServer.SoaSerial" min="1">
-                            <div class="form-text">Zone serial number (increment on update)</div>
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="soaRefresh" class="form-label">Refresh (seconds)</label>
-                            <input type="number" class="form-control" id="soaRefresh"
-                                   @bind="settings.DnsServer.SoaRefresh" min="1">
-                            <div class="form-text">Secondary nameserver refresh interval (default: 3600)</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="soaRetry" class="form-label">Retry (seconds)</label>
-                            <input type="number" class="form-control" id="soaRetry"
-                                   @bind="settings.DnsServer.SoaRetry" min="1">
-                            <div class="form-text">Retry interval on failed refresh (default: 300)</div>
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="soaExpire" class="form-label">Expire (seconds)</label>
-                            <input type="number" class="form-control" id="soaExpire"
-                                   @bind="settings.DnsServer.SoaExpire" min="1">
-                            <div class="form-text">Zone expiration time (default: 360000)</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="soaMinimum" class="form-label">Minimum TTL (seconds)</label>
-                            <input type="number" class="form-control" id="soaMinimum"
-                                   @bind="settings.DnsServer.SoaMinimum" min="1">
-                            <div class="form-text">Minimum cache time for negative responses (default: 3600)</div>
-                        </div>
                     </div>
                 </div>
             </div>
