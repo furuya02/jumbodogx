@@ -23,6 +23,58 @@
 
     <div class="row">
         <div class="col-md-12">
+            @if (currentDomain != null)
+            {
+                <!-- SOA Settings Table -->
+                <div class="settings-card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">SOA (Start of Authority) Settings for @currentDomain.Name</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">
+                            Configure SOA record parameters for this domain.
+                        </p>
+
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 20%">Primary Name Server</th>
+                                    <th style="width: 20%">Mail address</th>
+                                    <th style="width: 12%">Serial</th>
+                                    <th style="width: 12%">Refresh</th>
+                                    <th style="width: 12%">Retry</th>
+                                    <th style="width: 12%">Expire</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <input type="text" class="form-control" @bind="currentDomain.SoaPrimaryNameServer"
+                                               placeholder="ns1.@currentDomain.Name">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control" @bind="currentDomain.SoaMail"
+                                               placeholder="postmaster">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control" @bind="currentDomain.SoaSerial" min="1">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control" @bind="currentDomain.SoaRefresh" min="1">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control" @bind="currentDomain.SoaRetry" min="1">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control" @bind="currentDomain.SoaExpire" min="1">
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+
             <div class="settings-card mb-4">
                 <div class="card-header">
                     <h5 class="mb-0">DNS Resource Records@(currentDomain != null ? $" for {currentDomain.Name}" : "")</h5>
@@ -30,23 +82,27 @@
                 <div class="card-body">
                     <p class="text-muted">
                         Configure DNS resource records for authoritative domains.
-                        Supports A (IPv4), AAAA (IPv6), CNAME (alias), MX (mail), NS (nameserver), PTR (reverse), and SOA (zone) records.
+                        Supports A (IPv4), AAAA (IPv6), CNAME (alias), MX (mail), NS (nameserver), and PTR (reverse) records.
                     </p>
 
                     <table class="table table-bordered">
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 10%">Type</th>
                                 <th style="width: 25%">Name</th>
-                                <th style="width: 25%">Address / Alias</th>
-                                <th style="width: 10%">Priority</th>
-                                <th style="width: 15%">Actions</th>
+                                <th style="width: 10%">Type</th>
+                                <th style="width: 35%">Value</th>
+                                <th style="width: 10%">TTL</th>
+                                <th style="width: 10%">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var (resource, index) in filteredResources.Select((r, i) => (r, i)))
                             {
                                 <tr>
+                                    <td>
+                                        <input type="text" class="form-control" @bind="resource.Name"
+                                               placeholder="@GetPlaceholder(resource.Type, "name")">
+                                    </td>
                                     <td>
                                         <select class="form-select" @bind="resource.Type">
                                             <option value="@DnsType.A">A</option>
@@ -55,40 +111,56 @@
                                             <option value="@DnsType.Mx">MX</option>
                                             <option value="@DnsType.Ns">NS</option>
                                             <option value="@DnsType.Ptr">PTR</option>
-                                            <option value="@DnsType.Soa">SOA</option>
                                         </select>
                                     </td>
                                     <td>
-                                        <input type="text" class="form-control" @bind="resource.Name"
-                                               placeholder="@GetPlaceholder(resource.Type, "name")">
-                                    </td>
-                                    <td>
-                                        @if (resource.Type == DnsType.Cname)
+                                        @if (resource.Type == DnsType.Ns)
+                                        {
+                                            <!-- NS レコード: 複数のネームサーバーを入力 -->
+                                            <div class="ns-servers-container">
+                                                @for (int i = 0; i < resource.NameServers.Count; i++)
+                                                {
+                                                    var nsIndex = i;
+                                                    <div class="input-group mb-2">
+                                                        <input type="text" class="form-control form-control-sm"
+                                                               @bind="resource.NameServers[nsIndex]"
+                                                               placeholder="ns1.example.com">
+                                                        <button class="btn btn-outline-danger btn-sm" type="button"
+                                                                @onclick="() => RemoveNameServer(resource, nsIndex)">
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                }
+                                                <button class="btn btn-outline-primary btn-sm" type="button"
+                                                        @onclick="() => AddNameServer(resource)">
+                                                    + ネームサーバー追加
+                                                </button>
+                                            </div>
+                                        }
+                                        else if (resource.Type == DnsType.Mx)
+                                        {
+                                            <!-- MX レコード: Priority + Address -->
+                                            <div class="input-group">
+                                                <span class="input-group-text">Priority</span>
+                                                <input type="number" class="form-control" style="max-width: 80px;"
+                                                       @bind="resource.Priority" min="0" max="65535">
+                                                <input type="text" class="form-control" @bind="resource.Address"
+                                                       placeholder="mail.example.com">
+                                            </div>
+                                        }
+                                        else if (resource.Type == DnsType.Cname)
                                         {
                                             <input type="text" class="form-control" @bind="resource.Alias"
                                                    placeholder="target.example.com">
                                         }
-                                        else if (resource.Type == DnsType.A || resource.Type == DnsType.Aaaa ||
-                                                 resource.Type == DnsType.Mx || resource.Type == DnsType.Ns ||
-                                                 resource.Type == DnsType.Ptr || resource.Type == DnsType.Soa)
+                                        else
                                         {
                                             <input type="text" class="form-control" @bind="resource.Address"
                                                    placeholder="@GetPlaceholder(resource.Type, "address")">
                                         }
-                                        else
-                                        {
-                                            <input type="text" class="form-control" disabled placeholder="N/A">
-                                        }
                                     </td>
                                     <td>
-                                        @if (resource.Type == DnsType.Mx)
-                                        {
-                                            <input type="number" class="form-control" @bind="resource.Priority" min="0" max="65535">
-                                        }
-                                        else
-                                        {
-                                            <input type="number" class="form-control" disabled placeholder="N/A">
-                                        }
+                                        <input type="number" class="form-control" @bind="resource.Ttl" min="1" max="2147483647">
                                     </td>
                                     <td>
                                         <button class="btn btn-dashboard btn-dashboard-sm btn-dashboard-danger" @onclick="() => RemoveResource(resource)">
@@ -105,16 +177,17 @@
                     </button>
 
                     <div class="alert alert-info mt-3">
-                        <strong>Record Types:</strong>
+                        <strong>レコードタイプ:</strong>
                         <ul class="mb-0">
-                            <li><strong>A</strong>: Maps hostname to IPv4 address (e.g., example.com -> 192.0.2.1)</li>
-                            <li><strong>AAAA</strong>: Maps hostname to IPv6 address (e.g., example.com -> 2001:db8::1)</li>
-                            <li><strong>CNAME</strong>: Alias (canonical name) pointing to another hostname</li>
-                            <li><strong>MX</strong>: Mail exchange server (requires priority)</li>
-                            <li><strong>NS</strong>: Nameserver for a domain</li>
-                            <li><strong>PTR</strong>: Reverse DNS (IP to hostname)</li>
-                            <li><strong>SOA</strong>: Start of Authority (automatically generated for NS records)</li>
+                            <li><strong>A</strong>: ホスト名をIPv4アドレスにマッピング (例: example.com -> 192.0.2.1)</li>
+                            <li><strong>AAAA</strong>: ホスト名をIPv6アドレスにマッピング (例: example.com -> 2001:db8::1)</li>
+                            <li><strong>CNAME</strong>: 別のホスト名を指すエイリアス（正規名）</li>
+                            <li><strong>MX</strong>: メール交換サーバー（優先度が必要）</li>
+                            <li><strong>NS</strong>: ドメインのネームサーバー（複数指定可能）</li>
+                            <li><strong>PTR</strong>: 逆引きDNS（IPからホスト名）</li>
                         </ul>
+                        <p class="mt-2 mb-0"><strong>TTL (Time To Live)</strong>: レコードがキャッシュされる時間（秒単位）。デフォルトは3600秒（1時間）です。</p>
+                        <p class="mt-2 mb-0"><strong>SOA</strong>: SOA (Start of Authority) レコードは上部のSOA設定テーブルで設定してください。</p>
                     </div>
 
                     <div class="border-top pt-3 mt-4">
@@ -192,7 +265,9 @@
             Name = currentDomain?.Name ?? "",
             Alias = "",
             Address = "",
-            Priority = 0
+            Priority = 0,
+            Ttl = 3600,
+            NameServers = new List<string>()
         };
         settings.DnsServer.ResourceList.Add(newResource);
         LoadDomainAndFilter();
@@ -202,6 +277,19 @@
     {
         settings.DnsServer.ResourceList.Remove(resource);
         LoadDomainAndFilter();
+    }
+
+    private void AddNameServer(DnsResourceEntry resource)
+    {
+        resource.NameServers.Add("");
+    }
+
+    private void RemoveNameServer(DnsResourceEntry resource, int index)
+    {
+        if (index >= 0 && index < resource.NameServers.Count)
+        {
+            resource.NameServers.RemoveAt(index);
+        }
     }
 
     private void AddExampleRecords()
@@ -219,7 +307,9 @@
                     Type = DnsType.A,
                     Name = domainName,
                     Address = "192.0.2.1",
-                    Priority = 0
+                    Priority = 0,
+                    Ttl = 3600,
+                    NameServers = new List<string>()
                 });
             }
 
@@ -232,7 +322,9 @@
                     Type = DnsType.Cname,
                     Name = wwwName,
                     Alias = domainName,
-                    Priority = 0
+                    Priority = 0,
+                    Ttl = 3600,
+                    NameServers = new List<string>()
                 });
             }
 
@@ -245,7 +337,9 @@
                     Type = DnsType.Mx,
                     Name = domainName,
                     Address = mailName,
-                    Priority = 10
+                    Priority = 10,
+                    Ttl = 3600,
+                    NameServers = new List<string>()
                 });
             }
         }
@@ -260,7 +354,9 @@
                     Type = DnsType.A,
                     Name = "localhost",
                     Address = "127.0.0.1",
-                    Priority = 0
+                    Priority = 0,
+                    Ttl = 3600,
+                    NameServers = new List<string>()
                 });
             }
 
@@ -272,7 +368,9 @@
                     Type = DnsType.Aaaa,
                     Name = "localhost",
                     Address = "::1",
-                    Priority = 0
+                    Priority = 0,
+                    Ttl = 3600,
+                    NameServers = new List<string>()
                 });
             }
 
@@ -284,7 +382,9 @@
                     Type = DnsType.A,
                     Name = "test.local",
                     Address = "192.168.1.100",
-                    Priority = 0
+                    Priority = 0,
+                    Ttl = 3600,
+                    NameServers = new List<string>()
                 });
             }
         }

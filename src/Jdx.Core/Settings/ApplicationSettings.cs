@@ -374,6 +374,15 @@ public class DnsDomainEntry
 {
     public string Name { get; set; } = "";  // ドメイン名（例: example.com）
     public bool IsAuthority { get; set; } = false;  // 権威サーバフラグ
+
+    // SOA (Start of Authority) レコード設定 - ドメインごとの設定
+    public string SoaPrimaryNameServer { get; set; } = "";  // Primary Name Server (MNAME)
+    public string SoaMail { get; set; } = "postmaster";
+    public int SoaSerial { get; set; } = 1;
+    public int SoaRefresh { get; set; } = 3600;  // 秒
+    public int SoaRetry { get; set; } = 300;  // 秒
+    public int SoaExpire { get; set; } = 360000;  // 秒
+    public int SoaMinimum { get; set; } = 3600;  // 秒（最小TTL）
 }
 
 /// <summary>
@@ -385,8 +394,10 @@ public class DnsResourceEntry
     public DnsType Type { get; set; } = DnsType.A;  // レコードタイプ
     public string Name { get; set; } = "";  // ホスト名/ドメイン名
     public string Alias { get; set; } = "";  // エイリアス（CNAME用）
-    public string Address { get; set; } = "";  // IPアドレス（A/AAAA用）
+    public string Address { get; set; } = "";  // IPアドレス（A/AAAA用）または値
     public int Priority { get; set; } = 0;  // 優先度（MX用）
+    public int Ttl { get; set; } = 3600;  // Time To Live（秒）
+    public List<string> NameServers { get; set; } = new();  // ネームサーバーリスト（NS用）
 }
 
 /// <summary>
