@@ -29,38 +29,23 @@
                         AclList="@settings.ProxyServer.AclList"
                         AclListChanged="@OnAclListChanged">
                 <HelpSection>
-                    <div class="settings-card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0">IP Address Format Help</h5>
-                        </div>
-                        <div class="card-body">
-                            <p class="mb-2">Supported formats for IP address entries:</p>
-                            <ul>
-                                <li><strong>Single IP:</strong> <code>192.168.1.100</code></li>
-                                <li><strong>CIDR Range:</strong> <code>192.168.1.0/24</code> (matches 192.168.1.0 - 192.168.1.255)</li>
-                                <li><strong>Wildcard:</strong> <code>192.168.*.*</code> (matches all 192.168.x.x)</li>
-                                <li><strong>Range:</strong> <code>192.168.1.1-192.168.1.50</code></li>
-                            </ul>
-
-                            <div class="alert alert-warning mt-3 mb-0">
-                                <strong>Important:</strong>
-                                <ul class="mb-0">
-                                    <li>In <strong>Allow Mode</strong>, if no entries exist, ALL connections are denied</li>
-                                    <li>In <strong>Deny Mode</strong>, if no entries exist, ALL connections are allowed</li>
-                                    <li>Test your ACL configuration carefully to avoid locking yourself out</li>
-                                </ul>
-                            </div>
-                        </div>
+                    <div class="alert alert-info">
+                        <strong>Supported Formats:</strong>
+                        <ul class="mb-0">
+                            <li><strong>Single IP</strong>: 192.168.1.100</li>
+                            <li><strong>CIDR Notation</strong>: 192.168.1.0/24 (matches 192.168.1.0 - 192.168.1.255)</li>
+                            <li><strong>IPv6</strong>: 2001:db8::1 or 2001:db8::/32</li>
+                        </ul>
                     </div>
                 </HelpSection>
             </AclManager>
 
             <div class="border-top pt-3 mt-4">
                 <button class="btn btn-dashboard btn-dashboard-primary btn-dashboard-lg me-2" @onclick="SaveSettings">
-                    <span class="bi bi-check-circle me-1"></span> Save Settings
+                    Save Settings
                 </button>
                 <button class="btn btn-dashboard btn-dashboard-outline btn-dashboard-lg" @onclick="ResetToDefault">
-                    <span class="bi bi-arrow-counterclockwise me-1"></span> Reset to Default
+                    Reset to Default
                 </button>
             </div>
         </div>
