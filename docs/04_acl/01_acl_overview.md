@@ -35,7 +35,7 @@ ACL（Access Control List）は、IPアドレスまたはMACアドレスに基�
 
 ### 3.3 判定フロー
 
-```
+```text
 接続要求
   │
   ├─ ACLリストが空？
@@ -93,12 +93,12 @@ IPアドレスのマッチングロジックは `IpAddressMatcher` クラス（`
 
 #### よく使うCIDR範囲
 
-| CIDR | 範囲 | ホスト数 |
-|------|------|---------|
-| `/32` | 1アドレス | 1 |
-| `/24` | 256アドレス | 256 |
-| `/16` | 65,536アドレス | 65,536 |
-| `/8` | 16,777,216アドレス | 16,777,216 |
+| CIDR | アドレス数 | 利用可能ホスト数 |
+|------|-----------|----------------|
+| `/32` | 1 | 1 |
+| `/24` | 256 | 254 |
+| `/16` | 65,536 | 65,534 |
+| `/8` | 16,777,216 | 16,777,214 |
 
 ### 5.2 MACアドレス形式（DHCP専用）
 
@@ -114,7 +114,7 @@ IPアドレスのマッチングロジックは `IpAddressMatcher` クラス（`
 
 ### 6.1 コアコンポーネント
 
-```
+```text
 src/Jdx.Core/
 ├── Settings/ApplicationSettings.cs    # AclEntry モデル定義、各サーバー設定
 └── Network/IpAddressMatcher.cs        # IPアドレスマッチングエンジン
@@ -124,7 +124,7 @@ src/Jdx.Core/
 
 各サーバーの ACL フィルタは共通のパターンで実装されており、`IsAllowed()` メソッドを提供します。
 
-```
+```text
 src/Jdx.Servers.Http/HttpAclFilter.cs
 src/Jdx.Servers.Dns/DnsAclFilter.cs
 src/Jdx.Servers.Ftp/FtpAclFilter.cs
@@ -168,7 +168,7 @@ public bool IsAllowed(string remoteAddress)
 
 ### 6.5 Web UI コンポーネント
 
-```
+```text
 src/Jdx.WebUI/Components/
 ├── Shared/AclManager.razor              # 共通ACL管理コンポーネント
 └── Pages/Settings/
