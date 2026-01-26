@@ -65,7 +65,7 @@ jdx/
 
 ### Web UI (Blazor Server)
 - Dashboard implemented (server status monitoring)
-- Logs viewer implemented (real-time log display with IP address tracking)
+- Logs viewer implemented (real-time log display with level filtering including Debug, IP address tracking, auto-refresh)
 - Settings pages for all servers implemented (100% coverage)
   - HTTP/HTTPS: General, Document, CGI, SSI, WebDAV, Alias & MIME, Authentication, Template, ACL, Virtual Hosts, SSL/TLS, Advanced
   - DNS: General, Records management
