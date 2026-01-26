@@ -55,13 +55,14 @@
 
 **機能:**
 - ログエントリ一覧
-- レベルフィルタボタン
+- レベルフィルタボタン（All, Debug, Info, Warning, Error）
 - カテゴリセレクト
 - テキスト検索
-- 時刻フォーマット選択
+- 時刻フォーマット選択（yyyy/MM/dd HH:mm:ss.fff, yyyy/MM/dd HH:mm:ss, HH:mm:ss.fff）
 - クリアボタン（確認ダイアログ付き）
 - リサイズ可能なカラム
 - IP Addressカラム（クライアントIPアドレスを表示）
+- 自動更新（500ms間隔）
 
 **状態管理:**
 ```csharp
@@ -72,7 +73,15 @@ private string selectedCategory = "";
 private string searchText = "";
 private string selectedTimeFormat = "HH:mm:ss.fff";
 private bool showClearConfirmDialog = false;
+private System.Threading.Timer? refreshTimer;
 ```
+
+**レベルフィルタ:**
+- **All**: すべてのログレベルを表示
+- **Debug**: デバッグレベルのログのみ表示
+- **Info**: 情報レベルのログのみ表示
+- **Warning**: 警告レベルのログのみ表示
+- **Error**: エラーレベルのログのみ表示
 
 ### 2.3 DnsRecords.razor
 
@@ -131,6 +140,12 @@ DNSレコード管理。
     @level
 </span>
 ```
+
+**レベル別スタイル:**
+- `debug`: デバッグレベル（グレー系）
+- `info`: 情報レベル（ブルー系）
+- `warning`: 警告レベル（イエロー系）
+- `error`: エラーレベル（レッド系）
 
 ## 4. スタイルガイド
 
@@ -208,6 +223,10 @@ DNSレコード管理。
 
 ## 更新履歴
 
+- 2026-01-27: Logs.razorにDebugレベルフィルタを追加（Issue #85対応）
+  - レベルフィルタにDebugボタンを追加
+  - 自動更新機能を追加（500ms間隔）
+  - 時刻フォーマット選択機能を追加
 - 2026-01-24: Server LogsページにIP Addressカラムを追加
 - 2026-01-24: NavMenu.razorにVirtual Hostsの階層構造を追加（PR #75）
 - 2026-01-24: NavMenu.razorにDomainsの階層構造を追加（PR #76）

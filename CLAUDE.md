@@ -11,6 +11,7 @@
 
 - [JumboDogX プロジェクト概要](docs/00_project/01_project_overview.md)
 - [技術スタック](docs/00_project/02_tech_stack.md)
+- [仕様書サマリー](docs/00_project/03_specification_summary.md)
 
 ### 開発ドキュメント
 
@@ -35,6 +36,10 @@
 
 - [Web UI 概要](docs/03_web_ui/01_web_ui_overview.md)
 - [コンポーネント設計](docs/03_web_ui/02_components.md)
+
+### セキュリティ
+
+- [ACL（アクセス制御リスト）](docs/04_acl/01_acl_overview.md)
 
 
 ## クイックスタート

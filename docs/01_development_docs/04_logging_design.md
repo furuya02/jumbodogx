@@ -82,11 +82,12 @@ public class LogService
 
 ### 5.2 ログビューア機能
 
-- レベルフィルタ（Info, Warning, Error）
+- レベルフィルタ（All, Debug, Info, Warning, Error）
 - カテゴリフィルタ
 - テキスト検索
 - 時刻フォーマット選択
 - ログクリア（確認ダイアログ付き）
+- リサイズ可能なカラム
 
 ## 6. 設定
 
@@ -96,7 +97,7 @@ public class LogService
 {
   "Serilog": {
     "MinimumLevel": {
-      "Default": "Information",
+      "Default": "Debug",
       "Override": {
         "Microsoft": "Warning",
         "System": "Warning"
@@ -115,6 +116,8 @@ public class LogService
   }
 }
 ```
+
+**注記:** デフォルトのログレベルは `Debug` に設定されており、Web UIのログビューアでDebugレベルのログを表示できます。本番環境では必要に応じて `Information` に変更してください。
 
 ## 7. パフォーマンス考慮事項
 
@@ -136,3 +139,9 @@ if (_logger.IsEnabled(LogEventLevel.Debug))
 ### 7.3 サンプリング
 
 大量ログ発生時はサンプリングを検討。
+
+## 更新履歴
+
+- 2026-01-27: Debugレベルのログ表示機能を追加（Issue #85対応）
+  - ログビューアにDebugフィルタボタンを追加
+  - デフォルトログレベルをDebugに変更
