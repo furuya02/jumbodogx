@@ -584,6 +584,11 @@ h1:focus {
     border-color: var(--btn-danger);
 }
 
+.logs-filter-btn.debug.active {
+    background-color: #4A5568;
+    border-color: #4A5568;
+}
+
 .logs-table-container {
     background-color: var(--card-bg);
     border: 1px solid var(--card-border);

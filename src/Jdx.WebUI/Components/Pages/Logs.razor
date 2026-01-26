@@ -19,6 +19,9 @@
             <button class="logs-filter-btn @(selectedLevel == null ? "active" : "")" @onclick="() => FilterByLevel(null)">
                 All
             </button>
+            <button class="logs-filter-btn debug @(selectedLevel == LogLevel.Debug ? "active" : "")" @onclick="() => FilterByLevel(LogLevel.Debug)">
+                Debug
+            </button>
             <button class="logs-filter-btn info @(selectedLevel == LogLevel.Information ? "active" : "")" @onclick="() => FilterByLevel(LogLevel.Information)">
                 Info
             </button>
